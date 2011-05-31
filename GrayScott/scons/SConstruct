@@ -1,0 +1,7 @@
+TARGET = 'GSApp'
+SOURCES  = ['GSApp.cpp', 'GrayScott.cpp']
+DEBUG = 0
+
+SConscript('../../../scons/SConscript',
+	exports = ['TARGET', 'SOURCES', 'DEBUG'])
+

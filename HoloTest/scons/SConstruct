@@ -1,0 +1,8 @@
+TARGET = 'HoloTest'
+SOURCES  = ['HoloTest.cpp']
+RESOURCES = ['monkey.obj', 'phong_vert.glsl', 'phong_frag.glsl']
+DEBUG = 1
+
+SConscript('../../../scons/SConscript',
+	exports = ['TARGET', 'SOURCES', 'DEBUG', 'RESOURCES'])
+

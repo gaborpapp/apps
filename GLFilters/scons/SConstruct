@@ -1,0 +1,21 @@
+TARGET = 'FilterApp'
+SOURCES  = ['FilterApp.cpp']
+
+SOURCES += ['GaussianBlur.cpp']
+RESOURCES = ['blurh11_vert.glsl', 'blurv11_vert.glsl', 
+		'blurh11_frag.glsl', 'blurv11_frag.glsl']
+
+SOURCES += ['Sobel.cpp']
+RESOURCES += ['sobel_frag.glsl']
+
+SOURCES += ['FreiChen.cpp']
+RESOURCES += ['passthrough_vert.glsl', 'freichen_frag.glsl']
+
+SOURCES += ['BoxBlur.cpp']
+RESOURCES += ['boxblur_frag.glsl']
+
+DEBUG = 0
+
+SConscript('../../../scons/SConscript',
+	exports = ['TARGET', 'SOURCES', 'DEBUG', 'RESOURCES'])
+

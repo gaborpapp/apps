@@ -1,0 +1,9 @@
+TARGET = 'KinectReader'
+SOURCES  = ['PageCurl.cpp', 'KinectReader.cpp', 'KinectTracker.cpp']
+RESOURCES = ['book', 'gfx', 'sfx', 'ui', 'ui-sfx', 'logo.png']
+BLOCKS = ['opencv', 'kinect']
+DEBUG = 0
+
+SConscript('../../../scons/SConscript',
+	exports = ['TARGET', 'SOURCES', 'DEBUG', 'RESOURCES', 'BLOCKS'])
+

@@ -1,0 +1,6 @@
+TARGET = 'CaptureMovie'
+SOURCES  = ['CaptureMovie.cpp']
+DEBUG = 0
+
+SConscript('../../../scons/SConscript',
+	exports = ['TARGET', 'SOURCES', 'DEBUG'])
