@@ -1,0 +1,7 @@
+TARGET = 'TemplateApp'
+SOURCES  = ['TemplateApp.cpp']
+DEBUG = 1
+
+SConscript('../../../scons/SConscript',
+	exports = ['TARGET', 'SOURCES', 'DEBUG'])
+

@@ -1,0 +1,7 @@
+TARGET = 'KinectCalibrationApp'
+SOURCES  = ['KinectCalibrationApp.cpp']
+DEBUG = 1
+
+SConscript('../../../scons/SConscript',
+	exports = ['TARGET', 'SOURCES', 'DEBUG'])
+
