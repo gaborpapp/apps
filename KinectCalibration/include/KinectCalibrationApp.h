@@ -15,13 +15,17 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
 */
 
-#ifndef TEMPLATE_APP_H
-#define TEMPLATE_APP_H
+#ifndef KINECT_CALIBRATION_APP_H
+#define KINECT_CALIBRATION_APP_H
 
 #include "cinder/Cinder.h"
 #include "cinder/app/AppBasic.h"
 
-class TemplateApp : public ci::app::AppBasic
+#include "Kinect.h"
+
+#include "KinectCal.h"
+
+class KinectCalibrationApp : public ci::app::AppBasic
 {
 	public:
 		void prepareSettings(Settings *settings);
@@ -35,7 +39,10 @@ class TemplateApp : public ci::app::AppBasic
 		void update();
 		void draw();
 
-	private:
+	protected:
+		ci::Kinect kinect;
+		mndl::KinectCal kinect_cal;
+
 };
 
 #endif

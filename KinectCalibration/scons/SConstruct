@@ -1,7 +1,8 @@
 TARGET = 'KinectCalibrationApp'
-SOURCES  = ['KinectCalibrationApp.cpp']
+SOURCES  = ['KinectCalibrationApp.cpp', 'KinectCal.cpp']
+BLOCKS = ['opencv', 'kinect']
 DEBUG = 1
 
 SConscript('../../../scons/SConscript',
-	exports = ['TARGET', 'SOURCES', 'DEBUG'])
+	exports = ['TARGET', 'SOURCES', 'DEBUG', 'BLOCKS'])
 

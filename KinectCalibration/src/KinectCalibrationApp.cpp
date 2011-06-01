@@ -21,13 +21,24 @@ using namespace ci;
 using namespace ci::app;
 using namespace std;
 
+using namespace mndl;
+
 void KinectCalibrationApp::prepareSettings(Settings *settings)
 {
-	settings->setWindowSize(640, 480);
+	settings->setWindowSize(1280, 480);
 }
 
 void KinectCalibrationApp::setup()
 {
+	int kinect_count = Kinect::getNumDevices();
+	console() << "There are " << kinect_count << " Kinects connected." << std::endl;
+
+	if (kinect_count)
+	{
+		kinect = Kinect(Kinect::Device());
+		kinect_cal = KinectCal(kinect);
+	}
+
 	enableVSync(false);
 }
 
@@ -62,6 +73,7 @@ void KinectCalibrationApp::update()
 void KinectCalibrationApp::draw()
 {
 	gl::clear(Color(0, 0, 0));
+	kinect_cal.calibrate_frames();
 }
 
 CINDER_APP_BASIC(KinectCalibrationApp, RendererGl)
