@@ -20,10 +20,11 @@
 
 #include "cinder/Cinder.h"
 #include "cinder/app/AppBasic.h"
+#include "cinder/ImageIo.h"
 
 #include "Kinect.h"
 
-#include "KinectCal.h"
+#include "CameraCalibration.h"
 
 class KinectCalibrationApp : public ci::app::AppBasic
 {
@@ -33,16 +34,17 @@ class KinectCalibrationApp : public ci::app::AppBasic
 		void enableVSync(bool vs);
 		void shutdown();
 
+		void mouseDown(ci::app::MouseEvent event);
 		void keyDown(ci::app::KeyEvent event);
-		void keyUp(ci::app::KeyEvent event);
 
 		void update();
 		void draw();
 
 	protected:
 		ci::Kinect kinect;
-		mndl::KinectCal kinect_cal;
+		mndl::CameraCalibration rgb_cal;
 
+		ci::ImageSourceRef video_image_ref;
 };
 
 #endif

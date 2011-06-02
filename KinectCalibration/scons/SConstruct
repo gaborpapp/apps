@@ -1,5 +1,5 @@
 TARGET = 'KinectCalibrationApp'
-SOURCES  = ['KinectCalibrationApp.cpp', 'KinectCal.cpp']
+SOURCES  = ['KinectCalibrationApp.cpp', 'CameraCalibration.cpp']
 BLOCKS = ['opencv', 'kinect']
 DEBUG = 1
 

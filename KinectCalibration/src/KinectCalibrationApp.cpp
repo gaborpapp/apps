@@ -15,6 +15,8 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
 */
 
+#include "cinder/gl/Texture.h"
+
 #include "KinectCalibrationApp.h"
 
 using namespace ci;
@@ -36,7 +38,6 @@ void KinectCalibrationApp::setup()
 	if (kinect_count)
 	{
 		kinect = Kinect(Kinect::Device());
-		kinect_cal = KinectCal(kinect);
 	}
 
 	enableVSync(false);
@@ -62,18 +63,32 @@ void KinectCalibrationApp::keyDown(KeyEvent event)
 		quit();
 }
 
-void KinectCalibrationApp::keyUp(KeyEvent event)
+void KinectCalibrationApp::mouseDown(MouseEvent event)
 {
+	if (event.isLeft() && video_image_ref)
+	{
+		rgb_cal.add_frame(video_image_ref);
+	}
 }
 
 void KinectCalibrationApp::update()
 {
+	// FIXME: no kinect
+	if (kinect.checkNewVideoFrame())
+		video_image_ref = kinect.getVideoImage();
 }
 
 void KinectCalibrationApp::draw()
 {
 	gl::clear(Color(0, 0, 0));
-	kinect_cal.calibrate_frames();
+	//kinect_cal.calibrate_frames();
+	if (video_image_ref)
+	{
+		gl::draw(gl::Texture(video_image_ref));
+	}
+
+	rgb_cal.draw(Rectf(640, 0, 640 + 320, 240));
+
 }
 
 CINDER_APP_BASIC(KinectCalibrationApp, RendererGl)
