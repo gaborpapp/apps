@@ -40,6 +40,8 @@ void KinectCalibrationApp::setup()
 		kinect = Kinect(Kinect::Device());
 	}
 
+	rgb_cal = CameraCalibration(640, 480);
+
 	enableVSync(false);
 }
 

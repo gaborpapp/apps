@@ -24,8 +24,10 @@ static void dump(cv::Mat &m)
 	console() << endl;
 }
 
-CameraCalibration::CameraCalibration(int board_w /* = 9 */, int board_h /* = 6 */, float board_s /* = 2.0*/)
+CameraCalibration::CameraCalibration(int camera_w, int camera_h, int board_w /* = 9 */, int board_h /* = 6 */, float board_s /* = 2.0*/)
 {
+	input_size = cv::Size(camera_w, camera_h);
+
 	this->board_w = board_w;
 	this->board_h = board_h;
 	this->board_s = board_s;
@@ -49,6 +51,9 @@ void CameraCalibration::reset()
 	for (vector<vector<cv::Point2f> >::iterator it = image_points.begin();
 			it < image_points.end(); ++it)
 		it->clear();
+
+	object_points.clear();
+	image_points.clear();
 }
 
 bool CameraCalibration::add_frame(ImageSourceRef src_ref)
@@ -72,7 +77,7 @@ bool CameraCalibration::add_frame(ImageSourceRef src_ref)
 	vector<cv::Point2f> ipoints;
 	vector<cv::Point2f>::const_iterator i = corners.begin();
 	for (int j = 0; j < board_size; j++, ++i)
-	{
+	{;
 		opoints.push_back(cv::Point3f((j % board_w) * board_s, (j / board_h) * board_s, 0));
 		ipoints.push_back(*i);
 	}
@@ -127,7 +132,6 @@ void CameraCalibration::calibrate()
 	dist_coeffs = cv::Mat(5, 1, CV_32FC1);
 	*/
 
-	cv::Size input_size(input_txt.getWidth(), input_txt.getHeight());
 	cv::calibrateCamera(object_points, image_points,
 			input_size, camera_matrix, dist_coeffs,
 			rvecs, tvecs);
@@ -138,11 +142,18 @@ void CameraCalibration::calibrate()
 	console() << "dist coeffs:" << endl;
 	dump(dist_coeffs);
 	*/
+	init_undistort();
+}
+
+void CameraCalibration::init_undistort()
+{
+	if (camera_matrix.empty())
+		return;
 
 	mapx.release();
 	mapy.release();
-	mapx.create(input_txt.getWidth(), input_txt.getHeight(), CV_32F);
-	mapy.create(input_txt.getWidth(), input_txt.getHeight(), CV_32F);
+	mapx.create(input_size.width, input_size.height, CV_32F);
+	mapy.create(input_size.width, input_size.height, CV_32F);
 
 	cv::initUndistortRectifyMap(camera_matrix, dist_coeffs,
 			cv::Mat(), camera_matrix, input_size,
@@ -196,5 +207,7 @@ void CameraCalibration::load(const string &fname)
 	fs["intrinsics"] >> camera_matrix;
 	fs["distortions"] >> dist_coeffs;
 	fs.release();
+
+	init_undistort();
 }
 

@@ -17,9 +17,12 @@ namespace mndl
 class CameraCalibration
 {
 	public:
-		/*! Initializes calibration with internal corners width \a board_w,
-		 * height \a board_h, and the chequerboard square size \a board_s */
-		CameraCalibration(int board_w = 9, int board_h = 6, float board_s = 2.0);
+		CameraCalibration() {};
+
+		/*! Initializes calibration with camera image resolution \a camera_w, \a camera_h,
+		 * internal corners width \a board_w, height \a board_h, and the
+		 * chequerboard square size \a board_s */
+		CameraCalibration(int camera_w, int camera_h, int board_w = 9, int board_h = 6, float board_s = 2.0);
 		~CameraCalibration();
 
 		/*! Resets detected chequerboard point data accumulated from the subsequent
@@ -46,6 +49,9 @@ class CameraCalibration
 		void load(const std::string &fname);
 
 	protected:
+		// camera image size
+		cv::Size input_size;
+
 		// chequerboard parameters
 		int board_w;
 		int board_h;
@@ -62,6 +68,8 @@ class CameraCalibration
 		std::vector<cv::Mat> rvecs, tvecs;
 
 		ci::gl::Texture input_txt;
+
+		void init_undistort();
 
 		cv::Mat mapx;
 		cv::Mat mapy;
