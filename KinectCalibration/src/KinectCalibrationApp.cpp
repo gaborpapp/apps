@@ -69,6 +69,17 @@ void KinectCalibrationApp::mouseDown(MouseEvent event)
 	{
 		rgb_cal.add_frame(video_image_ref);
 	}
+	else
+	if (event.isRight())
+	{
+		rgb_cal.calibrate();
+		rgb_cal.save("calibration.xml");
+	}
+	else
+	if (event.isMiddle())
+	{
+		rgb_cal.load("calibration.xml");
+	}
 }
 
 void KinectCalibrationApp::update()
@@ -81,7 +92,6 @@ void KinectCalibrationApp::update()
 void KinectCalibrationApp::draw()
 {
 	gl::clear(Color(0, 0, 0));
-	//kinect_cal.calibrate_frames();
 	if (video_image_ref)
 	{
 		gl::draw(gl::Texture(video_image_ref));
@@ -89,6 +99,12 @@ void KinectCalibrationApp::draw()
 
 	rgb_cal.draw(Rectf(640, 0, 640 + 320, 240));
 
+	cv::Mat vref_undist = rgb_cal.undistort(video_image_ref);
+	if (!vref_undist.empty())
+	{
+		gl::Texture txt(fromOcv(vref_undist));
+		gl::draw(txt, Rectf(640, 240, 640 + 320, 240 + 240));
+	}
 }
 
 CINDER_APP_BASIC(KinectCalibrationApp, RendererGl)

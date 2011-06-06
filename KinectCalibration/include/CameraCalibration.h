@@ -35,8 +35,15 @@ class CameraCalibration
 
 		void calibrate();
 
+		//! Undistorts frame \a src_ref
+		//ci::ImageSourceRef CameraCalibration::undistort(ci::ImageSourceRef src_ref);
+		cv::Mat CameraCalibration::undistort(ci::ImageSourceRef src_ref);
+
 		//! Saves camera calibration parameters to \a fname.
 		void save(const std::string &fname);
+
+		//! Loads camera calibration parameters from \a fname.
+		void load(const std::string &fname);
 
 	protected:
 		// chequerboard parameters
@@ -55,6 +62,9 @@ class CameraCalibration
 		std::vector<cv::Mat> rvecs, tvecs;
 
 		ci::gl::Texture input_txt;
+
+		cv::Mat mapx;
+		cv::Mat mapy;
 };
 
 }; // namespace mndl
