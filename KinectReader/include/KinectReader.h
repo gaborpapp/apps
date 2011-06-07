@@ -40,6 +40,7 @@ class KinectReader : public ci::app::AppBasic
 			ZOOMING,
 			PANNING
 		};
+		bool idle; // false if there's any action in the camera
 
 		// state change audio samples
 		std::vector<ci::audio::SourceRef> samples;

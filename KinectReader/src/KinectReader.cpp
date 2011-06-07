@@ -42,6 +42,7 @@ void KinectReader::setup()
 	pc = new PageCurl("book", book_area);
 
 	cstate = LOADING;
+	idle = false;
 	page_zoom = 1.0;
 	page_zoom_pos = Vec2f(.0, .0);
 	cursors_movement = Vec2f(0, 0);
@@ -226,6 +227,8 @@ int KinectReader::detect_state_change()
 	unsigned nblobs = tracker.blobs.size();
 
 	bool cur_fixed = cursors_fixed();
+
+	idle = (nblobs == 0);
 
 	if (nblobs == 0)
 	{
@@ -590,7 +593,7 @@ void KinectReader::draw()
 		draw_book();
 	}
 
-	if (cstate > IDLE)
+	if (!idle) // (cstate > IDLE)
 		last_action_time = ctime;
 
 	float h = 4 * getWindowHeight() / 15.;
