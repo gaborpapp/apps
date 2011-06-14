@@ -22,6 +22,7 @@
 #include "cinder/app/AppBasic.h"
 #include "cinder/TriMesh.h"
 #include "cinder/Camera.h"
+#include "cinder/gl/Texture.h"
 
 class AssimpApp : public ci::app::AppBasic
 {
@@ -38,8 +39,9 @@ class AssimpApp : public ci::app::AppBasic
 
 	private:
 		ci::TriMesh mesh;
-		ci::CameraPersp camera;
+		ci::gl::Texture txt;
 
+		ci::CameraPersp camera;
 };
 
 

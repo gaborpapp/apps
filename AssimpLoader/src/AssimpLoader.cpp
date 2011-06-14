@@ -15,6 +15,10 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
 */
 
+#include <string>
+
+#include "cinder/Utilities.h"
+
 #include "AssimpLoader.h"
 
 using namespace std;
@@ -24,21 +28,22 @@ using namespace ci::app;
 AssimpLoader::AssimpLoader(DataSourceRef dataSource)
 	: mBuffer(dataSource->getBuffer())
 {
-	load();
+	string ext = getPathExtension(dataSource->getFilePath());
+	load(ext);
 }
 
 AssimpLoader::~AssimpLoader()
 {
 }
 
-void AssimpLoader::load()
+void AssimpLoader::load(const string &ext)
 {
 	const void *data = mBuffer.getData();
 	size_t data_size = mBuffer.getDataSize();
 
-	scene = importer.ReadFileFromMemory(data, data_size, 0);
+	scene = importer.ReadFileFromMemory(data, data_size, 0, ext.c_str());
 	if (!scene)
-		throw AssimpLoaderExc();
+		throw AssimpLoaderExc(importer.GetErrorString());
 }
 
 void AssimpLoader::load(TriMesh *destTriMesh)
@@ -47,20 +52,46 @@ void AssimpLoader::load(TriMesh *destTriMesh)
 	recursiveLoad(destTriMesh, scene, scene->mRootNode);
 }
 
-void AssimpLoader::recursiveLoad(TriMesh *destTriMesh, const aiScene *sc, const aiNode* nd)
+void AssimpLoader::recursiveLoad(TriMesh *destTriMesh, const aiScene *sc,
+		const aiNode* nd, Matrix44f accTransform /* = Matrix44f::identity() */)
 {
+	console() << string(nd->mName.data) << endl;
+
+	aiMatrix4x4 aiTransf = nd->mTransformation;
+	aiTransf.Transpose();
+	Matrix44f transform(const_cast<const float *>(&aiTransf.a1));
+
+	transform = accTransform * transform;
+
 	for (unsigned n = 0; n < nd->mNumMeshes; n++)
 	{
+		size_t offset = destTriMesh->getNumVertices();
+
 		const struct aiMesh *mesh = scene->mMeshes[nd->mMeshes[n]];
 
+		/*
+		for (unsigned i = 0; i < mesh->mNumBones; i++)
+		{
+			const aiBone *bone = mesh->mBones[i];
+			console() << "bone " + string(bone->mName.data) << endl;
+		}
+		*/
+
 		bool normals = mesh->HasNormals();
+		bool texCoords = mesh->HasTextureCoords(0);
 
 		for (unsigned i = 0; i < mesh->mNumVertices; i++)
 		{
-			destTriMesh->appendVertex(Vec3f(const_cast<const float *>(&(mesh->mVertices[i].x))));
+			Vec3f v(const_cast<const float *>(&(mesh->mVertices[i].x)));
+			Vec3f vt = transform.transformPoint(v);
+			destTriMesh->appendVertex(vt);
 
 			if (normals)
 				destTriMesh->appendNormal(Vec3f(const_cast<const float *>(&(mesh->mNormals[i].x))));
+
+			if (texCoords)
+				destTriMesh->appendTexCoord(Vec2f(mesh->mTextureCoords[0][i].x,
+							1.0 - mesh->mTextureCoords[0][i].y));
 		}
 
 		for (unsigned t = 0; t < mesh->mNumFaces; t++)
@@ -72,9 +103,9 @@ void AssimpLoader::recursiveLoad(TriMesh *destTriMesh, const aiScene *sc, const 
 
 			for (unsigned i = 1; i < face->mNumIndices - 1; i++)
 			{
-				destTriMesh->appendTriangle(face->mIndices[0],
-						face->mIndices[i],
-						face->mIndices[i + 1]);
+				destTriMesh->appendTriangle(offset + face->mIndices[0],
+						offset + face->mIndices[i],
+						offset + face->mIndices[i + 1]);
 			}
 		}
 	}
@@ -82,7 +113,7 @@ void AssimpLoader::recursiveLoad(TriMesh *destTriMesh, const aiScene *sc, const 
 	// process all children
 	for (unsigned n = 0; n < nd->mNumChildren; n++)
 	{
-		recursiveLoad(destTriMesh, sc, nd->mChildren[n]);
+		recursiveLoad(destTriMesh, sc, nd->mChildren[n], transform);
 	}
 }
 

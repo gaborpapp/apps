@@ -1,6 +1,6 @@
 TARGET = 'AssimpApp'
 SOURCES  = ['AssimpApp.cpp', 'AssimpLoader.cpp']
-RESOURCES = ['fels.3ds', 'seymour.dae']
+RESOURCES = ['tt.dae', 'seymour.dae', 'seymour.jpg']
 BLOCKS = ['assimp']
 DEBUG = 1
 

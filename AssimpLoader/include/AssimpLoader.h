@@ -24,6 +24,8 @@
 #include "cinder/Stream.h"
 #include "cinder/Exception.h"
 #include "cinder/app/App.h"
+#include "cinder/Matrix.h"
+
 
 namespace cinder
 {
@@ -40,13 +42,34 @@ class AssimpLoader
 		 **/
 		void load(TriMesh *destTriMesh);
 
-		class AssimpLoaderExc : public Exception {};
+		//! Base class for AssimpLoader exceptions.
+		class Exception : public ci::Exception {};
+
+		//! Exception expressing Assimp importer problems
+		class AssimpLoaderExc : public AssimpLoader::Exception
+		{
+			public:
+				AssimpLoaderExc(const std::string &err) throw()
+				{
+					mMessage = err;
+				}
+				~AssimpLoaderExc() throw() {};
+
+				virtual const char *what() const throw()
+				{
+					return mMessage.c_str();
+				}
+
+			private:
+				std::string mMessage;
+		};
 
 	private:
 		Buffer mBuffer;
 
-		void load();
-		void recursiveLoad(TriMesh *destTriMesh, const aiScene *sc, const aiNode* nd);
+		void load(const std::string &ext = "");
+		void recursiveLoad(TriMesh *destTriMesh, const aiScene *sc,
+				const aiNode* nd, Matrix44f accTransform = Matrix44f::identity());
 
 		Assimp::Importer importer;
 		const aiScene *scene;

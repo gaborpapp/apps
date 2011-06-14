@@ -15,6 +15,9 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
 */
 
+#include "cinder/ImageIo.h"
+#include "cinder/gl/Light.h"
+
 #include "AssimpLoader.h"
 #include "Resources.h"
 
@@ -32,8 +35,11 @@ void AssimpApp::prepareSettings(Settings *settings)
 void AssimpApp::setup()
 {
 	AssimpLoader loader((DataSourceRef)loadResource(RES_OBJ));
-
 	loader.load(&mesh);
+
+	txt = loadImage(loadResource(RES_TXT));
+
+	//gl::enable(GL_LIGHTING);
 
 	enableVSync(false);
 }
@@ -72,17 +78,22 @@ void AssimpApp::draw()
 	gl::enableDepthWrite();
 	gl::enableDepthRead();
 
-	Vec4f light_position = Vec4f(-1, 1, 5, 0);
-	glEnable(GL_LIGHTING);
-	glEnable(GL_LIGHT0);
-	glDisable(GL_CULL_FACE);
+	gl::Light light(gl::Light::DIRECTIONAL, 0);
+	light.setDirection(Vec3f(1, 1, 1).normalized());
+	light.setAmbient(Color::black());
+	light.update(camera);
+	light.enable();
 
-	glLightfv(GL_LIGHT0, GL_POSITION, &light_position.x);
-
+	//glEnable(GL_TEXTURE_2D);
+	//txt.bind();
 	gl::rotate(Vec3f(0, getElapsedSeconds() * 20., 0));
-	gl::scale(Vec3f(5., 5., 5.));
+	//gl::scale(Vec3f(4., 4., 4.));
+	gl::translate(Vec3f(0, -5, 0));
 	gl::color(Color::white());
 	gl::draw(mesh);
+	//txt.unbind();
+	//glDisable(GL_TEXTURE_2D);
+	light.disable();
 }
 
 CINDER_APP_BASIC(AssimpApp, RendererGl)
