@@ -104,7 +104,7 @@ void GSRDApp::setup()
 		console() << "Failed to initialize capture" << std::endl;
 	}
 
-	font = Font("DejaVu Sans Mono", 12.0f);
+	font = Font("Lucida Grande", 12.0f);
 	reset();
 
 	blur = gl::ip::GaussianBlur(CAPTURE_WIDTH, CAPTURE_HEIGHT);
