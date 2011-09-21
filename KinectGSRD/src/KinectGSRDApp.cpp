@@ -61,10 +61,8 @@ void KinectGSRDApp::setup()
 	params.addParam("show", &show_seed, "");
 	depth_threshold = .7;
 	params.addParam("depth threshold", &depth_threshold, "min=0 max=1 step=.01");
-	/*
 	blur_n = 1;
 	params.addParam("blur", &blur_n, "min=0 max=20 step=1");
-	*/
 
 	params.addSeparator("");
 	show_fps = false;
@@ -110,9 +108,7 @@ void KinectGSRDApp::setup()
 	font = Font("Lucida Grande", 12.0f);
 	reset();
 
-	/*
-	blur = gl::ip::GaussianBlur(CAPTURE_WIDTH, CAPTURE_HEIGHT);
-	*/
+	blur = gl::ip::GaussianBlur(kinect.getWidth(), kinect.getHeight());
 
 	// envmap
 	shader_envmap = gl::GlslProg(loadResource(RES_PASS_THRU_VERT), loadResource(RES_ENVMAP_FRAG));
@@ -136,6 +132,7 @@ void KinectGSRDApp::update()
 	if (kinect.checkNewDepthFrame())
 	{
 		kinect_depth = kinect.getDepthImage();
+		kinect_depth = blur.process(kinect_depth, blur_n);
 	}
 
 	if (kinect_depth)
@@ -227,10 +224,10 @@ void KinectGSRDApp::draw()
 		shader_envmap.unbind();
 	}
 
-	if (show_seed && seed_tex)
+	if (show_seed && kinect_depth)
 	{
 		int w = getWindowWidth();
-		gl::draw(seed_tex, Rectf(w - 160, 0, w, 120));
+		gl::draw(kinect_depth, Rectf(w - 160, 0, w, 120));
 	}
 
 	if (show_fps)

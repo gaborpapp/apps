@@ -28,7 +28,7 @@
 
 #include "Kinect.h"
 
-//#include "GaussianBlur.h"
+#include "GaussianBlur.h"
 
 class KinectGSRDApp : public ci::app::AppBasic
 {
@@ -67,7 +67,7 @@ class KinectGSRDApp : public ci::app::AppBasic
 
 		float depth_threshold;
 
-		//int blur_n;
+		int blur_n;
 		bool show_seed;
 		bool show_fps;
 		bool show_greyscale;
@@ -86,10 +86,8 @@ class KinectGSRDApp : public ci::app::AppBasic
 
 		void enableVSync(bool vs);
 
-		//ci::gl::ip::GaussianBlur blur;
+		ci::gl::ip::GaussianBlur blur;
 		ci::gl::GlslProg shader_seed;
-
-		ci::gl::Texture seed_tex;
 
 		// envmap
 		ci::gl::GlslProg shader_envmap;
