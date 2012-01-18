@@ -1,8 +1,9 @@
 TARGET = 'DepthMergeApp'
 SOURCES  = ['DepthMergeApp.cpp']
 BLOCKS = ['kinect']
+RESOURCES = ['DepthMergeVert.glsl', 'DepthMergeFrag.glsl']
 DEBUG = 0
 
 SConscript('../../../scons/SConscript',
-	exports = ['TARGET', 'SOURCES', 'DEBUG', 'BLOCKS'])
+	exports = ['TARGET', 'SOURCES', 'DEBUG', 'BLOCKS', 'RESOURCES'])
 
