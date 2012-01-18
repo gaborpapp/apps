@@ -1,0 +1,8 @@
+TARGET = 'DepthMergeApp'
+SOURCES  = ['DepthMergeApp.cpp']
+BLOCKS = ['kinect']
+DEBUG = 0
+
+SConscript('../../../scons/SConscript',
+	exports = ['TARGET', 'SOURCES', 'DEBUG', 'BLOCKS'])
+
