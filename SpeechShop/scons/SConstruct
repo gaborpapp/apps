@@ -1,0 +1,16 @@
+BOX2DPATH = '../../../blocks/sc-Box2D/scons/'
+
+import sys
+sys.path.append(BOX2DPATH)
+import Box2D
+SOURCES = Box2D.getSources(BOX2DPATH)
+INCLUDES = Box2D.getIncludes(BOX2DPATH)
+
+TARGET = 'SpeechShop'
+SOURCES += ['SpeechShop.cpp']
+RESOURCES = ['speech.txt']
+DEBUG = 0
+
+SConscript('../../../scons/SConscript',
+	exports = ['TARGET', 'SOURCES', 'INCLUDES', 'RESOURCES', 'DEBUG'])
+
