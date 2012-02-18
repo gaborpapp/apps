@@ -60,8 +60,6 @@ void DepthMergeApp::prepareSettings(Settings *settings)
 
 void DepthMergeApp::setup()
 {
-	//console() << "There are " << Kinect::getNumDevices() << " Kinects connected." << endl;
-
 	int maxTextureUnits;
 	glGetIntegerv(GL_MAX_TEXTURE_IMAGE_UNITS, &maxTextureUnits);
 	console() << "Max texture units: " << maxTextureUnits << endl;
@@ -78,6 +76,7 @@ void DepthMergeApp::setup()
 	mCurrentIndex = 0;
 
 	mNI = OpenNI( OpenNI::Device() );
+	mNI.calibrateDepthToRGB( true );
 	/*
 	try
 	{
@@ -125,17 +124,19 @@ void DepthMergeApp::keyUp(KeyEvent event)
 
 void DepthMergeApp::update()
 {
+	/*
 	if ( mNI.checkNewDepthFrame() )
 		mDepthTextures[0] = mNI.getDepthImage();
 
-	/*
-	if (mKinect.checkNewDepthFrame() && mKinect.checkNewVideoFrame())
+	if ( mNI.checkNewVideoFrame() )
+		mColorTextures[0] = mNI.getVideoImage();
+	*/
+	if (mNI.checkNewDepthFrame() && mNI.checkNewVideoFrame())
 	{
 		mCurrentIndex = (mCurrentIndex + 1) & (TEXTURE_COUNT - 1);
-		mDepthTextures[mCurrentIndex] = mKinect.getDepthImage();
-		mColorTextures[mCurrentIndex] = mKinect.getVideoImage();
+		mDepthTextures[mCurrentIndex] = mNI.getDepthImage();
+		mColorTextures[mCurrentIndex] = mNI.getVideoImage();
 	}
-	*/
 }
 
 void DepthMergeApp::draw()
@@ -143,10 +144,23 @@ void DepthMergeApp::draw()
 	gl::clear(Color(0, 0, 0));
 	gl::setMatricesWindow(getWindowSize());
 
-	if (mDepthTextures[0])
-		gl::draw(mDepthTextures[0]);
-
 	/*
+	gl::enableAlphaBlending();
+	gl::disableDepthRead();
+	gl::disableDepthWrite();
+
+	if (mColorTextures[0])
+	{
+		gl::color(ColorA(1, 1, 1, 0.5));
+		gl::draw(mColorTextures[0]);
+	}
+	if (mDepthTextures[0])
+	{
+		gl::color(ColorA(1, 1, 1, 0.5));
+		gl::draw(mDepthTextures[0]);
+	}
+	*/
+
 	mShader.bind();
 
 	// bind textures
@@ -172,7 +186,6 @@ void DepthMergeApp::draw()
 	glActiveTexture(GL_TEXTURE0);
 
 	mShader.unbind();
-	*/
 }
 
 CINDER_APP_BASIC(DepthMergeApp, RendererGl)

@@ -40,10 +40,19 @@ class OpenNI
 		OpenNI(Device device);
 
 		//! Returns whether there is a new depth frame available since the last call to checkNewDepthFrame(). Call getDepthImage() to retrieve it.
-		bool        checkNewDepthFrame();
+		bool			checkNewDepthFrame();
 
-		//! Returns latest depth frame
-		ImageSourceRef getDepthImage();
+		//! Returns whether there is a new video frame available since the last call to checkNewVideoFrame(). Call getVideoImage() to retrieve it.
+		bool			checkNewVideoFrame();
+
+		//! Returns latest depth frame.
+		ImageSourceRef	getDepthImage();
+
+		//! Returns latest video frame.
+		ImageSourceRef	getVideoImage();
+
+		//! Calibrates depth to video frame.
+		bool			calibrateDepthToRGB(bool calibrate);
 
 	protected:
 		struct Obj {
@@ -84,26 +93,35 @@ class OpenNI
 			int mDepthHeight;
 			int mDepthMaxDepth;
 
+			xn::ImageGenerator mImageGenerator;
+			xn::ImageMetaData mImageMD;
+			int mImageWidth;
+			int mImageHeight;
+
 			void generateDepth();
+			void generateImage();
 
 			std::shared_ptr<std::thread> mThread;
 			std::recursive_mutex mMutex;
 
 			bool mShouldDie;
 			bool mNewDepthFrame;
+			bool mNewVideoFrame;
 		};
 
+		friend class ImageSourceOpenNIColor;
 		friend class ImageSourceOpenNIDepth;
 
 		std::shared_ptr<Obj> mObj;
 
 		//! Parent class for all OpenNI exceptions
-		class Exc : cinder::Exception {
-		};
+		class Exc : cinder::Exception {};
 
 		//! Exception thrown from a failure to create a depth generator
-		class ExcFailedDepthGeneratorInit : public Exc {    };
+		class ExcFailedDepthGeneratorInit : public Exc {};
 
+		//! Exception thrown from a failure to create an image generator
+		class ExcFailedImageGeneratorInit : public Exc {};
 };
 
 }
