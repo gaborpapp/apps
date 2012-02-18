@@ -54,6 +54,8 @@ class OpenNI
 		//! Calibrates depth to video frame.
 		bool			calibrateDepthToRGB(bool calibrate);
 
+		bool			setMirror(bool mirror);
+
 	protected:
 		struct Obj {
 			Obj( int deviceIndex );

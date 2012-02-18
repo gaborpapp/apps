@@ -116,22 +116,19 @@ OpenNI::Obj::Obj( int deviceIndex )
 	rc = mContext.StartGeneratingAll();
 	checkStatus(rc);
 
-	console() << "thread running" << endl;
 	mThread = shared_ptr<thread>(new thread(threadedFunc, this));
 }
 
 OpenNI::Obj::~Obj()
 {
-	mContext.Shutdown();
 	mShouldDie = true;
-	console() << "thread should die" << endl;
 	if (mThread)
 		mThread->join();
+	mContext.Shutdown();
 }
 
 void OpenNI::Obj::threadedFunc(OpenNI::Obj *obj)
 {
-	console() << "threadfunc running" << endl;
 	while (!obj->mShouldDie)
 	{
 		XnStatus status = obj->mContext.WaitAndUpdateAll();
@@ -140,7 +137,6 @@ void OpenNI::Obj::threadedFunc(OpenNI::Obj *obj)
 		obj->generateDepth();
 		obj->generateImage();
 	}
-	console() << "thread dead" << endl;
 }
 
 void OpenNI::Obj::generateDepth()
@@ -302,14 +298,17 @@ bool OpenNI::calibrateDepthToRGB(bool calibrate)
 		else
 			rc = mObj->mDepthGenerator.GetAlternativeViewPointCap().ResetViewPoint();
 
-		if (rc != XN_STATUS_OK)
-			return false;
+		return rc == XN_STATUS_OK;
 	}
 	else
 	{
 		return false;
 	}
+}
 
-    return true;
+bool OpenNI::setMirror(bool mirror)
+{
+	XnStatus rc = mObj->mContext.SetGlobalMirror(mirror);
+	return rc == XN_STATUS_OK;
 }
 

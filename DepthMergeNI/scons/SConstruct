@@ -1,10 +1,10 @@
 TARGET = 'DepthMergeApp'
-SOURCES  = ['DepthMergeApp.cpp', 'NI.cpp']
+SOURCES  = ['DepthMergeApp.cpp', 'NI.cpp', 'BoxBlur.cpp']
 INCLUDES = ['/usr/include/ni/', '/usr/include/nite/']
 LIBS = ['OpenNI', 'usb-1.0']
 LIBPATH = ['/usr/lib/', '/opt/local/lib/']
 
-RESOURCES = ['DepthMergeVert.glsl', 'DepthMergeFrag.glsl']
+RESOURCES = ['PassThroughVert.glsl', 'DepthMergeFrag.glsl', 'BoxBlurFrag.glsl']
 DEBUG = 0
 
 SConscript('../../../scons/SConscript',

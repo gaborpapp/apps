@@ -67,7 +67,7 @@ void FilterApp::setup()
 		console() << "Failed to initialize capture" << std::endl;
 	}
 
-	font = Font("DejaVu Sans Mono", 12.0f);
+	font = Font("Arial", 12.0f);
 	enableVSync(false);
 }
 

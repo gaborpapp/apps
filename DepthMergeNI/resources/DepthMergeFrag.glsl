@@ -12,49 +12,49 @@ void main(void)
 	// fatal error C9999: marking a sampler that is not a scalar
 
 	float d = texture2D(dtex[0], uv).r;
-	if (d < maxd)
+	if ((d < maxd) && (d > 0.))
 	{
 		maxd = d;
 		c = texture2D(ctex[0], uv);
 	}
 	d = texture2D(dtex[1], uv).r;
-	if (d < maxd)
+	if ((d < maxd) && (d > 0.))
 	{
 		maxd = d;
 		c = texture2D(ctex[1], uv);
 	}
 	d = texture2D(dtex[2], uv).r;
-	if (d < maxd)
+	if ((d < maxd) && (d > 0.))
 	{
 		maxd = d;
 		c = texture2D(ctex[2], uv);
 	}
 	d = texture2D(dtex[3], uv).r;
-	if (d < maxd)
+	if ((d < maxd) && (d > 0.))
 	{
 		maxd = d;
 		c = texture2D(ctex[3], uv);
 	}
 	d = texture2D(dtex[4], uv).r;
-	if (d < maxd)
+	if ((d < maxd) && (d > 0.))
 	{
 		maxd = d;
 		c = texture2D(ctex[4], uv);
 	}
 	d = texture2D(dtex[5], uv).r;
-	if (d < maxd)
+	if ((d < maxd) && (d > 0.))
 	{
 		maxd = d;
 		c = texture2D(ctex[5], uv);
 	}
 	d = texture2D(dtex[6], uv).r;
-	if (d < maxd)
+	if ((d < maxd) && (d > 0.))
 	{
 		maxd = d;
 		c = texture2D(ctex[6], uv);
 	}
 	d = texture2D(dtex[7], uv).r;
-	if (d < maxd)
+	if ((d < maxd) && (d > 0.))
 	{
 		c = texture2D(ctex[7], uv);
 	}

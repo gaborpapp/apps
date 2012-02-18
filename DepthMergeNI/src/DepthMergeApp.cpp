@@ -18,9 +18,11 @@
 #include "cinder/Cinder.h"
 #include "cinder/app/AppBasic.h"
 #include "cinder/gl/Texture.h"
+#include "cinder/gl/Fbo.h"
 #include "cinder/gl/GlslProg.h"
 
 #include "NI.h"
+#include "BoxBlur.h"
 #include "Resources.h"
 
 using namespace ci;
@@ -46,11 +48,14 @@ class DepthMergeApp : public ci::app::AppBasic
 	private:
 		OpenNI mNI;
 
+		//gl::Fbo mDepthTextures[TEXTURE_COUNT];
 		gl::Texture mDepthTextures[TEXTURE_COUNT];
 		gl::Texture mColorTextures[TEXTURE_COUNT];
 		int mCurrentIndex;
 
 		gl::GlslProg mShader;
+		gl::ip::BoxBlur mBoxBlur;
+
 };
 
 void DepthMergeApp::prepareSettings(Settings *settings)
@@ -64,7 +69,7 @@ void DepthMergeApp::setup()
 	glGetIntegerv(GL_MAX_TEXTURE_IMAGE_UNITS, &maxTextureUnits);
 	console() << "Max texture units: " << maxTextureUnits << endl;
 
-	mShader = gl::GlslProg(loadResource(RES_DEPTHMERGE_VERT),
+	mShader = gl::GlslProg(loadResource(RES_PASSTHROUGH_VERT),
 						   loadResource(RES_DEPTHMERGE_FRAG));
 	mShader.bind();
 	int depthUnits[] = { 0, 1, 2, 3, 4, 5, 6, 7 };
@@ -75,24 +80,32 @@ void DepthMergeApp::setup()
 
 	mCurrentIndex = 0;
 
-	mNI = OpenNI( OpenNI::Device() );
-	mNI.calibrateDepthToRGB( true );
-	/*
 	try
 	{
-		mKinect = Kinect(Kinect::Device());
+		mNI = OpenNI( OpenNI::Device() );
 	}
-	catch (Kinect::ExcFailedOpenDevice)
+	catch (...)
 	{
 		console() << "Could not open Kinect" << endl;
 		quit();
 	}
+	mNI.calibrateDepthToRGB( true );
+	mNI.setMirror( true );
 
-	// without this setVideoInfrared() locks up the app
-	while (!mKinect.checkNewVideoFrame()) ;
-
-	mKinect.setVideoInfrared(true);
+	/*
+	gl::Fbo::Format fboFormat;
+	fboFormat.enableDepthBuffer(false);
+	fboFormat.setMagFilter(GL_NEAREST);
+	for (int i = 0; i < TEXTURE_COUNT; i++)
+	{
+		mDepthTextures[i] = gl::Fbo( 640, 480, fboFormat );
+		mDepthTextures[i].bindFramebuffer();
+		gl::clear();
+		mDepthTextures[i].unbindFramebuffer();
+	}
 	*/
+
+	mBoxBlur = gl::ip::BoxBlur( 640, 480 );
 
 	enableVSync(false);
 }
@@ -124,17 +137,29 @@ void DepthMergeApp::keyUp(KeyEvent event)
 
 void DepthMergeApp::update()
 {
-	/*
-	if ( mNI.checkNewDepthFrame() )
-		mDepthTextures[0] = mNI.getDepthImage();
-
-	if ( mNI.checkNewVideoFrame() )
-		mColorTextures[0] = mNI.getVideoImage();
-	*/
 	if (mNI.checkNewDepthFrame() && mNI.checkNewVideoFrame())
 	{
 		mCurrentIndex = (mCurrentIndex + 1) & (TEXTURE_COUNT - 1);
-		mDepthTextures[mCurrentIndex] = mNI.getDepthImage();
+
+		/*
+		gl::Texture::Format format;
+		format.setMagFilter(GL_LINEAR);
+
+		gl::Texture blurredDepth = mBoxBlur.process( gl::Texture( mNI.getDepthImage(), format ), .0);
+
+		mDepthTextures[mCurrentIndex].bindFramebuffer();
+		gl::setMatricesWindow(mDepthTextures[mCurrentIndex].getSize(), false);
+		gl::setViewport(mDepthTextures[mCurrentIndex].getBounds());
+
+		gl::draw( blurredDepth );
+
+		mDepthTextures[mCurrentIndex].unbindFramebuffer();
+		*/
+
+		gl::Texture::Format format;
+		format.setMagFilter(GL_NEAREST);
+		mDepthTextures[mCurrentIndex] = gl::Texture( mNI.getDepthImage(), format );
+
 		mColorTextures[mCurrentIndex] = mNI.getVideoImage();
 	}
 }
@@ -168,10 +193,20 @@ void DepthMergeApp::draw()
 	int idx = mCurrentIndex;
 	for (int i = 0; i < 8; i++)
 	{
+		/*
+		if (mDepthTextures[idx])
+			mDepthTextures[idx].getTexture().bind(i);
+		*/
 		if (mDepthTextures[idx])
 			mDepthTextures[idx].bind(i);
+		//*
 		if (mColorTextures[idx])
 			mColorTextures[idx].bind(i + 8);
+		//*/
+		/*
+		if (mDepthTextures[idx])
+			mDepthTextures[idx].bind(i + 8);
+		*/
 		idx = (idx - step) & (TEXTURE_COUNT - 1);
 	}
 
