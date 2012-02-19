@@ -20,9 +20,11 @@
 #include "cinder/gl/Texture.h"
 #include "cinder/gl/Fbo.h"
 #include "cinder/gl/GlslProg.h"
+#include "cinder/params/Params.h"
 
 #include "NI.h"
 #include "BoxBlur.h"
+#include "Utils.h"
 #include "Resources.h"
 
 using namespace ci;
@@ -45,8 +47,12 @@ class DepthMergeApp : public ci::app::AppBasic
 		void update();
 		void draw();
 
+		void saveScreenshot();
+
 	private:
 		OpenNI mNI;
+
+		enum { TYPE_COLOR = 0, TYPE_DEPTH };
 
 		//gl::Fbo mDepthTextures[TEXTURE_COUNT];
 		gl::Texture mDepthTextures[TEXTURE_COUNT];
@@ -56,6 +62,11 @@ class DepthMergeApp : public ci::app::AppBasic
 		gl::GlslProg mShader;
 		gl::ip::BoxBlur mBoxBlur;
 
+		ci::params::InterfaceGl mParams;
+		int mType;
+		int mStep;
+		float mMinDepth;
+		float mMaxDepth;
 };
 
 void DepthMergeApp::prepareSettings(Settings *settings)
@@ -91,6 +102,7 @@ void DepthMergeApp::setup()
 	}
 	mNI.calibrateDepthToRGB( true );
 	mNI.setMirror( true );
+	mNI.start();
 
 	/*
 	gl::Fbo::Format fboFormat;
@@ -107,6 +119,22 @@ void DepthMergeApp::setup()
 
 	mBoxBlur = gl::ip::BoxBlur( 640, 480 );
 
+	mParams = params::InterfaceGl("Parameters", Vec2i(200, 300));
+	const string arr[] = { "color", "depth" };
+	const int size = sizeof( arr ) / sizeof ( arr[0] );
+	std::vector<string> enumNames(arr, arr + size);
+	mType = 0;
+	mParams.addParam( "Type", enumNames, &mType );
+	mStep = TEXTURE_COUNT / 8;
+	mParams.addParam( "Step", &mStep, "min=1 max=128 keyIncr=z keyDecr=Z" );
+	mMinDepth = 0;
+	mParams.addParam( "Min depth", &mMinDepth, "min=0 max=1 step=0.001 keyIncr=x keyDecr=X" );
+	mMaxDepth = 1;
+	mParams.addParam( "Max depth", &mMaxDepth, "min=0 max=1 step=0.001 keyIncr=c keyDecr=C" );
+
+	mParams.addSeparator();
+	mParams.addButton("Screenshot", std::bind(&DepthMergeApp::saveScreenshot, this), "key=s");
+
 	enableVSync(false);
 }
 
@@ -116,6 +144,30 @@ void DepthMergeApp::enableVSync(bool vs)
 	GLint vsync = vs;
 	CGLSetParameter(CGLGetCurrentContext(), kCGLCPSwapInterval, &vsync);
 #endif
+}
+
+void DepthMergeApp::saveScreenshot()
+{
+	string path = getAppPath().string();
+#ifdef CINDER_MAC
+	path += "/../";
+#endif
+	path += "snap-" + timeStamp() + ".png";
+	fs::path pngPath(path);
+
+	try
+	{
+		Surface srf = copyWindowSurface();
+
+		if (!pngPath.empty())
+		{
+			writeImage( pngPath, srf );
+		}
+	}
+	catch ( ... )
+	{
+		console() << "unable to save image file " << path << endl;
+	}
 }
 
 void DepthMergeApp::shutdown()
@@ -188,8 +240,11 @@ void DepthMergeApp::draw()
 
 	mShader.bind();
 
+	mShader.uniform("dbottom", mMinDepth);
+	mShader.uniform("dtop", mMaxDepth);
+
 	// bind textures
-	int step = TEXTURE_COUNT / 8;
+	int step = mStep; //TEXTURE_COUNT / 8;
 	int idx = mCurrentIndex;
 	for (int i = 0; i < 8; i++)
 	{
@@ -200,13 +255,17 @@ void DepthMergeApp::draw()
 		if (mDepthTextures[idx])
 			mDepthTextures[idx].bind(i);
 		//*
-		if (mColorTextures[idx])
-			mColorTextures[idx].bind(i + 8);
-		//*/
-		/*
-		if (mDepthTextures[idx])
-			mDepthTextures[idx].bind(i + 8);
-		*/
+		switch (mType)
+		{
+			case TYPE_COLOR:
+				if (mColorTextures[idx])
+					mColorTextures[idx].bind(i + 8);
+				break;
+			case TYPE_DEPTH:
+				if (mDepthTextures[idx])
+					mDepthTextures[idx].bind(i + 8);
+				break;
+		}
 		idx = (idx - step) & (TEXTURE_COUNT - 1);
 	}
 
@@ -221,6 +280,8 @@ void DepthMergeApp::draw()
 	glActiveTexture(GL_TEXTURE0);
 
 	mShader.unbind();
+
+	params::InterfaceGl::draw();
 }
 
 CINDER_APP_BASIC(DepthMergeApp, RendererGl)

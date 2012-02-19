@@ -82,6 +82,11 @@ OpenNI::OpenNI(Device device)
 {
 }
 
+void OpenNI::start()
+{
+	mObj->start();
+}
+
 OpenNI::Obj::Obj( int deviceIndex )
 	: mShouldDie( false ),
 	  mNewDepthFrame( false ),
@@ -111,12 +116,6 @@ OpenNI::Obj::Obj( int deviceIndex )
 	mImageHeight = mImageMD.FullYRes();
 
 	mColorBuffers = BufferManager<uint8_t>( mImageWidth * mImageHeight * 3, this );
-
-	// start
-	rc = mContext.StartGeneratingAll();
-	checkStatus(rc);
-
-	mThread = shared_ptr<thread>(new thread(threadedFunc, this));
 }
 
 OpenNI::Obj::~Obj()
@@ -125,6 +124,14 @@ OpenNI::Obj::~Obj()
 	if (mThread)
 		mThread->join();
 	mContext.Shutdown();
+}
+
+void OpenNI::Obj::start()
+{
+	XnStatus rc = mContext.StartGeneratingAll();
+	checkStatus(rc);
+
+	mThread = shared_ptr<thread>(new thread(threadedFunc, this));
 }
 
 void OpenNI::Obj::threadedFunc(OpenNI::Obj *obj)

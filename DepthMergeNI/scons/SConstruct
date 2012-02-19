@@ -1,5 +1,5 @@
 TARGET = 'DepthMergeApp'
-SOURCES  = ['DepthMergeApp.cpp', 'NI.cpp', 'BoxBlur.cpp']
+SOURCES  = ['DepthMergeApp.cpp', 'NI.cpp', 'Utils.cpp', 'BoxBlur.cpp']
 INCLUDES = ['/usr/include/ni/', '/usr/include/nite/']
 LIBS = ['OpenNI', 'usb-1.0']
 LIBPATH = ['/usr/lib/', '/opt/local/lib/']

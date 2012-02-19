@@ -39,6 +39,8 @@ class OpenNI
 		//! Creates a new Kinect based on Device # \a device. 0 is the typical value for \a deviceIndex.
 		OpenNI(Device device);
 
+		void start();
+
 		//! Returns whether there is a new depth frame available since the last call to checkNewDepthFrame(). Call getDepthImage() to retrieve it.
 		bool			checkNewDepthFrame();
 
@@ -60,6 +62,8 @@ class OpenNI
 		struct Obj {
 			Obj( int deviceIndex );
 			~Obj();
+
+			void start();
 
 			template<typename T>
 			struct BufferManager {
