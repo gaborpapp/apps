@@ -64,7 +64,7 @@ class DepthMergeApp : public ci::app::AppBasic
 
 		ci::params::PInterfaceGl mParams;
 		int mType;
-		int mStep;
+		int mStepLog2;
 		float mMinDepth;
 		float mMaxDepth;
 };
@@ -130,12 +130,16 @@ void DepthMergeApp::setup()
 	mParams = params::PInterfaceGl("Parameters", Vec2i(200, 300));
 	mParams.addPersistentSizeAndPosition();
 
-	const string arr[] = { "color", "depth" };
-	const int size = sizeof( arr ) / sizeof ( arr[0] );
-	std::vector<string> enumNames(arr, arr + size);
-	mParams.addPersistentParam( "Type", enumNames, &mType, 0 );
+	const string typeArr[] = { "color", "depth" };
+	const int typeSize = sizeof( typeArr ) / sizeof( typeArr[0] );
+	std::vector<string> typeNames(typeArr, typeArr + typeSize);
+	mParams.addPersistentParam( "Type", typeNames, &mType, 0 );
 
-	mParams.addPersistentParam( "Step", &mStep, TEXTURE_COUNT / 8, "min=1 max=128 keyIncr=z keyDecr=Z" );
+	const string stepArr[] = { "1", "2", "4", "8", "16", "32", "64", "128" };
+	const int stepSize = sizeof( stepArr ) / sizeof( stepArr[0] );
+	std::vector<string> log2Names(stepArr, stepArr + stepSize);
+	mParams.addPersistentParam( "Step", log2Names, &mStepLog2, 4 );
+
 	mParams.addPersistentParam( "Min depth", &mMinDepth, 0, "min=0 max=1 step=0.001 keyIncr=x keyDecr=X" );
 	mParams.addPersistentParam( "Max depth", &mMaxDepth, 1, "min=0 max=1 step=0.001 keyIncr=c keyDecr=C" );
 
@@ -252,7 +256,7 @@ void DepthMergeApp::draw()
 	mShader.uniform("dtop", mMaxDepth);
 
 	// bind textures
-	int step = mStep; //TEXTURE_COUNT / 8;
+	int step = 1 << mStepLog2;
 	int idx = mCurrentIndex;
 	for (int i = 0; i < 8; i++)
 	{
