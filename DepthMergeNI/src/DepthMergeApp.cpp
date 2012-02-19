@@ -20,11 +20,11 @@
 #include "cinder/gl/Texture.h"
 #include "cinder/gl/Fbo.h"
 #include "cinder/gl/GlslProg.h"
-#include "cinder/params/Params.h"
 
 #include "NI.h"
 #include "BoxBlur.h"
 #include "Utils.h"
+#include "PParams.h"
 #include "Resources.h"
 
 using namespace ci;
@@ -62,7 +62,7 @@ class DepthMergeApp : public ci::app::AppBasic
 		gl::GlslProg mShader;
 		gl::ip::BoxBlur mBoxBlur;
 
-		ci::params::InterfaceGl mParams;
+		ci::params::PInterfaceGl mParams;
 		int mType;
 		int mStep;
 		float mMinDepth;
@@ -119,18 +119,25 @@ void DepthMergeApp::setup()
 
 	mBoxBlur = gl::ip::BoxBlur( 640, 480 );
 
-	mParams = params::InterfaceGl("Parameters", Vec2i(200, 300));
+	// params
+	string paramsXml = getAppPath().string();
+#ifdef CINDER_MAC
+	paramsXml += "/Contents/Resources/";
+#endif
+	paramsXml += "params.xml";
+	params::PInterfaceGl::load( paramsXml );
+
+	mParams = params::PInterfaceGl("Parameters", Vec2i(200, 300));
+	mParams.addPersistentSizeAndPosition();
+
 	const string arr[] = { "color", "depth" };
 	const int size = sizeof( arr ) / sizeof ( arr[0] );
 	std::vector<string> enumNames(arr, arr + size);
-	mType = 0;
-	mParams.addParam( "Type", enumNames, &mType );
-	mStep = TEXTURE_COUNT / 8;
-	mParams.addParam( "Step", &mStep, "min=1 max=128 keyIncr=z keyDecr=Z" );
-	mMinDepth = 0;
-	mParams.addParam( "Min depth", &mMinDepth, "min=0 max=1 step=0.001 keyIncr=x keyDecr=X" );
-	mMaxDepth = 1;
-	mParams.addParam( "Max depth", &mMaxDepth, "min=0 max=1 step=0.001 keyIncr=c keyDecr=C" );
+	mParams.addPersistentParam( "Type", enumNames, &mType, 0 );
+
+	mParams.addPersistentParam( "Step", &mStep, TEXTURE_COUNT / 8, "min=1 max=128 keyIncr=z keyDecr=Z" );
+	mParams.addPersistentParam( "Min depth", &mMinDepth, 0, "min=0 max=1 step=0.001 keyIncr=x keyDecr=X" );
+	mParams.addPersistentParam( "Max depth", &mMaxDepth, 1, "min=0 max=1 step=0.001 keyIncr=c keyDecr=C" );
 
 	mParams.addSeparator();
 	mParams.addButton("Screenshot", std::bind(&DepthMergeApp::saveScreenshot, this), "key=s");
@@ -172,6 +179,7 @@ void DepthMergeApp::saveScreenshot()
 
 void DepthMergeApp::shutdown()
 {
+	params::PInterfaceGl::save();
 }
 
 void DepthMergeApp::keyDown(KeyEvent event)
@@ -281,7 +289,7 @@ void DepthMergeApp::draw()
 
 	mShader.unbind();
 
-	params::InterfaceGl::draw();
+	params::PInterfaceGl::draw();
 }
 
 CINDER_APP_BASIC(DepthMergeApp, RendererGl)
