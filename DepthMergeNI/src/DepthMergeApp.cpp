@@ -52,7 +52,7 @@ class DepthMergeApp : public ci::app::AppBasic
 	private:
 		OpenNI mNI;
 
-		enum { TYPE_COLOR = 0, TYPE_DEPTH };
+		enum { TYPE_COLOR = 0, TYPE_IR, TYPE_DEPTH };
 
 		//gl::Fbo mDepthTextures[TEXTURE_COUNT];
 		gl::Texture mDepthTextures[TEXTURE_COUNT];
@@ -67,6 +67,7 @@ class DepthMergeApp : public ci::app::AppBasic
 		int mStepLog2;
 		float mMinDepth;
 		float mMaxDepth;
+		bool mMirror;
 };
 
 void DepthMergeApp::prepareSettings(Settings *settings)
@@ -100,9 +101,6 @@ void DepthMergeApp::setup()
 		console() << "Could not open Kinect" << endl;
 		quit();
 	}
-	mNI.calibrateDepthToRGB( true );
-	mNI.setMirror( true );
-	mNI.start();
 
 	/*
 	gl::Fbo::Format fboFormat;
@@ -130,7 +128,7 @@ void DepthMergeApp::setup()
 	mParams = params::PInterfaceGl("Parameters", Vec2i(200, 300));
 	mParams.addPersistentSizeAndPosition();
 
-	const string typeArr[] = { "color", "depth" };
+	const string typeArr[] = { "Color", "Infrared", "Depth" };
 	const int typeSize = sizeof( typeArr ) / sizeof( typeArr[0] );
 	std::vector<string> typeNames(typeArr, typeArr + typeSize);
 	mParams.addPersistentParam( "Type", typeNames, &mType, 0 );
@@ -143,8 +141,17 @@ void DepthMergeApp::setup()
 	mParams.addPersistentParam( "Min depth", &mMinDepth, 0, "min=0 max=1 step=0.001 keyIncr=x keyDecr=X" );
 	mParams.addPersistentParam( "Max depth", &mMaxDepth, 1, "min=0 max=1 step=0.001 keyIncr=c keyDecr=C" );
 
+	mParams.addPersistentParam( "Mirror", &mMirror, true, "key=m" );
+
 	mParams.addSeparator();
 	mParams.addButton("Screenshot", std::bind(&DepthMergeApp::saveScreenshot, this), "key=s");
+
+
+	// start OpenNI
+	mNI.setMirrored( mMirror );
+	if (mType == TYPE_COLOR)
+		mNI.setDepthAligned( true );
+	mNI.start();
 
 	enableVSync(false);
 }
@@ -201,6 +208,33 @@ void DepthMergeApp::keyUp(KeyEvent event)
 
 void DepthMergeApp::update()
 {
+	if (mMirror != mNI.isMirrored())
+		mNI.setMirrored( mMirror );
+
+	if (mType == TYPE_COLOR)
+	{
+		if (!mNI.isDepthAligned())
+			mNI.setDepthAligned();
+
+		if (mNI.isVideoInfrared())
+			mNI.setVideoInfrared( false );
+	}
+	else
+	if (mType == TYPE_DEPTH)
+	{
+		if (mNI.isDepthAligned())
+			mNI.setDepthAligned( false );
+	}
+	else
+	if (mType == TYPE_IR)
+	{
+		if (mNI.isDepthAligned())
+			mNI.setDepthAligned( false );
+
+		if (!mNI.isVideoInfrared())
+			mNI.setVideoInfrared();
+	}
+
 	if (mNI.checkNewDepthFrame() && mNI.checkNewVideoFrame())
 	{
 		mCurrentIndex = (mCurrentIndex + 1) & (TEXTURE_COUNT - 1);
@@ -270,9 +304,11 @@ void DepthMergeApp::draw()
 		switch (mType)
 		{
 			case TYPE_COLOR:
+			case TYPE_IR:
 				if (mColorTextures[idx])
 					mColorTextures[idx].bind(i + 8);
 				break;
+
 			case TYPE_DEPTH:
 				if (mDepthTextures[idx])
 					mDepthTextures[idx].bind(i + 8);

@@ -53,10 +53,18 @@ class OpenNI
 		//! Returns latest video frame.
 		ImageSourceRef	getVideoImage();
 
-		//! Calibrates depth to video frame.
-		bool			calibrateDepthToRGB(bool calibrate);
+		//! Sets the video image returned by getVideoImage() and getVideoData() to be infrared when \a infrared is true, color when it's false (the default)
+		void			setVideoInfrared( bool infrared = true );
 
-		bool			setMirror(bool mirror);
+		//! Returns whether the video image returned by getVideoImage() and getVideoData() is infrared when \c true, or color when it's \c false (the default)
+		bool			isVideoInfrared() const { return mObj->mVideoInfrared; }
+
+		//! Calibrates depth to video frame.
+		void			setDepthAligned( bool aligned = true );
+		bool			isDepthAligned() const { return mObj->mDepthAligned; }
+
+		void			setMirrored( bool mirror = true );
+		bool			isMirrored() const { return mObj->mMirrored; }
 
 	protected:
 		struct Obj {
@@ -104,18 +112,29 @@ class OpenNI
 			int mImageWidth;
 			int mImageHeight;
 
+			xn::IRGenerator mIRGenerator;
+			xn::IRMetaData mIRMD;
+			int mIRWidth;
+			int mIRHeight;
+
 			void generateDepth();
 			void generateImage();
+			void generateIR();
 
 			std::shared_ptr<std::thread> mThread;
 			std::recursive_mutex mMutex;
 
-			bool mShouldDie;
-			bool mNewDepthFrame;
-			bool mNewVideoFrame;
+			volatile bool mShouldDie;
+			volatile bool mNewDepthFrame, mNewVideoFrame;
+			volatile bool mVideoInfrared;
+			volatile bool mLastVideoFrameInfrared;
+
+			volatile bool mDepthAligned;
+			volatile bool mMirrored;
 		};
 
 		friend class ImageSourceOpenNIColor;
+		friend class ImageSourceOpenNIInfrared;
 		friend class ImageSourceOpenNIDepth;
 
 		std::shared_ptr<Obj> mObj;
@@ -128,6 +147,9 @@ class OpenNI
 
 		//! Exception thrown from a failure to create an image generator
 		class ExcFailedImageGeneratorInit : public Exc {};
+
+		//! Exception thrown from a failure to create an IR generator
+		class ExcFailedIRGeneratorInit : public Exc {};
 };
 
 }

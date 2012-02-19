@@ -9,11 +9,11 @@ using namespace ci::app;
 
 namespace cinder {
 
-static inline void checkStatus(XnStatus rc)
+static inline void checkStatus(XnStatus rc, string where)
 {
 	if (rc != XN_STATUS_OK)
 	{
-		console () << "OpenNI Error: " <<  xnGetStatusString(rc) << std::endl;
+		console () << "OpenNI Error - " << where << " : " <<  xnGetStatusString(rc) << std::endl;
 	}
 }
 
@@ -45,6 +45,36 @@ class ImageSourceOpenNIColor : public ImageSource {
 	protected:
 		shared_ptr<OpenNI::Obj>     mOwnerObj;
 		uint8_t                     *mData;
+};
+
+class ImageSourceOpenNIInfrared : public ImageSource {
+	public:
+		ImageSourceOpenNIInfrared( uint8_t *buffer, int w, int h, shared_ptr<OpenNI::Obj> ownerObj )
+			: ImageSource(), mData( buffer ), mOwnerObj( ownerObj )
+		{
+			setSize( w, h );
+			setColorModel( ImageIo::CM_GRAY );
+			setChannelOrder( ImageIo::Y );
+			setDataType( ImageIo::UINT8 );
+		}
+
+		~ImageSourceOpenNIInfrared()
+		{
+			// let the owner know we are done with the buffer
+			mOwnerObj->mColorBuffers.derefBuffer( mData );
+		}
+
+		virtual void load( ImageTargetRef target )
+		{
+			ImageSource::RowFunc func = setupRowFunc( target );
+
+			for( int32_t row = 0; row < mHeight; ++row )
+				((*this).*func)( target, row, mData + row * mWidth );
+		}
+
+	protected:
+		shared_ptr<OpenNI::Obj>		mOwnerObj;
+		uint8_t					*mData;
 };
 
 class ImageSourceOpenNIDepth : public ImageSource {
@@ -90,11 +120,11 @@ void OpenNI::start()
 OpenNI::Obj::Obj( int deviceIndex )
 	: mShouldDie( false ),
 	  mNewDepthFrame( false ),
-	  mNewVideoFrame( false )
-
+	  mNewVideoFrame( false ),
+	  mVideoInfrared( false )
 {
 	XnStatus rc = mContext.Init();
-	checkStatus(rc);
+	checkStatus(rc, "context");
 
 	// depth
 	rc = mDepthGenerator.Create(mContext);
@@ -116,6 +146,23 @@ OpenNI::Obj::Obj( int deviceIndex )
 	mImageHeight = mImageMD.FullYRes();
 
 	mColorBuffers = BufferManager<uint8_t>( mImageWidth * mImageHeight * 3, this );
+
+	// IR
+	rc = mIRGenerator.Create(mContext);
+	if (rc != XN_STATUS_OK)
+		throw ExcFailedIRGeneratorInit();
+	// make new map mode -> default to 640 x 480 @ 30fps
+	XnMapOutputMode mapMode;
+	mapMode.nXRes = mDepthWidth;
+	mapMode.nYRes = mDepthHeight;
+	mapMode.nFPS  = 30;
+	mIRGenerator.SetMapOutputMode( mapMode );
+
+	mIRGenerator.GetMetaData( mIRMD );
+	mIRWidth = mIRMD.FullXRes();
+	mIRHeight = mIRMD.FullYRes();
+
+	mLastVideoFrameInfrared = mVideoInfrared;
 }
 
 OpenNI::Obj::~Obj()
@@ -128,8 +175,14 @@ OpenNI::Obj::~Obj()
 
 void OpenNI::Obj::start()
 {
-	XnStatus rc = mContext.StartGeneratingAll();
-	checkStatus(rc);
+	XnStatus rc = mDepthGenerator.StartGenerating();
+	checkStatus(rc, "DepthGenerator.StartGenerating");
+
+	if (!mVideoInfrared)
+		rc = mImageGenerator.StartGenerating();
+	else
+		rc = mIRGenerator.StartGenerating();
+	checkStatus(rc, "Video.StartGenerating");
 
 	mThread = shared_ptr<thread>(new thread(threadedFunc, this));
 }
@@ -138,11 +191,13 @@ void OpenNI::Obj::threadedFunc(OpenNI::Obj *obj)
 {
 	while (!obj->mShouldDie)
 	{
-		XnStatus status = obj->mContext.WaitAndUpdateAll();
-		checkStatus(status);
+		//XnStatus status = obj->mContext.WaitAndUpdateAll();
+		XnStatus status = obj->mContext.WaitOneUpdateAll(obj->mDepthGenerator);
+		checkStatus(status, "WaitOneUpdateAll");
 
 		obj->generateDepth();
 		obj->generateImage();
+		obj->generateIR();
 	}
 }
 
@@ -159,7 +214,7 @@ void OpenNI::Obj::generateDepth()
 		mDepthBuffers.derefActiveBuffer(); // finished with current active buffer
 		uint16_t *destPixels = mDepthBuffers.getNewBuffer(); // request a new buffer
 
-		for (size_t p = 0; p < mDepthWidth * mDepthHeight ; ++p )
+		for (size_t p = 0; p < mDepthWidth * mDepthHeight; ++p )
 		{
 			uint32_t v = depth[p];
 			destPixels[p] = 65535 * v / mDepthMaxDepth;
@@ -171,7 +226,7 @@ void OpenNI::Obj::generateDepth()
 
 void OpenNI::Obj::generateImage()
 {
-	if (!mImageGenerator.IsValid())
+	if (!mImageGenerator.IsValid() || !mImageGenerator.IsGenerating())
 		return;
 
 	{
@@ -193,6 +248,30 @@ void OpenNI::Obj::generateImage()
 
 		mColorBuffers.setActiveBuffer( destPixels ); // set this new buffer to be the current active buffer
 		mNewVideoFrame = true; // flag that there's a new color frame
+		mLastVideoFrameInfrared = false;
+	}
+}
+
+void OpenNI::Obj::generateIR()
+{
+	if (!mIRGenerator.IsValid() || !mIRGenerator.IsGenerating())
+		return;
+
+	{
+		lock_guard<recursive_mutex> lock(mMutex);
+
+		mColorBuffers.derefActiveBuffer(); // finished with current active buffer
+		uint8_t *destPixels = mColorBuffers.getNewBuffer();  // request a new buffer
+		const XnIRPixel *src = reinterpret_cast<const XnIRPixel *>( mIRGenerator.GetData() );
+
+		for (size_t p = 0; p < mIRWidth * mIRHeight; ++p )
+		{
+			destPixels[p] = src[p] / 4;
+		}
+
+		mColorBuffers.setActiveBuffer( destPixels ); // set this new buffer to be the current active buffer
+		mNewVideoFrame = true; // flag that there's a new color frame
+		mLastVideoFrameInfrared = true;
 	}
 }
 
@@ -284,38 +363,81 @@ ImageSourceRef OpenNI::getDepthImage()
 
 ImageSourceRef OpenNI::getVideoImage()
 {
-	// register a reference to the active buffer
 	uint8_t *activeColor = mObj->mColorBuffers.refActiveBuffer();
-	return ImageSourceRef( new ImageSourceOpenNIColor( activeColor, mObj->mImageWidth, mObj->mImageHeight, this->mObj ) );
-}
-
-bool OpenNI::calibrateDepthToRGB(bool calibrate)
-{
-    if (!mObj->mImageGenerator.IsValid())
+	if (mObj->mLastVideoFrameInfrared)
 	{
-        return false;
-    }
-
-	if (mObj->mDepthGenerator.IsCapabilitySupported(XN_CAPABILITY_ALTERNATIVE_VIEW_POINT))
-	{
-		XnStatus rc = XN_STATUS_OK;
-
-		if (calibrate)
-			rc = mObj->mDepthGenerator.GetAlternativeViewPointCap().SetViewPoint( mObj->mImageGenerator );
-		else
-			rc = mObj->mDepthGenerator.GetAlternativeViewPointCap().ResetViewPoint();
-
-		return rc == XN_STATUS_OK;
+		return ImageSourceRef( new ImageSourceOpenNIInfrared( activeColor, mObj->mIRWidth, mObj->mIRHeight, this->mObj ) );
 	}
 	else
 	{
-		return false;
+		return ImageSourceRef( new ImageSourceOpenNIColor( activeColor, mObj->mImageWidth, mObj->mImageHeight, this->mObj ) );
 	}
 }
 
-bool OpenNI::setMirror(bool mirror)
+void OpenNI::setVideoInfrared(bool infrared)
 {
+	if (mObj->mVideoInfrared == infrared)
+		return;
+
+	{
+		lock_guard<recursive_mutex> lock( mObj->mMutex );
+
+		mObj->mVideoInfrared = infrared;
+		if (mObj->mVideoInfrared)
+		{
+			XnStatus rc = mObj->mImageGenerator.StopGenerating();
+			checkStatus(rc, "ImageGenerater.StopGenerating");
+			rc = mObj->mIRGenerator.StartGenerating();
+			checkStatus(rc, "IRGenerater.StartGenerating");
+		}
+		else
+		{
+			XnStatus rc = mObj->mIRGenerator.StopGenerating();
+			checkStatus(rc, "IRGenerater.StopGenerating");
+			rc = mObj->mImageGenerator.StartGenerating();
+			checkStatus(rc, "ImageGenerater.StartGenerating");
+		}
+	}
+}
+
+void OpenNI::setDepthAligned(bool aligned)
+{
+	if (mObj->mDepthAligned == aligned)
+		return;
+
+    if (!mObj->mImageGenerator.IsValid())
+        return;
+
+	{
+		lock_guard<recursive_mutex> lock( mObj->mMutex );
+		if (mObj->mDepthGenerator.IsCapabilitySupported(XN_CAPABILITY_ALTERNATIVE_VIEW_POINT))
+		{
+			XnStatus rc = XN_STATUS_OK;
+
+			if (aligned)
+				rc = mObj->mDepthGenerator.GetAlternativeViewPointCap().SetViewPoint( mObj->mImageGenerator );
+			else
+				rc = mObj->mDepthGenerator.GetAlternativeViewPointCap().ResetViewPoint();
+			checkStatus(rc, "DepthGenerotr.GetAlternativeViewPointCap");
+
+			if (rc == XN_STATUS_OK)
+				mObj->mDepthAligned = aligned;
+		}
+		else
+		{
+			console() << "DepthGenerator alternative view point not supported. " << endl;
+		}
+	}
+}
+
+void OpenNI::setMirrored(bool mirror)
+{
+	if (mObj->mMirrored == mirror)
+		return;
 	XnStatus rc = mObj->mContext.SetGlobalMirror(mirror);
-	return rc == XN_STATUS_OK;
+	checkStatus(rc, "Context.SetGlobalMirror");
+
+	if (rc == XN_STATUS_OK)
+		mObj->mMirrored = mirror;
 }
 
