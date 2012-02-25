@@ -48,6 +48,7 @@ class DepthMergeApp : public ci::app::AppBasic
 		void draw();
 
 		void saveScreenshot();
+		void toggleRecording();
 
 	private:
 		OpenNI mNI;
@@ -60,7 +61,7 @@ class DepthMergeApp : public ci::app::AppBasic
 		int mCurrentIndex;
 
 		gl::GlslProg mShader;
-		gl::ip::BoxBlur mBoxBlur;
+		//gl::ip::BoxBlur mBoxBlur;
 
 		ci::params::PInterfaceGl mParams;
 		int mType;
@@ -92,16 +93,6 @@ void DepthMergeApp::setup()
 
 	mCurrentIndex = 0;
 
-	try
-	{
-		mNI = OpenNI( OpenNI::Device() );
-	}
-	catch (...)
-	{
-		console() << "Could not open Kinect" << endl;
-		quit();
-	}
-
 	/*
 	gl::Fbo::Format fboFormat;
 	fboFormat.enableDepthBuffer(false);
@@ -115,7 +106,7 @@ void DepthMergeApp::setup()
 	}
 	*/
 
-	mBoxBlur = gl::ip::BoxBlur( 640, 480 );
+	//mBoxBlur = gl::ip::BoxBlur( 640, 480 );
 
 	// params
 	string paramsXml = getAppPath().string();
@@ -145,9 +136,28 @@ void DepthMergeApp::setup()
 
 	mParams.addSeparator();
 	mParams.addButton("Screenshot", std::bind(&DepthMergeApp::saveScreenshot, this), "key=s");
-
+	mParams.addButton("Start recording", std::bind(&DepthMergeApp::toggleRecording, this));
 
 	// start OpenNI
+	try
+	{
+		mNI = OpenNI( OpenNI::Device() );
+
+		/*
+		string path = getAppPath().string();
+#ifdef CINDER_MAC
+		path += "/../";
+#endif
+		path += "rec-12022523172400.oni";
+		mNI = OpenNI( path );
+		*/
+	}
+	catch (...)
+	{
+		console() << "Could not open Kinect" << endl;
+		quit();
+	}
+
 	mNI.setMirrored( mMirror );
 	if (mType == TYPE_COLOR)
 		mNI.setDepthAligned( true );
@@ -185,6 +195,27 @@ void DepthMergeApp::saveScreenshot()
 	catch ( ... )
 	{
 		console() << "unable to save image file " << path << endl;
+	}
+}
+
+void DepthMergeApp::toggleRecording()
+{
+	if ( mNI.isRecording() )
+	{
+		mNI.stopRecording();
+		mParams.setOptions( "Stop recording", " label='Start recording' " );
+	}
+	else
+	{
+		string path = getAppPath().string();
+#ifdef CINDER_MAC
+		path += "/../";
+#endif
+		path += "rec-" + timeStamp() + ".oni";
+		fs::path oniPath(path);
+
+		mNI.startRecording( oniPath );
+		mParams.setOptions( "Start recording", " label='Stop recording' " );
 	}
 }
 

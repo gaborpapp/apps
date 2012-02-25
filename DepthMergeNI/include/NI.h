@@ -36,10 +36,13 @@ class OpenNI
 		//! Default constructor - creates an uninitialized instance
 		OpenNI() {}
 
-		//! Creates a new Kinect based on Device # \a device. 0 is the typical value for \a deviceIndex.
-		OpenNI(Device device);
+		//! Creates a new OpenNI based on Device # \a device. 0 is the typical value for \a deviceIndex.
+		OpenNI( Device device );
 
-		void start();
+		//! Creates a new OpenNI based on the OpenNI recording from the file path \a path.
+		OpenNI( const fs::path &recording );
+
+		void			start();
 
 		//! Returns whether there is a new depth frame available since the last call to checkNewDepthFrame(). Call getDepthImage() to retrieve it.
 		bool			checkNewDepthFrame();
@@ -66,9 +69,14 @@ class OpenNI
 		void			setMirrored( bool mirror = true );
 		bool			isMirrored() const { return mObj->mMirrored; }
 
+		void			startRecording( const fs::path &filename );
+		void			stopRecording();
+		bool			isRecording() const { return mObj->mRecording; }
+
 	protected:
 		struct Obj {
 			Obj( int deviceIndex );
+			Obj( const fs::path &recording );
 			~Obj();
 
 			void start();
@@ -117,6 +125,9 @@ class OpenNI
 			int mIRWidth;
 			int mIRHeight;
 
+			xn::Recorder mRecorder;
+			bool mRecording;
+
 			void generateDepth();
 			void generateImage();
 			void generateIR();
@@ -141,6 +152,9 @@ class OpenNI
 
 		//! Parent class for all OpenNI exceptions
 		class Exc : cinder::Exception {};
+
+		//! Exception thrown from a failure to open a file recording
+		class ExcFailedOpenFileRecording : public Exc {};
 
 		//! Exception thrown from a failure to create a depth generator
 		class ExcFailedDepthGeneratorInit : public Exc {};

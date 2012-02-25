@@ -37,6 +37,7 @@ static const bool PREMULT = true;
 class SpeechShop : public ci::app::AppBasic
 {
 	public:
+		SpeechShop();
 		void prepareSettings(Settings *settings);
 		void setup();
 		void enableVSync(bool vs);
@@ -52,12 +53,19 @@ class SpeechShop : public ci::app::AppBasic
 
 	private:
 		void addLetter(Vec2i pos);
+		void togglePlug();
 
 		Sandbox mSandbox;
+		BoxElement *mPlug;
 
 		vector<string> mWords;
 		unsigned mWordIndex;
 };
+
+SpeechShop::SpeechShop()
+	: mPlug( NULL )
+{
+}
 
 void SpeechShop::prepareSettings(Settings *settings)
 {
@@ -69,7 +77,7 @@ void SpeechShop::setup()
 	enableVSync(false);
 
 	mSandbox.init();
-	mSandbox.enableMouseInteraction(this, true);
+	togglePlug();
 
 	mWords = split( loadString( loadResource(RES_TEXT) ), " \t\n" );
 	mWordIndex = 0;
@@ -86,10 +94,34 @@ void SpeechShop::enableVSync(bool vs)
 #endif
 }
 
+void SpeechShop::togglePlug()
+{
+	if (mPlug == NULL)
+	{
+		mSandbox.clear();
+		mSandbox.init(false);
+		Area boxArea(0, 0, getWindowWidth(), 5 * getWindowHeight() );
+		//console() << boxArea << endl;
+		mSandbox.createBoundaries( boxArea );
+		//mSandbox.enableMouseInteraction(this, false);
+
+		mPlug = new BoxElement( Vec2f( getWindowWidth() / 2, getWindowHeight() + 10 ),
+								Vec2f( getWindowWidth(), 10 ),
+								false );
+		mSandbox.addElement(mPlug);
+	}
+	else
+	{
+		mSandbox.destroyElement( mPlug );
+		delete mPlug;
+		mPlug = NULL;
+	}
+}
+
 void SpeechShop::resize(ResizeEvent event)
 {
-	mSandbox.clear();
-	mSandbox.init();
+	//mSandbox.clear();
+	//mSandbox.init();
 	// need to remove old boundary
 	//mSandbox.createBoundaries( Area(Vec2i(0, 0), event.getSize()) );
 }
@@ -99,10 +131,7 @@ void SpeechShop::keyDown(KeyEvent event)
 	if (event.getChar() == 'f')
 		setFullScreen(!isFullScreen());
 	else if (event.getChar() == ' ')
-	{
-		mSandbox.clear();
-		mSandbox.init();
-	}
+		togglePlug();
 	if (event.getCode() == KeyEvent::KEY_ESCAPE)
 		quit();
 }

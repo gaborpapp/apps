@@ -9,13 +9,11 @@ using namespace ci::app;
 
 namespace cinder {
 
-static inline void checkStatus(XnStatus rc, string where)
-{
-	if (rc != XN_STATUS_OK)
-	{
-		console () << "OpenNI Error - " << where << " : " <<  xnGetStatusString(rc) << std::endl;
+#define CHECK_RC( rc, what ) \
+	if (rc != XN_STATUS_OK) \
+	{ \
+		console () << "OpenNI Error - " << what << " : " << xnGetStatusString(rc) << endl; \
 	}
-}
 
 class ImageSourceOpenNIColor : public ImageSource {
 	public:
@@ -112,6 +110,11 @@ OpenNI::OpenNI(Device device)
 {
 }
 
+OpenNI::OpenNI( const fs::path &recording )
+	: mObj( new Obj( recording ) )
+{
+}
+
 void OpenNI::start()
 {
 	mObj->start();
@@ -121,10 +124,11 @@ OpenNI::Obj::Obj( int deviceIndex )
 	: mShouldDie( false ),
 	  mNewDepthFrame( false ),
 	  mNewVideoFrame( false ),
-	  mVideoInfrared( false )
+	  mVideoInfrared( false ),
+	  mRecording( false )
 {
 	XnStatus rc = mContext.Init();
-	checkStatus(rc, "context");
+	CHECK_RC(rc, "context");
 
 	// depth
 	rc = mDepthGenerator.Create(mContext);
@@ -165,6 +169,89 @@ OpenNI::Obj::Obj( int deviceIndex )
 	mLastVideoFrameInfrared = mVideoInfrared;
 }
 
+OpenNI::Obj::Obj( const fs::path &recording )
+	: mShouldDie( false ),
+	  mNewDepthFrame( false ),
+	  mNewVideoFrame( false ),
+	  mVideoInfrared( false ),
+	  mRecording( false )
+{
+	XnStatus rc = mContext.Init();
+	CHECK_RC(rc, "context");
+
+	rc = mContext.OpenFileRecording( recording.c_str() );
+	if (rc != XN_STATUS_OK)
+	{
+		console () << "OpenNI Error - " << "OpenFileRecording" << " : " << xnGetStatusString(rc) << endl; \
+		throw ExcFailedOpenFileRecording();
+	}
+
+	NodeInfoList list;
+	rc = mContext.EnumerateExistingNodes(list);
+	if (rc == XN_STATUS_OK)
+	{
+		for (NodeInfoList::Iterator it = list.Begin(); it != list.End(); ++it)
+		{
+			switch ((*it).GetDescription().Type)
+			{
+				case XN_NODE_TYPE_DEPTH:
+					(*it).GetInstance(mDepthGenerator);
+					break;
+
+				case XN_NODE_TYPE_IMAGE:
+					(*it).GetInstance(mImageGenerator);
+					break;
+
+				case XN_NODE_TYPE_IR:
+					(*it).GetInstance(mIRGenerator);
+					break;
+			}
+		}
+	}
+
+	// depth
+	if ( mDepthGenerator.IsValid() )
+	{
+		mDepthGenerator.GetMetaData( mDepthMD );
+		mDepthWidth = mDepthMD.FullXRes();
+		mDepthHeight = mDepthMD.FullYRes();
+		mDepthMaxDepth = mDepthGenerator.GetDeviceMaxDepth();
+
+		mDepthBuffers = BufferManager<uint16_t>( mDepthWidth * mDepthHeight, this );
+	}
+
+	// image
+	if ( mImageGenerator.IsValid() )
+	{
+		mImageGenerator.GetMetaData( mImageMD );
+		mImageWidth = mImageMD.FullXRes();
+		mImageHeight = mImageMD.FullYRes();
+
+		mColorBuffers = BufferManager<uint8_t>( mImageWidth * mImageHeight * 3, this );
+		mVideoInfrared = false;
+	}
+
+	// IR
+	if ( mIRGenerator.IsValid() )
+	{
+		// make new map mode -> default to 640 x 480 @ 30fps
+		XnMapOutputMode mapMode;
+		mapMode.nXRes = mDepthWidth;
+		mapMode.nYRes = mDepthHeight;
+		mapMode.nFPS  = 30;
+		mIRGenerator.SetMapOutputMode( mapMode );
+
+		mIRGenerator.GetMetaData( mIRMD );
+		mIRWidth = mIRMD.FullXRes();
+		mIRHeight = mIRMD.FullYRes();
+
+		mColorBuffers = BufferManager<uint8_t>( mIRWidth * mIRHeight * 3, this );
+		mVideoInfrared = true;
+	}
+
+	mLastVideoFrameInfrared = mVideoInfrared;
+}
+
 OpenNI::Obj::~Obj()
 {
 	mShouldDie = true;
@@ -176,13 +263,13 @@ OpenNI::Obj::~Obj()
 void OpenNI::Obj::start()
 {
 	XnStatus rc = mDepthGenerator.StartGenerating();
-	checkStatus(rc, "DepthGenerator.StartGenerating");
+	CHECK_RC(rc, "DepthGenerator.StartGenerating");
 
 	if (!mVideoInfrared)
 		rc = mImageGenerator.StartGenerating();
 	else
 		rc = mIRGenerator.StartGenerating();
-	checkStatus(rc, "Video.StartGenerating");
+	CHECK_RC(rc, "Video.StartGenerating");
 
 	mThread = shared_ptr<thread>(new thread(threadedFunc, this));
 }
@@ -193,7 +280,7 @@ void OpenNI::Obj::threadedFunc(OpenNI::Obj *obj)
 	{
 		//XnStatus status = obj->mContext.WaitAndUpdateAll();
 		XnStatus status = obj->mContext.WaitOneUpdateAll(obj->mDepthGenerator);
-		checkStatus(status, "WaitOneUpdateAll");
+		CHECK_RC(status, "WaitOneUpdateAll");
 
 		obj->generateDepth();
 		obj->generateImage();
@@ -242,7 +329,7 @@ void OpenNI::Obj::generateImage()
 		{
 			memcpy(dst, src, mImageMD.XRes() * 3);
 
-			src += mImageMD.XRes();
+			src += mImageMD.XRes(); // FIXME: FullXRes
 			dst += mImageWidth * 3;
 		}
 
@@ -386,16 +473,16 @@ void OpenNI::setVideoInfrared(bool infrared)
 		if (mObj->mVideoInfrared)
 		{
 			XnStatus rc = mObj->mImageGenerator.StopGenerating();
-			checkStatus(rc, "ImageGenerater.StopGenerating");
+			CHECK_RC(rc, "ImageGenerater.StopGenerating");
 			rc = mObj->mIRGenerator.StartGenerating();
-			checkStatus(rc, "IRGenerater.StartGenerating");
+			CHECK_RC(rc, "IRGenerater.StartGenerating");
 		}
 		else
 		{
 			XnStatus rc = mObj->mIRGenerator.StopGenerating();
-			checkStatus(rc, "IRGenerater.StopGenerating");
+			CHECK_RC(rc, "IRGenerater.StopGenerating");
 			rc = mObj->mImageGenerator.StartGenerating();
-			checkStatus(rc, "ImageGenerater.StartGenerating");
+			CHECK_RC(rc, "ImageGenerater.StartGenerating");
 		}
 	}
 }
@@ -418,7 +505,7 @@ void OpenNI::setDepthAligned(bool aligned)
 				rc = mObj->mDepthGenerator.GetAlternativeViewPointCap().SetViewPoint( mObj->mImageGenerator );
 			else
 				rc = mObj->mDepthGenerator.GetAlternativeViewPointCap().ResetViewPoint();
-			checkStatus(rc, "DepthGenerotr.GetAlternativeViewPointCap");
+			CHECK_RC(rc, "DepthGenerator.GetAlternativeViewPointCap");
 
 			if (rc == XN_STATUS_OK)
 				mObj->mDepthAligned = aligned;
@@ -435,9 +522,55 @@ void OpenNI::setMirrored(bool mirror)
 	if (mObj->mMirrored == mirror)
 		return;
 	XnStatus rc = mObj->mContext.SetGlobalMirror(mirror);
-	checkStatus(rc, "Context.SetGlobalMirror");
+	CHECK_RC(rc, "Context.SetGlobalMirror");
 
 	if (rc == XN_STATUS_OK)
 		mObj->mMirrored = mirror;
+}
+
+void OpenNI::startRecording( const fs::path &filename )
+{
+	if ( !mObj->mRecording )
+	{
+		XnStatus rc;
+		rc = mObj->mContext.FindExistingNode(XN_NODE_TYPE_RECORDER, mObj->mRecorder);
+		if (rc != XN_STATUS_OK)
+		{
+			rc = mObj->mRecorder.Create( mObj->mContext );
+			CHECK_RC(rc, "Recorder.Create");
+			if (rc != XN_STATUS_OK)
+				return;
+		}
+		rc = mObj->mRecorder.SetDestination(XN_RECORD_MEDIUM_FILE, filename.c_str() );
+		CHECK_RC(rc, "Recorder.SetDestination");
+
+		if ( mObj->mDepthGenerator.IsValid() )
+		{
+			rc = mObj->mRecorder.AddNodeToRecording( mObj->mDepthGenerator, XN_CODEC_16Z_EMB_TABLES );
+			CHECK_RC(rc, "Recorder.AddNodeToRecording depth");
+		}
+
+		if ( mObj->mImageGenerator.IsValid() && !mObj->mVideoInfrared )
+		{
+			rc = mObj->mRecorder.AddNodeToRecording( mObj->mImageGenerator );
+			CHECK_RC(rc, "Recorder.AddNodeToRecording image");
+		}
+
+		if ( mObj->mIRGenerator.IsValid() && mObj->mVideoInfrared )
+		{
+			rc = mObj->mRecorder.AddNodeToRecording( mObj->mIRGenerator );
+			CHECK_RC(rc, "Recorder.AddNodeToRecording image");
+		}
+		mObj->mRecording = true;
+	}
+}
+
+void OpenNI::stopRecording()
+{
+	if ( mObj->mRecording )
+	{
+		mObj->mRecorder.Release();
+		mObj->mRecording = false;
+	}
 }
 
