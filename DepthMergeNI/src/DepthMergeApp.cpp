@@ -141,16 +141,14 @@ void DepthMergeApp::setup()
 	// start OpenNI
 	try
 	{
-		mNI = OpenNI( OpenNI::Device() );
+		//mNI = OpenNI( OpenNI::Device() );
 
-		/*
 		string path = getAppPath().string();
 #ifdef CINDER_MAC
 		path += "/../";
 #endif
-		path += "rec-12022523172400.oni";
+		path += "rec-12022610062000.oni";
 		mNI = OpenNI( path );
-		*/
 	}
 	catch (...)
 	{

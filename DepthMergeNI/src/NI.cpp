@@ -552,13 +552,13 @@ void OpenNI::startRecording( const fs::path &filename )
 
 		if ( mObj->mImageGenerator.IsValid() && !mObj->mVideoInfrared )
 		{
-			rc = mObj->mRecorder.AddNodeToRecording( mObj->mImageGenerator );
+			rc = mObj->mRecorder.AddNodeToRecording( mObj->mImageGenerator, XN_CODEC_JPEG );
 			CHECK_RC(rc, "Recorder.AddNodeToRecording image");
 		}
 
 		if ( mObj->mIRGenerator.IsValid() && mObj->mVideoInfrared )
 		{
-			rc = mObj->mRecorder.AddNodeToRecording( mObj->mIRGenerator );
+			rc = mObj->mRecorder.AddNodeToRecording( mObj->mIRGenerator, XN_CODEC_NULL );
 			CHECK_RC(rc, "Recorder.AddNodeToRecording image");
 		}
 		mObj->mRecording = true;
