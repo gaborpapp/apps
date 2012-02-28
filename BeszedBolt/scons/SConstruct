@@ -6,11 +6,11 @@ import Box2D
 SOURCES = Box2D.getSources(BOX2DPATH)
 INCLUDES = Box2D.getIncludes(BOX2DPATH)
 
-TARGET = 'SpeechShop'
-SOURCES += ['SpeechShop.cpp']
-RESOURCES = ['speech.txt']
+TARGET = 'BeszedBolt'
+SOURCES += ['SpeechShop.cpp', 'PParams.cpp']
+ASSETS = ['bucsuzasok.txt', 'kozhelyek.txt']
 DEBUG = 0
 
 SConscript('../../../scons/SConscript',
-	exports = ['TARGET', 'SOURCES', 'INCLUDES', 'RESOURCES', 'DEBUG'])
+	exports = ['TARGET', 'SOURCES', 'INCLUDES', 'ASSETS', 'DEBUG'])
 

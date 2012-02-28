@@ -22,6 +22,9 @@
 #include "cinder/Font.h"
 #include "cinder/Rand.h"
 #include "cinder/Utilities.h"
+#include "cinder/Filesystem.h"
+
+#include "PParams.h"
 
 #include "b2cinder/b2cinder.h"
 
@@ -40,6 +43,8 @@ class SpeechShop : public ci::app::AppBasic
 		SpeechShop();
 		void prepareSettings(Settings *settings);
 		void setup();
+		void shutdown();
+
 		void enableVSync(bool vs);
 
 		void resize(ResizeEvent event);
@@ -52,18 +57,32 @@ class SpeechShop : public ci::app::AppBasic
 		void draw();
 
 	private:
+		struct Text {
+			Text () : wordIndex(0) {};
+
+			string name;
+			vector<string> words;
+			unsigned wordIndex;
+		};
+
 		void addLetter(Vec2i pos);
 		void togglePlug();
+
+		void loadTexts();
+		vector<Text> mTexts;
+		int mTextIndex;
 
 		Sandbox mSandbox;
 		BoxElement *mPlug;
 
-		vector<string> mWords;
-		unsigned mWordIndex;
+		ci::params::PInterfaceGl mParams;
+		bool mIsPlugged;
 };
 
 SpeechShop::SpeechShop()
-	: mPlug( NULL )
+	: mPlug( NULL ),
+	  mTextIndex( 0 ),
+	  mIsPlugged( true )
 {
 }
 
@@ -74,16 +93,60 @@ void SpeechShop::prepareSettings(Settings *settings)
 
 void SpeechShop::setup()
 {
+	// params
+	string paramsXml = getAppPath().string();
+#ifdef CINDER_MAC
+	paramsXml += "/Contents/Resources/";
+#endif
+	paramsXml += "params.xml";
+	params::PInterfaceGl::load( paramsXml );
+
 	enableVSync(false);
 
 	mSandbox.init();
-	togglePlug();
 
-	mWords = split( loadString( loadResource(RES_TEXT) ), " \t\n" );
-	mWordIndex = 0;
+	//mWords = split( loadString( loadResource(RES_TEXT) ), " \t\n" );
+	//mWordIndex = 0;
+	loadTexts();
 
+	mParams = params::PInterfaceGl("BeszedBolt", Vec2i(200, 300));
+	mParams.addPersistentSizeAndPosition();
+
+	std::vector<string> typeNames;
+	for (unsigned i = 0; i < mTexts.size(); ++i)
+		typeNames.push_back(mTexts[i].name);
+	mParams.addParam( "Type", typeNames, &mTextIndex,
+			" keyincr='[' keydecr=']' " );
+	mParams.addParam( "Plug", &mIsPlugged, " key='space' " );
+
+	gl::enableAlphaBlending();
 	gl::disableDepthWrite();
 	gl::disableDepthRead();
+}
+
+void SpeechShop::shutdown()
+{
+	params::PInterfaceGl::save();
+}
+
+void SpeechShop::loadTexts()
+{
+	string data_path = getAppPath().string();
+#ifdef CINDER_MAC
+	data_path += "/Contents/Resources/assets";
+#endif
+
+	fs::path p(data_path);
+	for (fs::directory_iterator it(p); it != fs::directory_iterator(); ++it)
+	{
+		if (fs::is_regular_file(*it) && (it->path().extension().string() == ".txt"))
+		{
+			Text t;
+			t.name = it->path().stem().string();
+			t.words = split( loadString( loadAsset( it->path().filename().string() ) ), " \t\n" );
+			mTexts.push_back(t);
+		}
+	}
 }
 
 void SpeechShop::enableVSync(bool vs)
@@ -101,9 +164,7 @@ void SpeechShop::togglePlug()
 		mSandbox.clear();
 		mSandbox.init(false);
 		Area boxArea(0, 0, getWindowWidth(), 5 * getWindowHeight() );
-		//console() << boxArea << endl;
 		mSandbox.createBoundaries( boxArea );
-		//mSandbox.enableMouseInteraction(this, false);
 
 		mPlug = new BoxElement( Vec2f( getWindowWidth() / 2, getWindowHeight() + 10 ),
 								Vec2f( getWindowWidth(), 10 ),
@@ -120,18 +181,14 @@ void SpeechShop::togglePlug()
 
 void SpeechShop::resize(ResizeEvent event)
 {
-	//mSandbox.clear();
-	//mSandbox.init();
-	// need to remove old boundary
-	//mSandbox.createBoundaries( Area(Vec2i(0, 0), event.getSize()) );
+	togglePlug();
+	togglePlug();
 }
 
 void SpeechShop::keyDown(KeyEvent event)
 {
 	if (event.getChar() == 'f')
 		setFullScreen(!isFullScreen());
-	else if (event.getChar() == ' ')
-		togglePlug();
 	if (event.getCode() == KeyEvent::KEY_ESCAPE)
 		quit();
 }
@@ -150,6 +207,14 @@ void SpeechShop::mouseDown(MouseEvent event)
 
 void SpeechShop::update()
 {
+	static bool lastPlugged = false;
+
+	if (lastPlugged != mIsPlugged)
+	{
+		togglePlug();
+		lastPlugged = mIsPlugged;
+	}
+
 	mSandbox.update();
 }
 
@@ -159,14 +224,14 @@ void SpeechShop::addLetter(Vec2i pos)
 	std::string boldFont( "Arial Bold" );
 	simple.setFont( Font( boldFont, Rand::randFloat(10, 25) ) );
 	simple.setColor( Color( 1, 1, 1 ) );
-	simple.addLine( mWords[mWordIndex] );
 
-	mWordIndex++;
-	if (mWordIndex >= mWords.size())
-		mWordIndex = 0;
+	Text *t = &mTexts[mTextIndex];
+	simple.addLine( t->words[ t->wordIndex ] );
+	t->wordIndex++;
+	if (t->wordIndex >= t->words.size())
+		t->wordIndex = 0;
 
 	gl::Texture texture( simple.render( true, PREMULT ) );
-
 	TexturedElement *b = new TexturedElement(texture, pos,
 			Vec2f(texture.getWidth(), texture.getHeight()));
 	b->setColor(Color::white());
@@ -177,9 +242,9 @@ void SpeechShop::draw()
 {
 	gl::clear(Color(0, 0, 0));
 	gl::setMatricesWindow( getWindowSize() );
-
 	mSandbox.draw();
+
+	params::PInterfaceGl::draw();
 }
 
 CINDER_APP_BASIC(SpeechShop, RendererGl)
-
