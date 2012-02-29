@@ -1,0 +1,16 @@
+MSAFLUID_PATH = '../../../blocks/msaFluid/scons/'
+
+import sys
+sys.path.append(MSAFLUID_PATH)
+import msaFluid
+SOURCES = msaFluid.getSources(MSAFLUID_PATH)
+INCLUDES = msaFluid.getIncludes(MSAFLUID_PATH)
+
+TARGET = 'Akac'
+SOURCES += ['Acacia.cpp', 'PParams.cpp']
+ASSETS = [ 'bw' ]
+DEBUG = 0
+
+SConscript('../../../scons/SConscript',
+	exports = ['TARGET', 'SOURCES', 'INCLUDES', 'ASSETS', 'DEBUG'])
+
