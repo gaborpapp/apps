@@ -65,6 +65,14 @@ class SpeechShop : public ci::app::AppBasic
 			unsigned wordIndex;
 		};
 
+		// gravity direction
+		enum {
+			GR_LEFT = 0,
+			GR_UP,
+			GR_RIGHT,
+			GR_DOWN };
+		int mGravityDir;
+
 		void addLetter(Vec2i pos);
 		void togglePlug();
 
@@ -73,15 +81,14 @@ class SpeechShop : public ci::app::AppBasic
 		int mTextIndex;
 
 		Sandbox mSandbox;
-		BoxElement *mPlug;
+		vector<BoxElement *> mPlugs;
 
 		ci::params::PInterfaceGl mParams;
 		bool mIsPlugged;
 };
 
 SpeechShop::SpeechShop()
-	: mPlug( NULL ),
-	  mTextIndex( 0 ),
+	: mTextIndex( 0 ),
 	  mIsPlugged( true )
 {
 }
@@ -105,8 +112,6 @@ void SpeechShop::setup()
 
 	mSandbox.init();
 
-	//mWords = split( loadString( loadResource(RES_TEXT) ), " \t\n" );
-	//mWordIndex = 0;
 	loadTexts();
 
 	mParams = params::PInterfaceGl("BeszedBolt", Vec2i(200, 300));
@@ -117,7 +122,13 @@ void SpeechShop::setup()
 		typeNames.push_back(mTexts[i].name);
 	mParams.addParam( "Type", typeNames, &mTextIndex,
 			" keyincr='[' keydecr=']' " );
-	mParams.addParam( "Plug", &mIsPlugged, " key='space' " );
+	mParams.addParam( "Plug", &mIsPlugged, "", true );
+
+	const string dirArr[] = { "Left", "Up", "Right", "Down" };
+	const int dirSize = sizeof( dirArr ) / sizeof( dirArr[0] );
+	std::vector<string> dirNames(dirArr, dirArr + dirSize);
+	mGravityDir = GR_DOWN;
+	mParams.addParam( "Gravity", dirNames, &mGravityDir, "", true );
 
 	gl::enableAlphaBlending();
 	gl::disableDepthWrite();
@@ -159,23 +170,48 @@ void SpeechShop::enableVSync(bool vs)
 
 void SpeechShop::togglePlug()
 {
-	if (mPlug == NULL)
+	if (mPlugs.empty())
 	{
 		mSandbox.clear();
 		mSandbox.init(false);
-		Area boxArea(0, 0, getWindowWidth(), 5 * getWindowHeight() );
+		int w = getWindowWidth();
+		int h = getWindowHeight();
+		Area boxArea(-5 * w, -5 * h, 5 * w, 5 * h );
 		mSandbox.createBoundaries( boxArea );
 
-		mPlug = new BoxElement( Vec2f( getWindowWidth() / 2, getWindowHeight() + 10 ),
-								Vec2f( getWindowWidth(), 10 ),
+		BoxElement *plug = new BoxElement( Vec2f( w / 2, h + 10 ),
+								Vec2f( w, 10 ),
 								false );
-		mSandbox.addElement(mPlug);
+		mSandbox.addElement(plug);
+		mPlugs.push_back( plug );
+
+		plug = new BoxElement( Vec2f( w / 2, -10 ),
+								Vec2f( w, 10 ),
+								false );
+		mSandbox.addElement(plug);
+		mPlugs.push_back( plug );
+
+		plug = new BoxElement( Vec2f( -5, h / 2 ),
+								Vec2f( 10, h ),
+								false );
+		mSandbox.addElement(plug);
+		mPlugs.push_back( plug );
+
+		plug = new BoxElement( Vec2f( w + 5, h / 2 ),
+								Vec2f( 10, h ),
+								false );
+		mSandbox.addElement(plug);
+		mPlugs.push_back( plug );
 	}
 	else
 	{
-		mSandbox.destroyElement( mPlug );
-		delete mPlug;
-		mPlug = NULL;
+		vector<BoxElement *>::iterator it;
+		for ( it = mPlugs.begin(); it != mPlugs.end(); ++it)
+		{
+			mSandbox.destroyElement( *it );
+			delete *it;
+		}
+		mPlugs.clear();
 	}
 }
 
@@ -187,10 +223,35 @@ void SpeechShop::resize(ResizeEvent event)
 
 void SpeechShop::keyDown(KeyEvent event)
 {
+	if (event.getChar() == ' ')
+		togglePlug();
+	else
 	if (event.getChar() == 'f')
 		setFullScreen(!isFullScreen());
-	if (event.getCode() == KeyEvent::KEY_ESCAPE)
-		quit();
+
+
+	switch (event.getCode())
+	{
+		case KeyEvent::KEY_ESCAPE:
+			quit();
+			break;
+
+		case KeyEvent::KEY_LEFT:
+			mGravityDir = GR_LEFT;
+			break;
+
+		case KeyEvent::KEY_UP:
+			mGravityDir = GR_UP;
+			break;
+
+		case KeyEvent::KEY_RIGHT:
+			mGravityDir = GR_RIGHT;
+			break;
+
+		case KeyEvent::KEY_DOWN:
+			mGravityDir = GR_DOWN;
+			break;
+	}
 }
 
 void SpeechShop::mouseDrag(MouseEvent event)
@@ -215,6 +276,24 @@ void SpeechShop::update()
 		lastPlugged = mIsPlugged;
 	}
 
+	switch ( mGravityDir )
+	{
+		case GR_LEFT:
+			mSandbox.setGravity( Vec2f( -500, 0 ) );
+			break;
+
+		case GR_UP:
+			mSandbox.setGravity( Vec2f( 0, -500 ) );
+			break;
+
+		case GR_RIGHT:
+			mSandbox.setGravity( Vec2f( 500, 0 ) );
+			break;
+
+		case GR_DOWN:
+			mSandbox.setGravity( Vec2f( 0, 500 ) );
+			break;
+	}
 	mSandbox.update();
 }
 
