@@ -155,11 +155,6 @@ void Acacia::addToFluid( Vec2f pos, Vec2f vel, bool addColor, bool addForce )
 
 			mLeaves.addLeaf( pos * Vec2f( getWindowSize() ),
 					mBWTextures[ Rand::randInt( mBWTextures.size() ) ] );
-
-			/*
-			if( drawParticles )
-				particleSystem.addParticles( pos * Vec2f( getWindowSize() ), 10 );
-			*/
 		}
 
 		if ( addForce )
@@ -202,7 +197,7 @@ void Acacia::mouseDrag(MouseEvent event)
 {
 	Vec2f mouseNorm = Vec2f( event.getPos() ) / getWindowSize();
 	Vec2f mouseVel = Vec2f( event.getPos() - mPrevMouse ) / getWindowSize();
-	addToFluid( mouseNorm, mouseVel, true, true );
+	addToFluid( mouseNorm, mouseVel, event.isLeftDown(), true );
 	mPrevMouse = event.getPos();
 }
 

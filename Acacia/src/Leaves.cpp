@@ -29,39 +29,19 @@ void Leaf::update( double time, const ciMsaFluidSolver *solver, const Vec2f &win
 {
 	mVel = solver->getVelocityAtPos( mPos * invWindowSize ) * (mMass * sFluidForce ) * windowSize + mVel * sMomentum;
 
-	mVel += Vec2f( mSlideAmplitude * sin( mSlideOffset + mSlideFrequency * time),
-			.3 );
-
-	mPos += mVel;
-
-	// bounce of edges
-	/*
-	if ( mPos.x < 0 )
-	{
-		mPos.x = 0;
-		mVel.x *= -1;
-	}
-	else
-	if ( mPos.x > windowSize.x )
-	{
-		mPos.x = windowSize.x;
-		mVel.x *= -1;
-	}
-	*/
-
-	/*
-	if ( mPos.y < 0 )
-	{
-		mPos.y = 0;
-		mVel.y *= -1;
-	}
-	else
-	*/
-	if ( mPos.y > windowSize.y )
+	if ( mPos.y >= windowSize.y )
 	{
 		mPos.y = windowSize.y;
-		mVel.y *= -1;
+		if (mVel.y > 0)
+			mVel = Vec2f( 0, 0 );
 	}
+	else
+	{
+		mVel += Vec2f( mSlideAmplitude * sin( mSlideOffset + mSlideFrequency * time),
+				.3 );
+	}
+
+	mPos += mVel;
 
 	mLifeSpan *= 0.995f;
 	if ( mLifeSpan < 0.01f )
@@ -70,7 +50,13 @@ void Leaf::update( double time, const ciMsaFluidSolver *solver, const Vec2f &win
 
 void Leaf::draw()
 {
-	Vec2f n = mSize * mVel.normalized();
+	Vec2f n;
+
+	if ( mVel.length() < EPSILON_VALUE )
+		n = Vec2f( 0, -mSize );
+	else
+		n = mSize * mVel.normalized();
+
 	Vec2f s( -n.y, n.x );
 
 	mTexture.bind();
@@ -86,13 +72,6 @@ void Leaf::draw()
 	gl::vertex( mPos - n + s );
 	glEnd();
 	mTexture.unbind();
-	/*
-	glBegin(GL_LINES);
-	gl::color( Color::white() );
-	gl::vertex( mPos );
-	gl::vertex( mPos - mVel );
-	glEnd();
-	*/
 }
 
 LeafManager::LeafManager()
