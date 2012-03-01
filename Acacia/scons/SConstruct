@@ -7,7 +7,7 @@ SOURCES = msaFluid.getSources(MSAFLUID_PATH)
 INCLUDES = msaFluid.getIncludes(MSAFLUID_PATH)
 
 TARGET = 'Akac'
-SOURCES += ['Acacia.cpp', 'PParams.cpp']
+SOURCES += ['Acacia.cpp', 'PParams.cpp', 'Leaves.cpp']
 ASSETS = [ 'bw' ]
 DEBUG = 0
 

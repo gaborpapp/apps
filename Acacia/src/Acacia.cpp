@@ -23,7 +23,11 @@
 #include "cinder/Utilities.h"
 #include "cinder/Filesystem.h"
 
+#include "ciMsaFluidSolver.h"
+#include "ciMsaFluidDrawerGl.h"
+
 #include "PParams.h"
+#include "Leaves.h"
 
 using namespace ci;
 using namespace ci::app;
@@ -47,11 +51,24 @@ class Acacia : public ci::app::AppBasic
 
 	private:
 		ci::params::PInterfaceGl mParams;
+		bool mDrawAtmosphere;
 
 		vector< gl::Texture > loadTextures( const fs::path &relativeDir );
 
 		vector< gl::Texture > mBWTextures;
+
+		ciMsaFluidSolver mFluidSolver;
+		ciMsaFluidDrawerGl mFluidDrawer;
+		static const int sFluidSizeX;
+
+		void addToFluid( Vec2f pos, Vec2f vel, bool addColor, bool addForce );
+
+		LeafManager mLeaves;
+
+		Vec2i mPrevMouse;
 };
+
+const int Acacia::sFluidSizeX = 128;
 
 void Acacia::prepareSettings(Settings *settings)
 {
@@ -66,9 +83,19 @@ void Acacia::setup()
 	mParams = params::PInterfaceGl("Japan akac", Vec2i(200, 300));
 	mParams.addPersistentSizeAndPosition();
 
+	mParams.addPersistentParam( "Atmosphere", &mDrawAtmosphere, true );
+
 	gl::disableVerticalSync();
 
 	mBWTextures = loadTextures( "bw" );
+
+	// fluid
+	mFluidSolver.setup( sFluidSizeX, sFluidSizeX );
+	mFluidSolver.enableRGB(false).setFadeSpeed(0.002).setDeltaT(.5).setVisc(0.00015).setColorDiffusion(0);
+	mFluidSolver.setWrap( false, true );
+	mFluidDrawer.setup( &mFluidSolver );
+
+	mLeaves.setFluidSolver( &mFluidSolver );
 
 	gl::enableAlphaBlending();
 	gl::disableDepthWrite();
@@ -100,24 +127,50 @@ vector< gl::Texture > Acacia::loadTextures( const fs::path &relativeDir )
 
 void Acacia::resize(ResizeEvent event)
 {
+	mFluidSolver.setSize( sFluidSizeX, sFluidSizeX / getWindowAspectRatio() );
+	mFluidDrawer.setup( &mFluidSolver );
+	mLeaves.setWindowSize( event.getSize() );
 }
 
-void Acacia::keyDown(KeyEvent event)
+void Acacia::addToFluid( Vec2f pos, Vec2f vel, bool addColor, bool addForce )
 {
-	if (event.getChar() == 'f')
-		setFullScreen(!isFullScreen());
-}
+	// balance the x and y components of speed with the screen aspect ratio
+	float speed = vel.x * vel.x +
+				  vel.y * vel.y * getWindowAspectRatio() * getWindowAspectRatio();
 
-void Acacia::mouseDrag(MouseEvent event)
-{
-}
+	if ( speed > 0 )
+	{
+		pos.x = constrain( pos.x, 0.0f, 1.0f );
+		pos.y = constrain( pos.y, 0.0f, 1.0f );
 
-void Acacia::mouseDown(MouseEvent event)
-{
+		const float colorMult = 100;
+		const float velocityMult = 30;
+
+		if ( addColor )
+		{
+			//Color drawColor( CM_HSV, ( getElapsedFrames() % 360 ) / 360.0f, 1, 1 );
+			Color drawColor( Color::white() );
+
+			mFluidSolver.addColorAtPos( pos, drawColor * colorMult );
+
+			mLeaves.addLeaf( pos * Vec2f( getWindowSize() ),
+					mBWTextures[ Rand::randInt( mBWTextures.size() ) ] );
+
+			/*
+			if( drawParticles )
+				particleSystem.addParticles( pos * Vec2f( getWindowSize() ), 10 );
+			*/
+		}
+
+		if ( addForce )
+			mFluidSolver.addForceAtPos( pos, vel * velocityMult );
+	}
 }
 
 void Acacia::update()
 {
+	mFluidSolver.update();
+	mLeaves.update( getElapsedSeconds() );
 }
 
 void Acacia::draw()
@@ -125,7 +178,40 @@ void Acacia::draw()
 	gl::clear(Color(0, 0, 0));
 	gl::setMatricesWindow( getWindowSize() );
 
+	if (mDrawAtmosphere)
+	{
+		gl::color( Color::white() );
+		mFluidDrawer.draw( 0, 0, getWindowWidth(), getWindowHeight() );
+	}
+
+	mLeaves.draw();
+
 	params::PInterfaceGl::draw();
+}
+
+void Acacia::keyDown(KeyEvent event)
+{
+	if (event.getChar() == 'f')
+		setFullScreen(!isFullScreen());
+
+	if (event.getCode() == KeyEvent::KEY_ESCAPE)
+		quit();
+}
+
+void Acacia::mouseDrag(MouseEvent event)
+{
+	Vec2f mouseNorm = Vec2f( event.getPos() ) / getWindowSize();
+	Vec2f mouseVel = Vec2f( event.getPos() - mPrevMouse ) / getWindowSize();
+	addToFluid( mouseNorm, mouseVel, true, true );
+	mPrevMouse = event.getPos();
+}
+
+void Acacia::mouseDown(MouseEvent event)
+{
+	Vec2f mouseNorm = Vec2f( event.getPos() ) / getWindowSize();
+	Vec2f mouseVel = Vec2f( event.getPos() - mPrevMouse ) / getWindowSize();
+	addToFluid( mouseNorm, mouseVel, false, true );
+	mPrevMouse = event.getPos();
 }
 
 CINDER_APP_BASIC(Acacia, RendererGl)
