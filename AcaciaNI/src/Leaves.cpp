@@ -43,7 +43,7 @@ void Leaf::update( double time, const ciMsaFluidSolver *solver, const Vec2f &win
 
 	mPos += mVel;
 
-	mLifeSpan *= 0.995f;
+	mLifeSpan *= LeafManager::getAging();
 	if ( mLifeSpan < 0.01f )
 		mLifeSpan = 0;
 }
@@ -76,6 +76,7 @@ void Leaf::draw()
 
 
 float LeafManager::sGravity = 0.3f;
+float LeafManager::sAging = 0.995f;
 
 LeafManager::LeafManager()
 {
@@ -116,7 +117,8 @@ void LeafManager::draw()
 
 void LeafManager::addLeaf( const Vec2f &pos, gl::Texture texture )
 {
-	mLeaves.push_back( Leaf( pos, texture ) );
+	if (mLeaves.size() < mMaximum )
+		mLeaves.push_back( Leaf( pos, texture ) );
 }
 
 void LeafManager::clear()

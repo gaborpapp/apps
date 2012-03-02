@@ -13,8 +13,6 @@ class Leaf
 		Leaf( const ci::Vec2f &pos, ci::gl::Texture texture );
 
 		void update( double time, const ciMsaFluidSolver *solver, const ci::Vec2f &windowSize, const ci::Vec2f &invWindowSize );
-		//void updateVertexArrays( bool drawingFluid, const ci::Vec2f &invWindowSize, int i, float* posBuffer, float* colBuffer);
-
 		void draw();
 		bool isAlive() { return mLifeSpan > 0; }
 
@@ -33,7 +31,6 @@ class Leaf
 
 		static const float sMomentum;
 		static const float sFluidForce;
-
 };
 
 class LeafManager
@@ -53,13 +50,23 @@ class LeafManager
 		static float getGravity() { return sGravity; }
 		static void setGravity( float g ) { sGravity = g; }
 
+		static float getAging() { return sAging; }
+		static void setAging( float a ) { sAging = a; }
+
+		unsigned getMaximum() const { return mMaximum; }
+		void setMaximum( unsigned m ) { mMaximum = m; }
+
+		unsigned getCount() const { return mLeaves.size(); }
+
 	private:
 		ci::Vec2i mWindowSize;
 		ci::Vec2f mInvWindowSize;
 
 		const ciMsaFluidSolver *mSolver;
 
+		unsigned mMaximum;
 		static float sGravity;
+		static float sAging;
 
 		std::list< Leaf > mLeaves;
 };

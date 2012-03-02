@@ -57,6 +57,9 @@ class Acacia : public ci::app::AppBasic
 
 	private:
 		ci::params::PInterfaceGl mParams;
+		int mMaxLeaves;
+		int mLeafCount;
+		float mAging;
 		float mGravity;
 		float mVelThres;
 		float mVelDiv;
@@ -114,12 +117,15 @@ void Acacia::setup()
 	mParams = params::PInterfaceGl("Japan akac", Vec2i(200, 300));
 	mParams.addPersistentSizeAndPosition();
 
+	mParams.addPersistentParam( "Max leaves", &mMaxLeaves, 1000, " min=100, max=4000, step=100 " );
+	mLeafCount = 0;
+	mParams.addParam( "Leaf count", &mLeafCount, "", true );
+	mParams.addPersistentParam( "Leaf Aging", &mAging, 0.995, " min=0, max=1, step=.005 " );
 	mParams.addPersistentParam( "Gravity", &mGravity, 0.8, " min=0, max=10, step=.25 " );
 	mParams.addPersistentParam( "Add leaves", &mAddLeaves, true );
 	mParams.addPersistentParam( "Velocity threshold", &mVelThres, 5., " min=0, max=50, step=.1 " );
 	mParams.addPersistentParam( "Velocity divisor", &mVelDiv, 5, " min=1, max=50 " );
 	mParams.addButton( "Clear leaves", std::bind(&Acacia::clearLeaves, this), " key=SPACE ");
-
 
 	mParams.addSeparator();
 	mParams.addPersistentParam( "Atmosphere", &mDrawAtmosphere, false );
@@ -251,7 +257,10 @@ void Acacia::update()
 	mFluidSolver.update();
 
 	mLeaves.setGravity( mGravity );
+	mLeaves.setMaximum( mMaxLeaves );
+	mLeaves.setAging( mAging );
 	mLeaves.update( getElapsedSeconds() );
+	mLeafCount = mLeaves.getCount();
 
 	if (mNI.checkNewDepthFrame())
 	{
@@ -362,5 +371,5 @@ void Acacia::mouseDown(MouseEvent event)
 	mPrevMouse = event.getPos();
 }
 
-CINDER_APP_BASIC(Acacia, RendererGl(0) )
+CINDER_APP_BASIC(Acacia, RendererGl( RendererGl::AA_MSAA_4 ) )
 
