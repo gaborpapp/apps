@@ -300,11 +300,12 @@ void OpenNI::Obj::generateDepth()
 		const uint16_t *depth = reinterpret_cast<const uint16_t*>( mDepthMD.Data() );
 		mDepthBuffers.derefActiveBuffer(); // finished with current active buffer
 		uint16_t *destPixels = mDepthBuffers.getNewBuffer(); // request a new buffer
+		uint32_t depthScale = 0xffff0000 / mDepthMaxDepth;
 
 		for (size_t p = 0; p < mDepthWidth * mDepthHeight; ++p )
 		{
 			uint32_t v = depth[p];
-			destPixels[p] = 65535 * v / mDepthMaxDepth;
+			destPixels[p] = (depthScale * v) >> 16;
 		}
 		mDepthBuffers.setActiveBuffer( destPixels ); // set this new buffer to be the current active buffer
 		mNewDepthFrame = true; // flag that there's a new depth frame
