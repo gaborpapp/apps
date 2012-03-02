@@ -90,7 +90,7 @@ class Acacia : public ci::app::AppBasic
 		vector<cv::Point2f> mPrevFeatures, mFeatures;
 		vector<uint8_t> mFeatureStatuses;
 
-		static const int MAX_FEATURES = 32;
+		static const int MAX_FEATURES = 128;
 		#define CAMERA_WIDTH 160
 		#define CAMERA_HEIGHT 120
 		static const Vec2f CAMERA_SIZE; //( CAMERA_WIDTH, CAMERA_HEIGHT );
@@ -114,10 +114,10 @@ void Acacia::setup()
 	mParams = params::PInterfaceGl("Japan akac", Vec2i(200, 300));
 	mParams.addPersistentSizeAndPosition();
 
-	mParams.addPersistentParam( "Gravity", &mGravity, 0.3, " min=0, max=10, step=.25 " );
+	mParams.addPersistentParam( "Gravity", &mGravity, 0.8, " min=0, max=10, step=.25 " );
 	mParams.addPersistentParam( "Add leaves", &mAddLeaves, true );
-	mParams.addPersistentParam( "Velocity threshold", &mVelThres, .5, " min=0, max=50, step=.1 " );
-	mParams.addPersistentParam( "Velocity divisor", &mVelDiv, 1, " min=1, max=50 " );
+	mParams.addPersistentParam( "Velocity threshold", &mVelThres, 5., " min=0, max=50, step=.1 " );
+	mParams.addPersistentParam( "Velocity divisor", &mVelDiv, 5, " min=1, max=50 " );
 	mParams.addButton( "Clear leaves", std::bind(&Acacia::clearLeaves, this), " key=SPACE ");
 
 
