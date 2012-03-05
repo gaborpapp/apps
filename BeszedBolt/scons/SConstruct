@@ -8,7 +8,7 @@ INCLUDES = Box2D.getIncludes(BOX2DPATH)
 
 TARGET = 'BeszedBolt'
 SOURCES += ['SpeechShop.cpp', 'PParams.cpp']
-ASSETS = ['bucsuzasok.txt', 'kozhelyek.txt']
+ASSETS = ['bucsuzasok.txt', 'kozhelyek.txt', 'csufolasok.txt', 'dicseretek.txt']
 DEBUG = 0
 
 SConscript('../../../scons/SConscript',
