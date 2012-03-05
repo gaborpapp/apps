@@ -161,8 +161,9 @@ void Acacia::setup()
 		console() << "Could not open Kinect" << endl;
 		quit();
 	}
-	mNI.setMirrored( true );
+	mNI.setMirrored( false );
 	mNI.setDepthAligned();
+	//mNI.setVideoInfrared();
 	mNI.start();
 
 	mFont = Font("Lucida Grande", 12.0f);

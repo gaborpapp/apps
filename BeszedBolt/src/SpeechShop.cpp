@@ -72,6 +72,7 @@ class SpeechShop : public ci::app::AppBasic
 			GR_RIGHT,
 			GR_DOWN };
 		int mGravityDir;
+		float mGravity;
 
 		void addLetter(Vec2i pos);
 		void togglePlug();
@@ -124,11 +125,13 @@ void SpeechShop::setup()
 			" keyincr='[' keydecr=']' " );
 	mParams.addParam( "Plug", &mIsPlugged, "", true );
 
+	mParams.addPersistentParam( "Gravity", &mGravity, 500, " min=10, max=500, step=10 ");
+
 	const string dirArr[] = { "Left", "Up", "Right", "Down" };
 	const int dirSize = sizeof( dirArr ) / sizeof( dirArr[0] );
 	std::vector<string> dirNames(dirArr, dirArr + dirSize);
 	mGravityDir = GR_DOWN;
-	mParams.addParam( "Gravity", dirNames, &mGravityDir, "", true );
+	mParams.addParam( "Gravity Dir", dirNames, &mGravityDir, "", true );
 
 	gl::enableAlphaBlending();
 	gl::disableDepthWrite();
@@ -279,19 +282,19 @@ void SpeechShop::update()
 	switch ( mGravityDir )
 	{
 		case GR_LEFT:
-			mSandbox.setGravity( Vec2f( -500, 0 ) );
+			mSandbox.setGravity( Vec2f( -mGravity, 0 ) );
 			break;
 
 		case GR_UP:
-			mSandbox.setGravity( Vec2f( 0, -500 ) );
+			mSandbox.setGravity( Vec2f( 0, -mGravity ) );
 			break;
 
 		case GR_RIGHT:
-			mSandbox.setGravity( Vec2f( 500, 0 ) );
+			mSandbox.setGravity( Vec2f( mGravity, 0 ) );
 			break;
 
 		case GR_DOWN:
-			mSandbox.setGravity( Vec2f( 0, 500 ) );
+			mSandbox.setGravity( Vec2f( 0, mGravity ) );
 			break;
 	}
 	mSandbox.update();
