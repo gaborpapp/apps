@@ -32,6 +32,7 @@
 #include "SpeechShop.h"
 #include "DepthMerge.h"
 #include "Acacia.h"
+#include "Moon.h"
 
 using namespace ci;
 using namespace ci::app;
@@ -65,7 +66,8 @@ class KotoKaoriApp : public ci::app::AppBasic
 			EFFECT_FEKETE = 0,
 			EFFECT_BESZEDBOLT,
 			EFFECT_KEZEKLABAK,
-			EFFECT_AKAC
+			EFFECT_AKAC,
+			EFFECT_HOLD
 		};
 
 		int mEffectIndex;
@@ -85,6 +87,7 @@ KotoKaoriApp::KotoKaoriApp()
 	mEffectNames.push_back( "BeszedBolt" );
 	mEffectNames.push_back( "KezekLabak" );
 	mEffectNames.push_back( "Japan akac" );
+	mEffectNames.push_back( "Hold" );
 }
 
 void KotoKaoriApp::prepareSettings(Settings *settings)
@@ -139,6 +142,7 @@ void KotoKaoriApp::setup()
 	mEffects.push_back( new SpeechShop( this ) );
 	mEffects.push_back( new DepthMerge( this ) );
 	mEffects.push_back( new Acacia( this ) );
+	mEffects.push_back( new Moon( this ) );
 
 	for (vector<Effect *>::iterator it = mEffects.begin(); it != mEffects.end();
 			++it)

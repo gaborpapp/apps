@@ -17,6 +17,10 @@ ASSETS += [ 'BeszedBolt' ]
 SOURCES += [ 'Acacia.cpp', 'Leaves.cpp' ]
 ASSETS += [ 'Akac' ]
 
+# Hold
+SOURCES += [ 'Moon.cpp' ]
+ASSETS += [ 'Hold' ]
+
 DEBUG = 1
 
 INCLUDES = []
