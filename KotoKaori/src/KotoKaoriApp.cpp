@@ -31,7 +31,7 @@
 #include "Black.h"
 #include "SpeechShop.h"
 #include "DepthMerge.h"
-
+#include "Acacia.h"
 
 using namespace ci;
 using namespace ci::app;
@@ -64,16 +64,19 @@ class KotoKaoriApp : public ci::app::AppBasic
 		enum {
 			EFFECT_FEKETE = 0,
 			EFFECT_BESZEDBOLT,
-			EFFECT_KEZEKLABAK
+			EFFECT_KEZEKLABAK,
+			EFFECT_AKAC
 		};
 
 		int mEffectIndex;
+		int mPrevEffectIndex;
 
 		bool mFullScreen;
 
 		vector<string> mEffectNames;
 
 		OpenNI mNI;
+		bool mNIMirror;
 };
 
 KotoKaoriApp::KotoKaoriApp()
@@ -81,6 +84,7 @@ KotoKaoriApp::KotoKaoriApp()
 	mEffectNames.push_back( "Fekete" );
 	mEffectNames.push_back( "BeszedBolt" );
 	mEffectNames.push_back( "KezekLabak" );
+	mEffectNames.push_back( "Japan akac" );
 }
 
 void KotoKaoriApp::prepareSettings(Settings *settings)
@@ -93,56 +97,60 @@ void KotoKaoriApp::setup()
 	gl::disableVerticalSync();
 
 	// params
-    string paramsXml = getResourcePath().string() + "/params.xml";
-    params::PInterfaceGl::load( paramsXml );
+	string paramsXml = getResourcePath().string() + "/params.xml";
+	params::PInterfaceGl::load( paramsXml );
 
 	mParams = params::PInterfaceGl("Koto es Kaori", Vec2i(200, 300));
-    mParams.addPersistentSizeAndPosition();
+	mParams.addPersistentSizeAndPosition();
 
-	mEffectIndex = EFFECT_BESZEDBOLT;
+	mEffectIndex = EFFECT_FEKETE;
+	mPrevEffectIndex = 0;
 	mParams.addParam("Effect", mEffectNames, &mEffectIndex);
 
+	mParams.addSeparator();
+	mParams.addPersistentParam("Mirror", &mNIMirror, true, "key=m" );
+
+	mParams.addSeparator();
 	mParams.addPersistentParam("Fullscreen", &mFullScreen, false, " key='f' ");
 
 	// OpenNI
-    try
-    {
-        //mNI = OpenNI( OpenNI::Device() );
+	try
+	{
+		//mNI = OpenNI( OpenNI::Device() );
 
-        string path = getAppPath().string();
-#ifdef CINDER_MAC
-        path += "/../";
-#endif
-        path += "rec.oni";
-        mNI = OpenNI( path );
-    }
-    catch (...)
-    {
-        console() << "Could not open Kinect" << endl;
-        quit();
-    }
+		string path = getAppPath().string();
+	#ifdef CINDER_MAC
+		path += "/../";
+	#endif
+		path += "rec.oni";
 
-    //mNI.setMirrored( mMirror );
-    mNI.setMirrored();
-    //if ( mDepthAlign )
+		mNI = OpenNI( path );
+	}
+	catch (...)
+	{
+		console() << "Could not open Kinect" << endl;
+		quit();
+	}
+
 	mNI.setDepthAligned( true );
 
 	// effects
 	mEffects.push_back( new Black() );
 	mEffects.push_back( new SpeechShop( this ) );
 	mEffects.push_back( new DepthMerge( this ) );
+	mEffects.push_back( new Acacia( this ) );
 
 	for (vector<Effect *>::iterator it = mEffects.begin(); it != mEffects.end();
 			++it)
 	{
 		(*it)->setup();
 	}
-	//mEffects[ EFFECT_BESZEDBOLT ]->setup();
-	//mEffects[ EFFECT_KEZEKLABAK ]->setup();
 
 	reinterpret_cast< DepthMerge *>(mEffects[ EFFECT_KEZEKLABAK ])->setNI( mNI );
+	reinterpret_cast< Acacia *>(mEffects[ EFFECT_AKAC ])->setNI( mNI );
+
 	// OpenNI start
-    mNI.start();
+	mNI.start();
 }
 
 void KotoKaoriApp::shutdown()
@@ -170,7 +178,11 @@ void KotoKaoriApp::mouseDrag( MouseEvent event )
 
 void KotoKaoriApp::resize( ci::app::ResizeEvent event )
 {
-	mEffects[ mEffectIndex ]->resize( event );
+	for (vector<Effect *>::iterator it = mEffects.begin(); it != mEffects.end();
+			++it)
+	{
+		(*it)->resize( event );
+	}
 }
 
 void KotoKaoriApp::update()
@@ -181,7 +193,18 @@ void KotoKaoriApp::update()
 	if ( !mFullScreen && isFullScreen() )
 		setFullScreen( false );
 
+	if (mNIMirror != mNI.isMirrored())
+		mNI.setMirrored( mNIMirror );
+
+	if ( mEffectIndex != mPrevEffectIndex )
+	{
+		mEffects[ mPrevEffectIndex ]->deinstantiate();
+		mEffects[ mEffectIndex ]->instantiate();
+	}
+
 	mEffects[ mEffectIndex ]->update();
+
+	mPrevEffectIndex = mEffectIndex;
 }
 
 void KotoKaoriApp::draw()

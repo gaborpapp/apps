@@ -13,6 +13,10 @@ RESOURCES += ['PassThroughVert.glsl', 'DepthMergeFrag.glsl']
 SOURCES += [ 'SpeechShop.cpp' ]
 ASSETS += [ 'BeszedBolt' ]
 
+# Akac
+SOURCES += [ 'Acacia.cpp', 'Leaves.cpp' ]
+ASSETS += [ 'Akac' ]
+
 DEBUG = 1
 
 INCLUDES = []
