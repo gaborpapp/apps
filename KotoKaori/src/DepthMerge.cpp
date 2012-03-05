@@ -15,73 +15,21 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include "cinder/Cinder.h"
-#include "cinder/app/AppBasic.h"
-#include "cinder/gl/Texture.h"
-#include "cinder/gl/Fbo.h"
-#include "cinder/gl/GlslProg.h"
+#include "DepthMerge.h"
 
-#include "NI.h"
-#include "BoxBlur.h"
-#include "Utils.h"
-#include "PParams.h"
 #include "Resources.h"
 
 using namespace ci;
 using namespace ci::app;
 using namespace std;
 
-#define TEXTURE_COUNT 128
-
-class DepthMergeApp : public ci::app::AppBasic
+DepthMerge::DepthMerge( App *app )
+	: Effect( app )
 {
-	public:
-		void prepareSettings(Settings *settings);
-		void setup();
-		void enableVSync(bool vs);
-		void shutdown();
-
-		void keyDown(ci::app::KeyEvent event);
-		void keyUp(ci::app::KeyEvent event);
-
-		void update();
-		void draw();
-
-		void saveScreenshot();
-		void toggleRecording();
-
-	private:
-		OpenNI mNI;
-
-		enum { TYPE_COLOR = 0, TYPE_IR, TYPE_DEPTH };
-
-		//gl::Fbo mDepthTextures[TEXTURE_COUNT];
-		gl::Texture mDepthTextures[TEXTURE_COUNT];
-		gl::Texture mColorTextures[TEXTURE_COUNT];
-		int mCurrentIndex;
-
-		gl::GlslProg mShader;
-		//gl::ip::BoxBlur mBoxBlur;
-
-		ci::params::PInterfaceGl mParams;
-		int mType;
-		int mStepLog2;
-		float mMinDepth;
-		float mMaxDepth;
-		bool mMirror;
-};
-
-void DepthMergeApp::prepareSettings(Settings *settings)
-{
-	settings->setWindowSize(640, 480);
 }
 
-void DepthMergeApp::setup()
+void DepthMerge::setup()
 {
-	int maxTextureUnits;
-	glGetIntegerv(GL_MAX_TEXTURE_IMAGE_UNITS, &maxTextureUnits);
-	console() << "Max texture units: " << maxTextureUnits << endl;
-
 	mShader = gl::GlslProg(loadResource(RES_PASSTHROUGH_VERT),
 						   loadResource(RES_DEPTHMERGE_FRAG));
 	mShader.bind();
@@ -93,30 +41,8 @@ void DepthMergeApp::setup()
 
 	mCurrentIndex = 0;
 
-	/*
-	gl::Fbo::Format fboFormat;
-	fboFormat.enableDepthBuffer(false);
-	fboFormat.setMagFilter(GL_NEAREST);
-	for (int i = 0; i < TEXTURE_COUNT; i++)
-	{
-		mDepthTextures[i] = gl::Fbo( 640, 480, fboFormat );
-		mDepthTextures[i].bindFramebuffer();
-		gl::clear();
-		mDepthTextures[i].unbindFramebuffer();
-	}
-	*/
-
-	//mBoxBlur = gl::ip::BoxBlur( 640, 480 );
-
 	// params
-	string paramsXml = getAppPath().string();
-#ifdef CINDER_MAC
-	paramsXml += "/Contents/Resources/";
-#endif
-	paramsXml += "params.xml";
-	params::PInterfaceGl::load( paramsXml );
-
-	mParams = params::PInterfaceGl("Parameters", Vec2i(200, 300));
+	mParams = params::PInterfaceGl("KezekLabak", Vec2i(200, 300));
 	mParams.addPersistentSizeAndPosition();
 
 	const string typeArr[] = { "Color", "Infrared", "Depth" };
@@ -132,6 +58,7 @@ void DepthMergeApp::setup()
 	mParams.addPersistentParam( "Min depth", &mMinDepth, 0, "min=0 max=1 step=0.001 keyIncr=x keyDecr=X" );
 	mParams.addPersistentParam( "Max depth", &mMaxDepth, 1, "min=0 max=1 step=0.001 keyIncr=c keyDecr=C" );
 
+	/*
 	mParams.addPersistentParam( "Mirror", &mMirror, true, "key=m" );
 
 	mParams.addSeparator();
@@ -160,83 +87,12 @@ void DepthMergeApp::setup()
 	if (mType == TYPE_COLOR)
 		mNI.setDepthAligned( true );
 	mNI.start();
-
-	enableVSync(false);
+	*/
 }
 
-void DepthMergeApp::enableVSync(bool vs)
+void DepthMerge::update()
 {
-#if defined(CINDER_MAC)
-	GLint vsync = vs;
-	CGLSetParameter(CGLGetCurrentContext(), kCGLCPSwapInterval, &vsync);
-#endif
-}
-
-void DepthMergeApp::saveScreenshot()
-{
-	string path = getAppPath().string();
-#ifdef CINDER_MAC
-	path += "/../";
-#endif
-	path += "snap-" + timeStamp() + ".png";
-	fs::path pngPath(path);
-
-	try
-	{
-		Surface srf = copyWindowSurface();
-
-		if (!pngPath.empty())
-		{
-			writeImage( pngPath, srf );
-		}
-	}
-	catch ( ... )
-	{
-		console() << "unable to save image file " << path << endl;
-	}
-}
-
-void DepthMergeApp::toggleRecording()
-{
-	if ( mNI.isRecording() )
-	{
-		mNI.stopRecording();
-		mParams.setOptions( "Stop recording", " label='Start recording' " );
-	}
-	else
-	{
-		string path = getAppPath().string();
-#ifdef CINDER_MAC
-		path += "/../";
-#endif
-		path += "rec-" + timeStamp() + ".oni";
-		fs::path oniPath(path);
-
-		mNI.startRecording( oniPath );
-		mParams.setOptions( "Start recording", " label='Stop recording' " );
-	}
-}
-
-void DepthMergeApp::shutdown()
-{
-	params::PInterfaceGl::save();
-}
-
-void DepthMergeApp::keyDown(KeyEvent event)
-{
-	if (event.getChar() == 'f')
-		setFullScreen(!isFullScreen());
-
-	if (event.getCode() == KeyEvent::KEY_ESCAPE)
-		quit();
-}
-
-void DepthMergeApp::keyUp(KeyEvent event)
-{
-}
-
-void DepthMergeApp::update()
-{
+	/*
 	if (mMirror != mNI.isMirrored())
 		mNI.setMirrored( mMirror );
 
@@ -263,25 +119,11 @@ void DepthMergeApp::update()
 		if (!mNI.isVideoInfrared())
 			mNI.setVideoInfrared();
 	}
+	*/
 
 	if (mNI.checkNewDepthFrame() && mNI.checkNewVideoFrame())
 	{
 		mCurrentIndex = (mCurrentIndex + 1) & (TEXTURE_COUNT - 1);
-
-		/*
-		gl::Texture::Format format;
-		format.setMagFilter(GL_LINEAR);
-
-		gl::Texture blurredDepth = mBoxBlur.process( gl::Texture( mNI.getDepthImage(), format ), .0);
-
-		mDepthTextures[mCurrentIndex].bindFramebuffer();
-		gl::setMatricesWindow(mDepthTextures[mCurrentIndex].getSize(), false);
-		gl::setViewport(mDepthTextures[mCurrentIndex].getBounds());
-
-		gl::draw( blurredDepth );
-
-		mDepthTextures[mCurrentIndex].unbindFramebuffer();
-		*/
 
 		gl::Texture::Format format;
 		format.setMagFilter(GL_NEAREST);
@@ -291,27 +133,10 @@ void DepthMergeApp::update()
 	}
 }
 
-void DepthMergeApp::draw()
+void DepthMerge::draw()
 {
 	gl::clear(Color(0, 0, 0));
 	gl::setMatricesWindow(getWindowSize());
-
-	/*
-	gl::enableAlphaBlending();
-	gl::disableDepthRead();
-	gl::disableDepthWrite();
-
-	if (mColorTextures[0])
-	{
-		gl::color(ColorA(1, 1, 1, 0.5));
-		gl::draw(mColorTextures[0]);
-	}
-	if (mDepthTextures[0])
-	{
-		gl::color(ColorA(1, 1, 1, 0.5));
-		gl::draw(mDepthTextures[0]);
-	}
-	*/
 
 	mShader.bind();
 
@@ -357,9 +182,5 @@ void DepthMergeApp::draw()
 	glActiveTexture(GL_TEXTURE0);
 
 	mShader.unbind();
-
-	params::PInterfaceGl::draw();
 }
-
-CINDER_APP_BASIC(DepthMergeApp, RendererGl)
 

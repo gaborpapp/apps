@@ -5,14 +5,15 @@ SOURCES = ['KotoKaoriApp.cpp', 'PParams.cpp', 'Effect.cpp',
 RESOURCES = []
 ASSETS = []
 
-SOURCES += []
+# KezekLabak
+SOURCES += [ 'DepthMerge.cpp' ]
 RESOURCES += ['PassThroughVert.glsl', 'DepthMergeFrag.glsl']
 
 # BeszedBolt
 SOURCES += [ 'SpeechShop.cpp' ]
 ASSETS += [ 'BeszedBolt' ]
 
-DEBUG = 0
+DEBUG = 1
 
 INCLUDES = []
 LIBS = []
@@ -46,10 +47,10 @@ sys.path.append(CINDER_OPENCV_PATH)
 import CinderOpenCV
 SOURCES += CinderOpenCV.getSources(CINDER_OPENCV_PATH)
 INCLUDES += CinderOpenCV.getIncludes(CINDER_OPENCV_PATH)
-LIBS = CinderOpenCV.getLibs(CINDER_OPENCV_PATH)
-LIBS = [File(s) for s in LIBS]
+CV_LIBS = CinderOpenCV.getLibs(CINDER_OPENCV_PATH)
+LIBS += [File(s) for s in CV_LIBS]
 
 SConscript('../../../scons/SConscript',
 	exports = ['TARGET', 'SOURCES', 'INCLUDES', 'LIBS', 'LIBPATH',
-		'ASSETS', 'DEBUG'])
+		'ASSETS', 'RESOURCES', 'DEBUG'])
 

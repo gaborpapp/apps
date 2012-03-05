@@ -18,7 +18,7 @@ class SpeechShop : public Effect
 	public:
 		SpeechShop( ci::app::App *app );
 
-		void setup( const std::string Name );
+		void setup();
 
 		void instantiate();
 

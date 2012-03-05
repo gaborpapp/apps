@@ -54,11 +54,10 @@ SpeechShop::SpeechShop( App *app )
 	: mTextIndex( 0 ),
 	  mIsPlugged( true ),
 	  Effect( app )
-
 {
 }
 
-void SpeechShop::setup( const std::string name )
+void SpeechShop::setup()
 {
 	//Effect::setup( "BeszedBolt" );
 	// params
@@ -82,7 +81,7 @@ void SpeechShop::setup( const std::string name )
 	std::vector<string> typeNames;
 	for (unsigned i = 0; i < mTexts.size(); ++i)
 		typeNames.push_back(mTexts[i].name);
-	mParams.addParam( "Type", typeNames, &mTextIndex,
+	mParams.addParam( "Text", typeNames, &mTextIndex,
 			" keyincr='[' keydecr=']' " );
 	mParams.addParam( "Plug", &mIsPlugged, "", true );
 
@@ -265,6 +264,5 @@ void SpeechShop::draw()
 	gl::setMatricesWindow( getWindowSize() );
 	mSandbox.draw();
 
-	params::PInterfaceGl::draw();
 }
 

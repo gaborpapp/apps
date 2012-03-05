@@ -8,9 +8,9 @@
 
 class Effect {
 	public:
-		Effect( ci::app::App *app ) : mApp( app ) {}
+		Effect( ci::app::App *app = NULL ) : mApp( app ) {}
 
-		virtual void setup( const std::string Name );
+		virtual void setup() {};
 
 		virtual void instantiate() {}
 		virtual void deinstantiate() {}
