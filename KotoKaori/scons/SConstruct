@@ -21,7 +21,7 @@ ASSETS += [ 'Akac' ]
 SOURCES += [ 'Moon.cpp' ]
 ASSETS += [ 'Hold' ]
 
-DEBUG = 1
+DEBUG = 0
 
 INCLUDES = []
 LIBS = []

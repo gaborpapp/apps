@@ -48,6 +48,7 @@ class SpeechShop : public Effect
 			GR_RIGHT,
 			GR_DOWN };
 		int mGravityDir;
+		float mGravity;
 
 		void addLetter( ci::Vec2i pos );
 		void togglePlug();
@@ -55,6 +56,7 @@ class SpeechShop : public Effect
 		void loadTexts();
 		std::vector<Text> mTexts;
 		int mTextIndex;
+		void initTexts();
 
 		box2d::Sandbox mSandbox;
 		std::vector< ci::box2d::BoxElement *> mPlugs;

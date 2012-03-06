@@ -48,8 +48,11 @@ class Acacia : public Effect
 		float mGravity;
 		float mVelThres;
 		float mVelDiv;
+		float mParticleVelThres;
+		float mParticleVelDiv;
 		bool mAddLeaves;
 		bool mAddParticles;
+
 
 		bool mDrawAtmosphere;
 		bool mDrawCamera;

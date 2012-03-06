@@ -22,32 +22,6 @@ using namespace ci::app;
 using namespace ci::box2d;
 using namespace std;
 
-/*
-static const bool PREMULT = true;
-
-#include "cinder/Cinder.h"
-#include "cinder/app/AppBasic.h"
-#include "cinder/gl/Texture.h"
-#include "cinder/Text.h"
-#include "cinder/Font.h"
-#include "cinder/Rand.h"
-#include "cinder/Utilities.h"
-#include "cinder/Filesystem.h"
-
-#include "PParams.h"
-
-#include "b2cinder/b2cinder.h"
-
-#include "Resources.h"
-
-*/
-
-using namespace ci;
-using namespace ci::app;
-using namespace ci::box2d;
-using namespace std;
-
-
 static const bool PREMULT = true;
 
 SpeechShop::SpeechShop( App *app )
@@ -85,6 +59,8 @@ void SpeechShop::setup()
 			" keyincr='[' keydecr=']' " );
 	mParams.addParam( "Plug", &mIsPlugged, "", true );
 
+	mParams.addPersistentParam( "Gravity", &mGravity, 500, " min=10, max=500, step=10 ");
+
 	const string dirArr[] = { "Left", "Up", "Right", "Down" };
 	const int dirSize = sizeof( dirArr ) / sizeof( dirArr[0] );
 	std::vector<string> dirNames(dirArr, dirArr + dirSize);
@@ -97,6 +73,16 @@ void SpeechShop::instantiate()
 	gl::enableAlphaBlending();
 	gl::disableDepthWrite();
 	gl::disableDepthRead();
+	mTextIndex = 1;
+	initTexts();
+}
+
+void SpeechShop::initTexts()
+{
+	for (vector<Text>::iterator it = mTexts.begin(); it != mTexts.end(); ++it)
+	{
+		it->wordIndex = 0;
+	}
 }
 
 void SpeechShop::loadTexts()
@@ -151,6 +137,8 @@ void SpeechShop::togglePlug()
 								false );
 		mSandbox.addElement(plug);
 		mPlugs.push_back( plug );
+
+		initTexts();
 	}
 	else
 	{
@@ -173,7 +161,9 @@ void SpeechShop::resize( ResizeEvent event )
 void SpeechShop::keyDown(KeyEvent event)
 {
 	if (event.getChar() == ' ')
-		togglePlug();
+	{
+		mIsPlugged = !mIsPlugged;
+	}
 
 	switch (event.getCode())
 	{
@@ -220,19 +210,19 @@ void SpeechShop::update()
 	switch ( mGravityDir )
 	{
 		case GR_LEFT:
-			mSandbox.setGravity( Vec2f( -500, 0 ) );
+			mSandbox.setGravity( Vec2f( -mGravity, 0 ) );
 			break;
 
 		case GR_UP:
-			mSandbox.setGravity( Vec2f( 0, -500 ) );
+			mSandbox.setGravity( Vec2f( 0, -mGravity ) );
 			break;
 
 		case GR_RIGHT:
-			mSandbox.setGravity( Vec2f( 500, 0 ) );
+			mSandbox.setGravity( Vec2f( mGravity, 0 ) );
 			break;
 
 		case GR_DOWN:
-			mSandbox.setGravity( Vec2f( 0, 500 ) );
+			mSandbox.setGravity( Vec2f( 0, mGravity ) );
 			break;
 	}
 	mSandbox.update();

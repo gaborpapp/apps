@@ -18,6 +18,7 @@ void Moon::setup()
 
 	fs::path moviePath = mApp->getResourcePath() / "assets/Hold/moon.mov";
 	mMovie = qtime::MovieGl( moviePath );
+	mMovie.stop();
 }
 
 void Moon::deinstantiate()

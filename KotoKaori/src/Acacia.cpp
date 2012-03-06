@@ -46,7 +46,9 @@ void Acacia::setup()
 	mParams.addParam( "Add particles", &mAddParticles );
 	mParams.addPersistentParam( "Velocity threshold", &mVelThres, 5., " min=0, max=50, step=.1 " );
 	mParams.addPersistentParam( "Velocity divisor", &mVelDiv, 5, " min=1, max=50 " );
-	mParams.addButton( "Clear leaves", std::bind(&Acacia::clearLeaves, this), " key=SPACE ");
+	mParams.addPersistentParam( "Particle velocity threshold", &mParticleVelThres, 5., " min=0, max=50, step=.1 " );
+	mParams.addPersistentParam( "Particle velocity divisor", &mParticleVelDiv, 5, " min=1, max=50 " );
+	mParams.addButton( "Clear leaves", std::bind(&Acacia::clearLeaves, this) );
 
 	mParams.addSeparator();
 	mParams.addPersistentParam( "Atmosphere", &mDrawAtmosphere, false );
@@ -227,11 +229,13 @@ void Acacia::draw()
 			{
 				Vec2f p0 = fromOcv( mFeatures[idx] );
 				Vec2f p1 = fromOcv( mPrevFeatures[idx] );
-				if ( p0.distance( p1 ) > mVelThres )
+				bool addLeaves = mAddLeaves && ( p0.distance( p1 ) > mVelThres );
+				bool addParticles = mAddParticles && ( p0.distance( p1 ) > mParticleVelThres );
+				if (addLeaves || addParticles)
 				{
 					addToFluid( p0 / CAMERA_SIZE,
 								(p0 - p1) / mVelDiv / CAMERA_SIZE,
-								mAddLeaves, mAddParticles, true );
+								addLeaves, addParticles, true );
 
 					gl::color( Color( 1, 0, 0 ) );
 				}

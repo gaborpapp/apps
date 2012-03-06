@@ -88,12 +88,6 @@ void ParticleManager::update( double seconds )
 
 void ParticleManager::draw()
 {
-	/*
-	gl::enableAdditiveBlending();
-	gl::disableDepthRead();
-	gl::disableDepthWrite();
-	*/
-
 	gl::disable( GL_TEXTURE_2D );
 	gl::enable( GL_LINE_SMOOTH );
 
@@ -107,8 +101,6 @@ void ParticleManager::draw()
 
 	glDisableClientState( GL_VERTEX_ARRAY );
 	glDisableClientState( GL_COLOR_ARRAY );
-
-	//gl::disableAlphaBlending();
 }
 
 void ParticleManager::addParticle( const Vec2f &pos, int count /* = 1 */ )
