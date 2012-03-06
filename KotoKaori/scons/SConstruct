@@ -14,7 +14,7 @@ SOURCES += [ 'SpeechShop.cpp' ]
 ASSETS += [ 'BeszedBolt' ]
 
 # Akac
-SOURCES += [ 'Acacia.cpp', 'Leaves.cpp' ]
+SOURCES += [ 'Acacia.cpp', 'Leaves.cpp', 'Particles.cpp' ]
 ASSETS += [ 'Akac' ]
 
 # Hold
