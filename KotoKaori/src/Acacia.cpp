@@ -40,7 +40,10 @@ void Acacia::setup()
 	mParams.addParam( "Leaf count", &mLeafCount, "", true );
 	mParams.addPersistentParam( "Leaf Aging", &mAging, 0.995, " min=0, max=1, step=.005 " );
 	mParams.addPersistentParam( "Gravity", &mGravity, 0.8, " min=0, max=10, step=.25 " );
-	mParams.addPersistentParam( "Add leaves", &mAddLeaves, true );
+	mAddLeaves = false;
+	mParams.addParam( "Add leaves", &mAddLeaves );
+	mAddParticles = true;
+	mParams.addParam( "Add particles", &mAddParticles );
 	mParams.addPersistentParam( "Velocity threshold", &mVelThres, 5., " min=0, max=50, step=.1 " );
 	mParams.addPersistentParam( "Velocity divisor", &mVelDiv, 5, " min=1, max=50 " );
 	mParams.addButton( "Clear leaves", std::bind(&Acacia::clearLeaves, this), " key=SPACE ");
@@ -59,13 +62,19 @@ void Acacia::setup()
 	mFluidDrawer.setup( &mFluidSolver );
 
 	mLeaves.setFluidSolver( &mFluidSolver );
+	mParticles.setFluidSolver( &mFluidSolver );
 }
 
 void Acacia::instantiate()
 {
-	gl::enableAlphaBlending();
+	gl::enableAdditiveBlending();
 	gl::disableDepthWrite();
 	gl::disableDepthRead();
+}
+
+void Acacia::deinstantiate()
+{
+	gl::disableAlphaBlending();
 }
 
 void Acacia::clearLeaves()
@@ -97,9 +106,10 @@ void Acacia::resize(ResizeEvent event)
 	mFluidSolver.setSize( sFluidSizeX, sFluidSizeX / getWindowAspectRatio() );
 	mFluidDrawer.setup( &mFluidSolver );
 	mLeaves.setWindowSize( event.getSize() );
+	mParticles.setWindowSize( event.getSize() );
 }
 
-void Acacia::addToFluid( Vec2f pos, Vec2f vel, bool addColor, bool addForce )
+void Acacia::addToFluid( Vec2f pos, Vec2f vel, bool addLeaves, bool addParticles, bool addForce )
 {
 	// balance the x and y components of speed with the screen aspect ratio
 	float speed = vel.x * vel.x +
@@ -113,15 +123,19 @@ void Acacia::addToFluid( Vec2f pos, Vec2f vel, bool addColor, bool addForce )
 		const float colorMult = 100;
 		const float velocityMult = 30;
 
-		if ( addColor )
+		if ( addLeaves )
 		{
-			//Color drawColor( CM_HSV, ( getElapsedFrames() % 360 ) / 360.0f, 1, 1 );
 			Color drawColor( Color::white() );
 
 			mFluidSolver.addColorAtPos( pos, drawColor * colorMult );
 
 			mLeaves.addLeaf( pos * Vec2f( getWindowSize() ),
 					mBWTextures[ Rand::randInt( mBWTextures.size() ) ] );
+		}
+
+		if ( addParticles )
+		{
+			mParticles.addParticle( pos * Vec2f( getWindowSize() ), 15 );
 		}
 
 		if ( addForce )
@@ -150,6 +164,8 @@ void Acacia::update()
 	mLeaves.setAging( mAging );
 	mLeaves.update( getElapsedSeconds() );
 	mLeafCount = mLeaves.getCount();
+
+	mParticles.update( getElapsedSeconds() );
 
 	if (mNI.checkNewDepthFrame())
 	{
@@ -190,6 +206,7 @@ void Acacia::draw()
 	}
 
 	mLeaves.draw();
+	mParticles.draw();
 
 	if ( !mPrevFeatures.empty() )
 	{
@@ -214,7 +231,7 @@ void Acacia::draw()
 				{
 					addToFluid( p0 / CAMERA_SIZE,
 								(p0 - p1) / mVelDiv / CAMERA_SIZE,
-								mAddLeaves, true );
+								mAddLeaves, mAddParticles, true );
 
 					gl::color( Color( 1, 0, 0 ) );
 				}
@@ -240,7 +257,7 @@ void Acacia::mouseDrag(MouseEvent event)
 {
 	Vec2f mouseNorm = Vec2f( event.getPos() ) / getWindowSize();
 	Vec2f mouseVel = Vec2f( event.getPos() - mPrevMouse ) / getWindowSize();
-	addToFluid( mouseNorm, mouseVel, event.isLeftDown(), true );
+	addToFluid( mouseNorm, mouseVel, mAddLeaves && event.isLeftDown(), mAddParticles && event.isLeftDown(), true );
 	mPrevMouse = event.getPos();
 }
 
@@ -248,7 +265,7 @@ void Acacia::mouseDown(MouseEvent event)
 {
 	Vec2f mouseNorm = Vec2f( event.getPos() ) / getWindowSize();
 	Vec2f mouseVel = Vec2f( event.getPos() - mPrevMouse ) / getWindowSize();
-	addToFluid( mouseNorm, mouseVel, false, true );
+	addToFluid( mouseNorm, mouseVel, false, false, true );
 	mPrevMouse = event.getPos();
 }
 

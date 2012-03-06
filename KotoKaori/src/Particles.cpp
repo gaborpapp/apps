@@ -8,6 +8,9 @@
 using namespace ci;
 using namespace std;
 
+const float Particle::sMomentum = 0.6f;
+const float Particle::sFluidForce = 0.9f;
+
 Particle::Particle()
 	: mLifeSpan( 0 )
 {
@@ -68,6 +71,7 @@ void ParticleManager::setWindowSize( Vec2i winSize )
 void ParticleManager::update( double seconds )
 {
 	int j = 0;
+	mActive = 0;
 	for ( int i = 0; i < MAX_PARTICLES; i++ )
 	{
 		if ( mParticles[i].isAlive() )
@@ -84,9 +88,11 @@ void ParticleManager::update( double seconds )
 
 void ParticleManager::draw()
 {
+	/*
 	gl::enableAdditiveBlending();
 	gl::disableDepthRead();
 	gl::disableDepthWrite();
+	*/
 
 	gl::disable( GL_TEXTURE_2D );
 	gl::enable( GL_LINE_SMOOTH );
@@ -102,7 +108,7 @@ void ParticleManager::draw()
 	glDisableClientState( GL_VERTEX_ARRAY );
 	glDisableClientState( GL_COLOR_ARRAY );
 
-	gl::disableAlphaBlending();
+	//gl::disableAlphaBlending();
 }
 
 void ParticleManager::addParticle( const Vec2f &pos, int count /* = 1 */ )
@@ -115,5 +121,4 @@ void ParticleManager::addParticle( const Vec2f &pos, int count /* = 1 */ )
 	}
 	mCurrent = (mCurrent + 1) & (MAX_PARTICLES - 1);
 }
-
 

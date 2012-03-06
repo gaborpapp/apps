@@ -18,6 +18,7 @@
 #include "PParams.h"
 #include "NI.h"
 #include "Leaves.h"
+#include "Particles.h"
 
 #include "Effect.h"
 
@@ -28,6 +29,7 @@ class Acacia : public Effect
 		void setup();
 
 		void instantiate();
+		void deinstantiate();
 
 		void resize( ci::app::ResizeEvent event);
 
@@ -47,6 +49,8 @@ class Acacia : public Effect
 		float mVelThres;
 		float mVelDiv;
 		bool mAddLeaves;
+		bool mAddParticles;
+
 		bool mDrawAtmosphere;
 		bool mDrawCamera;
 		bool mDrawFeatures;
@@ -60,9 +64,10 @@ class Acacia : public Effect
 		ciMsaFluidDrawerGl mFluidDrawer;
 		static const int sFluidSizeX;
 
-		void addToFluid( ci::Vec2f pos, ci::Vec2f vel, bool addColor, bool addForce );
+		void addToFluid( ci::Vec2f pos, ci::Vec2f vel, bool addLeaves, bool addParticles, bool addForce );
 
 		LeafManager mLeaves;
+		ParticleManager mParticles;
 
 		ci::Vec2i mPrevMouse;
 
