@@ -55,7 +55,7 @@ void SpeechShop::setup()
 	const int dirSize = sizeof( dirArr ) / sizeof( dirArr[0] );
 	std::vector<string> dirNames(dirArr, dirArr + dirSize);
 	mGravityDir = GR_DOWN;
-	mParams.addParam( "Gravity", dirNames, &mGravityDir, "", true );
+	mParams.addParam( "Gravity direction", dirNames, &mGravityDir, "", true );
 }
 
 void SpeechShop::instantiate()
@@ -65,6 +65,7 @@ void SpeechShop::instantiate()
 	gl::disableDepthRead();
 	mTextIndex = 0;
 	initTexts();
+	mPlugDebounce = false;
 }
 
 void SpeechShop::initTexts()
@@ -158,7 +159,11 @@ void SpeechShop::keyDown(KeyEvent event)
 	switch (event.getChar())
 	{
 		case ' ':
-			mIsPlugged = !mIsPlugged;
+			if (not mPlugDebounce)
+			{
+				mIsPlugged = !mIsPlugged;
+				mPlugDebounce = true;
+			}
 			break;
 	}
 
@@ -182,6 +187,14 @@ void SpeechShop::keyDown(KeyEvent event)
 	}
 }
 
+void SpeechShop::keyUp(KeyEvent event)
+{
+	if (event.getChar() == ' ')
+	{
+		mPlugDebounce = false;
+	}
+}
+
 void SpeechShop::mouseDrag(MouseEvent event)
 {
 	if (event.isRight())
@@ -190,8 +203,6 @@ void SpeechShop::mouseDrag(MouseEvent event)
 
 void SpeechShop::mouseDown(MouseEvent event)
 {
-	console() << "speech" << event.getPos() << endl;
-
 	if (event.isLeft() || event.isRight())
 		addLetter(event.getPos());
 }

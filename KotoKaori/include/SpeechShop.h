@@ -25,6 +25,7 @@ class SpeechShop : public Effect
 		void resize( ci::app::ResizeEvent event );
 
 		void keyDown( ci::app::KeyEvent event );
+		void keyUp( ci::app::KeyEvent event );
 
 		void mouseDown( ci::app::MouseEvent event );
 		void mouseDrag( ci::app::MouseEvent event );
@@ -33,10 +34,6 @@ class SpeechShop : public Effect
 		void draw();
 
 	private:
-		struct Sentence {
-			std::vector<std::string> words;
-		};
-
 		struct Text {
 			Text () : wordIndex(0) {};
 
@@ -69,5 +66,6 @@ class SpeechShop : public Effect
 
 		ci::params::PInterfaceGl mParams;
 		bool mIsPlugged;
+		bool mPlugDebounce;
 };
 

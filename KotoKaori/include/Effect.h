@@ -21,6 +21,7 @@ class Effect {
 		virtual void mouseDrag( ci::app::MouseEvent event ) {}
 
 		virtual void keyDown( ci::app::KeyEvent event ) {}
+		virtual void keyUp( ci::app::KeyEvent event ) {}
 
 		virtual void update() {};
 		virtual void draw() {};

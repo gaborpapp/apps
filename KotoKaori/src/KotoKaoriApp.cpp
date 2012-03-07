@@ -61,6 +61,7 @@ class KotoKaoriApp : public ci::app::AppBasic
 		void shutdown();
 
 		void keyDown( ci::app::KeyEvent event );
+		void keyUp( ci::app::KeyEvent event );
 
 		void mouseDown( ci::app::MouseEvent event );
 		void mouseDrag( ci::app::MouseEvent event );
@@ -195,6 +196,8 @@ void KotoKaoriApp::setup()
 	setWindowSize( MAIN_WIDTH + SECONDARY_WIDTH, SECONDARY_WIDTH );
 	//setBorderless( true );
 	setAlwaysOnTop();
+
+	// FIXME: otherwise the mouse cursor event positions are wrong
 	setFullScreen( false );
 	setFullScreen( true );
 	setFullScreen( false );
@@ -239,6 +242,11 @@ void KotoKaoriApp::keyDown( KeyEvent event )
 		quit();
 
 	mEffects[ mEffectIndex ]->keyDown( event );
+}
+
+void KotoKaoriApp::keyUp( KeyEvent event )
+{
+	mEffects[ mEffectIndex ]->keyUp( event );
 }
 
 void KotoKaoriApp::mouseDown( MouseEvent event )
