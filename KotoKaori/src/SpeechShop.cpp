@@ -63,7 +63,7 @@ void SpeechShop::instantiate()
 	gl::enableAlphaBlending();
 	gl::disableDepthWrite();
 	gl::disableDepthRead();
-	mTextIndex = 1;
+	mTextIndex = 0;
 	initTexts();
 }
 
@@ -99,8 +99,13 @@ void SpeechShop::togglePlug()
 	{
 		mSandbox.clear();
 		mSandbox.init(false);
+		// FIXME
+		/*
 		int w = getWindowWidth();
 		int h = getWindowHeight();
+		*/
+		int w = 1024;
+		int h = 768;
 		Area boxArea(-5 * w, -5 * h, 5 * w, 5 * h );
 		mSandbox.createBoundaries( boxArea );
 
@@ -185,6 +190,8 @@ void SpeechShop::mouseDrag(MouseEvent event)
 
 void SpeechShop::mouseDown(MouseEvent event)
 {
+	console() << "speech" << event.getPos() << endl;
+
 	if (event.isLeft() || event.isRight())
 		addLetter(event.getPos());
 }
@@ -243,7 +250,9 @@ void SpeechShop::addLetter(Vec2i pos)
 void SpeechShop::draw()
 {
 	gl::clear(Color(0, 0, 0));
-	gl::setMatricesWindow( getWindowSize() );
+	//gl::setMatricesWindow( getWindowSize() );
+	// FIXME
+	gl::setMatricesWindow( Vec2i(1024, 768) );
 	mSandbox.draw();
 
 }

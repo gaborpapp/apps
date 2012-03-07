@@ -3,6 +3,7 @@
 #include "cinder/Cinder.h"
 #include "cinder/gl/Texture.h"
 #include "cinder/qtime/QuickTime.h"
+#include "cinder/Timeline.h"
 
 #include "PParams.h"
 #include "Effect.h"
@@ -27,7 +28,11 @@ class Moon : public Effect
 		uint32_t mStartFrame;
 
 		float mRate;
+		float mFadeDuration;
 
 		void startMovie();
+		void fadeOut();
+
+		ci::Anim<float> mFade;
 };
 

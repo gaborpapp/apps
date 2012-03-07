@@ -21,6 +21,10 @@ ASSETS += [ 'Akac' ]
 SOURCES += [ 'Moon.cpp' ]
 ASSETS += [ 'Hold' ]
 
+# Varos es termeszet
+SOURCES += [ 'VTT.cpp' ]
+ASSETS += [ 'VarosEsTermeszet' ]
+
 DEBUG = 0
 
 INCLUDES = []

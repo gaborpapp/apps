@@ -15,6 +15,8 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
 */
 
+#include "cinder/Area.h"
+
 #include "DepthMerge.h"
 
 #include "Resources.h"
@@ -136,7 +138,8 @@ void DepthMerge::update()
 void DepthMerge::draw()
 {
 	gl::clear(Color(0, 0, 0));
-	gl::setMatricesWindow(getWindowSize());
+	// FIXME
+	gl::setMatricesWindow( Vec2i( 1024, 768 ) ); //getWindowSize());
 
 	mShader.bind();
 
@@ -171,7 +174,9 @@ void DepthMerge::draw()
 		idx = (idx - step) & (TEXTURE_COUNT - 1);
 	}
 
-	gl::drawSolidRect(getWindowBounds());
+	// FIXME
+	//gl::drawSolidRect(getWindowBounds());
+	gl::drawSolidRect( Area(0, 0, 1024, 768) );
 
 	// unbind textures
 	for (int i = 0; i < 16; i++)
