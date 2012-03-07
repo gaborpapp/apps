@@ -28,6 +28,8 @@
 
 #include "NI.h"
 
+#include "Utils.h"
+
 #include "Black.h"
 #include "SpeechShop.h"
 #include "DepthMerge.h"
@@ -58,6 +60,8 @@ class KotoKaoriApp : public ci::app::AppBasic
 		void draw();
 
 	private:
+		void saveScreenshot();
+
 		params::PInterfaceGl mParams;
 
 		vector<Effect *> mEffects;
@@ -74,6 +78,7 @@ class KotoKaoriApp : public ci::app::AppBasic
 		int mPrevEffectIndex;
 
 		bool mFullScreen;
+		float mFps;
 
 		vector<string> mEffectNames;
 
@@ -115,12 +120,15 @@ void KotoKaoriApp::setup()
 
 	mParams.addSeparator();
 	mParams.addPersistentParam("Fullscreen", &mFullScreen, false, " key='f' ");
+	mParams.addButton("Screenshot", std::bind(&KotoKaoriApp::saveScreenshot, this));
+	mParams.addParam("Fps", &mFps, "", true);
 
 	// OpenNI
 	try
 	{
 		//mNI = OpenNI( OpenNI::Device() );
 
+		//*
 		string path = getAppPath().string();
 	#ifdef CINDER_MAC
 		path += "/../";
@@ -128,6 +136,7 @@ void KotoKaoriApp::setup()
 		path += "rec.oni";
 
 		mNI = OpenNI( path );
+		//*/
 	}
 	catch (...)
 	{
@@ -160,6 +169,30 @@ void KotoKaoriApp::setup()
 void KotoKaoriApp::shutdown()
 {
 	params::PInterfaceGl::save();
+}
+
+void KotoKaoriApp::saveScreenshot()
+{
+    string path = getAppPath().string();
+#ifdef CINDER_MAC
+    path += "/../";
+#endif
+    path += "snap-" + timeStamp() + ".png";
+    fs::path pngPath(path);
+
+    try
+    {
+        Surface srf = copyWindowSurface();
+
+        if (!pngPath.empty())
+        {
+            writeImage( pngPath, srf );
+        }
+    }
+    catch ( ... )
+    {
+        console() << "unable to save image file " << path << endl;
+    }
 }
 
 void KotoKaoriApp::keyDown( KeyEvent event )
@@ -196,6 +229,8 @@ void KotoKaoriApp::update()
 
 	if ( !mFullScreen && isFullScreen() )
 		setFullScreen( false );
+
+	mFps = getAverageFps();
 
 	if (mNIMirror != mNI.isMirrored())
 		mNI.setMirrored( mNIMirror );

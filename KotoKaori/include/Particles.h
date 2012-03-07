@@ -56,7 +56,7 @@ class ParticleManager
 		int mActive;
 
 		float mPositions[ MAX_PARTICLES * 2 * 2 ];
-		float mColors[ MAX_PARTICLES * 3 * 2 ];
+		float mColors[ MAX_PARTICLES * 4 * 2 ];
 		Particle mParticles[ MAX_PARTICLES ];
 };
 

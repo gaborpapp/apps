@@ -33,18 +33,6 @@ SpeechShop::SpeechShop( App *app )
 
 void SpeechShop::setup()
 {
-	//Effect::setup( "BeszedBolt" );
-	// params
-	/*
-	string paramsXml = getAppPath().string();
-#ifdef CINDER_MAC
-	paramsXml += "/Contents/Resources/";
-#endif
-	paramsXml += "params.xml";
-	params::PInterfaceGl::load( paramsXml );
-
-	enableVSync(false);
-	*/
 	mSandbox.init();
 
 	loadTexts();
@@ -60,6 +48,8 @@ void SpeechShop::setup()
 	mParams.addParam( "Plug", &mIsPlugged, "", true );
 
 	mParams.addPersistentParam( "Gravity", &mGravity, 500, " min=10, max=500, step=10 ");
+	mParams.addPersistentParam( "Min size", &mMinTextSize, 10, " min=5, max=20, step=.5 ");
+	mParams.addPersistentParam( "Max size", &mMaxTextSize, 25, " min=10, max=40, step=.5 ");
 
 	const string dirArr[] = { "Left", "Up", "Right", "Down" };
 	const int dirSize = sizeof( dirArr ) / sizeof( dirArr[0] );
@@ -160,9 +150,11 @@ void SpeechShop::resize( ResizeEvent event )
 
 void SpeechShop::keyDown(KeyEvent event)
 {
-	if (event.getChar() == ' ')
+	switch (event.getChar())
 	{
-		mIsPlugged = !mIsPlugged;
+		case ' ':
+			mIsPlugged = !mIsPlugged;
+			break;
 	}
 
 	switch (event.getCode())
@@ -187,13 +179,13 @@ void SpeechShop::keyDown(KeyEvent event)
 
 void SpeechShop::mouseDrag(MouseEvent event)
 {
-	if (event.isLeft())
+	if (event.isRight())
 		addLetter(event.getPos());
 }
 
 void SpeechShop::mouseDown(MouseEvent event)
 {
-	if (event.isLeft())
+	if (event.isLeft() || event.isRight())
 		addLetter(event.getPos());
 }
 
@@ -232,7 +224,7 @@ void SpeechShop::addLetter(Vec2i pos)
 {
 	TextLayout simple;
 	std::string boldFont( "Arial Bold" );
-	simple.setFont( Font( boldFont, Rand::randFloat(10, 25) ) );
+	simple.setFont( Font( boldFont, Rand::randFloat( mMinTextSize, mMaxTextSize ) ) );
 	simple.setColor( Color( 1, 1, 1 ) );
 
 	Text *t = &mTexts[mTextIndex];

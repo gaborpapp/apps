@@ -29,9 +29,9 @@ void Particle::update( double time, const ciMsaFluidSolver *solver, const Vec2f 
 {
 	mVel = solver->getVelocityAtPos( mPos * invWindowSize ) * (mMass * sFluidForce ) * windowSize + mVel * sMomentum;
 
-	if ( mVel.lengthSquared() < 1 )
+	//if ( mVel.lengthSquared() < 10 )
 	{
-		mVel += Rand::randVec2f() * .5;
+		mVel += Rand::randVec2f() * 3.;
 	}
 
 	mPos += mVel;
@@ -40,17 +40,22 @@ void Particle::update( double time, const ciMsaFluidSolver *solver, const Vec2f 
 	if ( mLifeSpan < 0.01f )
 		mLifeSpan = 0;
 
-	positions[0] = mPos.x - mVel.x;
-	positions[1] = mPos.y - mVel.y;
+	Vec2f velLimited = mVel.limited( 10 );
+
+	positions[0] = mPos.x - velLimited.x;
+	positions[1] = mPos.y - velLimited.y;
 	positions[2] = mPos.x;
 	positions[3] = mPos.y;
 
-	colors[0] = mLifeSpan;
-	colors[1] = mLifeSpan;
-	colors[2] = mLifeSpan;
+	float col = Rand::randFloat();
+	colors[0] = col;
+	colors[1] = col;
+	colors[2] = col;
 	colors[3] = mLifeSpan;
-	colors[4] = mLifeSpan;
-	colors[5] = mLifeSpan;
+	colors[4] = col;
+	colors[5] = col;
+	colors[6] = col;
+	colors[7] = mLifeSpan;
 }
 
 float ParticleManager::sAging = 0.995f;
@@ -79,7 +84,7 @@ void ParticleManager::update( double seconds )
 			mParticles[i].update( seconds, mSolver,
 					mWindowSize, mInvWindowSize,
 					&mPositions[j * 2],
-					&mColors[j * 3]);
+					&mColors[j * 4]);
 			j += 2;
 			mActive++;
 		}
@@ -95,7 +100,7 @@ void ParticleManager::draw()
 	glVertexPointer( 2, GL_FLOAT, 0, mPositions );
 
 	glEnableClientState( GL_COLOR_ARRAY );
-	glColorPointer( 3, GL_FLOAT, 0, mColors );
+	glColorPointer( 4, GL_FLOAT, 0, mColors );
 
 	glDrawArrays( GL_LINES, 0, mActive * 2 );
 
@@ -109,7 +114,7 @@ void ParticleManager::addParticle( const Vec2f &pos, int count /* = 1 */ )
 	for (int i = count - 1; i > 0; i--)
 	{
 		mCurrent = (mCurrent + 1) & (MAX_PARTICLES - 1);
-		mParticles[ mCurrent ] = Particle( pos );
+		mParticles[ mCurrent ] = Particle( pos + Rand::randVec2f() * 10 );
 	}
 	mCurrent = (mCurrent + 1) & (MAX_PARTICLES - 1);
 }

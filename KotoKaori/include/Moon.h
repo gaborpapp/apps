@@ -14,6 +14,7 @@ class Moon : public Effect
 
 		void setup();
 
+		void instantiate();
 		void deinstantiate();
 
 		void update();
@@ -22,6 +23,8 @@ class Moon : public Effect
 	private:
 		ci::gl::Texture mFrameTexture;
 		ci::qtime::MovieGl mMovie;
+
+		uint32_t mStartFrame;
 
 		float mRate;
 

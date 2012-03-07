@@ -38,14 +38,15 @@ void Acacia::setup()
 	mParams.addPersistentParam( "Max leaves", &mMaxLeaves, 1000, " min=100, max=4000, step=100 " );
 	mLeafCount = 0;
 	mParams.addParam( "Leaf count", &mLeafCount, "", true );
-	mParams.addPersistentParam( "Leaf Aging", &mAging, 0.995, " min=0, max=1, step=.005 " );
-	mParams.addPersistentParam( "Gravity", &mGravity, 0.8, " min=0, max=10, step=.25 " );
+	mParams.addPersistentParam( "Leaf Aging", &mAging, 0.975, " min=0, max=1, step=.005 " );
+	mParams.addPersistentParam( "Gravity", &mGravity, 0.5, " min=0, max=10, step=.05 " );
 	mAddLeaves = false;
 	mParams.addParam( "Add leaves", &mAddLeaves );
 	mAddParticles = true;
 	mParams.addParam( "Add particles", &mAddParticles );
-	mParams.addPersistentParam( "Velocity threshold", &mVelThres, 5., " min=0, max=50, step=.1 " );
+	mParams.addPersistentParam( "Velocity threshold", &mVelThres, 1.3, " min=0, max=50, step=.1 " );
 	mParams.addPersistentParam( "Velocity divisor", &mVelDiv, 5, " min=1, max=50 " );
+	mParams.addPersistentParam( "Particle Aging", &mParticleAging, 0.9, " min=0, max=1, step=.005 " );
 	mParams.addPersistentParam( "Particle velocity threshold", &mParticleVelThres, 5., " min=0, max=50, step=.1 " );
 	mParams.addPersistentParam( "Particle velocity divisor", &mParticleVelDiv, 5, " min=1, max=50 " );
 	mParams.addButton( "Clear leaves", std::bind(&Acacia::clearLeaves, this) );
@@ -167,6 +168,7 @@ void Acacia::update()
 	mLeaves.update( getElapsedSeconds() );
 	mLeafCount = mLeaves.getCount();
 
+	mParticles.setAging( mParticleAging );
 	mParticles.update( getElapsedSeconds() );
 
 	if (mNI.checkNewDepthFrame())

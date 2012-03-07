@@ -33,6 +33,10 @@ class SpeechShop : public Effect
 		void draw();
 
 	private:
+		struct Sentence {
+			std::vector<std::string> words;
+		};
+
 		struct Text {
 			Text () : wordIndex(0) {};
 
@@ -49,6 +53,8 @@ class SpeechShop : public Effect
 			GR_DOWN };
 		int mGravityDir;
 		float mGravity;
+		float mMinTextSize;
+		float mMaxTextSize;
 
 		void addLetter( ci::Vec2i pos );
 		void togglePlug();

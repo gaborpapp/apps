@@ -48,6 +48,7 @@ class Acacia : public Effect
 		float mGravity;
 		float mVelThres;
 		float mVelDiv;
+		float mParticleAging;
 		float mParticleVelThres;
 		float mParticleVelDiv;
 		bool mAddLeaves;

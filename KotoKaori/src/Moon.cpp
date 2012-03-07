@@ -18,6 +18,10 @@ void Moon::setup()
 
 	fs::path moviePath = mApp->getResourcePath() / "assets/Hold/moon.mov";
 	mMovie = qtime::MovieGl( moviePath );
+}
+
+void Moon::instantiate()
+{
 	mMovie.stop();
 }
 
@@ -35,14 +39,19 @@ void Moon::startMovie()
 	mMovie.play();
 
 	mFrameTexture.reset();
+	mStartFrame = mApp->getElapsedFrames();
 }
 
 void Moon::update()
 {
-	if ( mMovie )
+	if ( mMovie && mMovie.isPlaying() )
 	{
 		mMovie.setRate( mRate );
 		mFrameTexture = mMovie.getTexture();
+	}
+	else
+	{
+		mFrameTexture.reset();
 	}
 }
 
@@ -50,7 +59,9 @@ void Moon::draw()
 {
 	gl::clear( Color( 0, 0, 0 ) );
 
-	if ( mFrameTexture )
+	if ( mMovie.isPlaying() && mFrameTexture &&
+		 ( mApp->getElapsedFrames() > ( mStartFrame + 1 ) ) // fixes remaining last frame from old play
+		 )
 	{
 		Rectf centeredRect = Rectf( mFrameTexture.getBounds() ).getCenteredFit( mApp->getWindowBounds(), true );
 		gl::draw( mFrameTexture, centeredRect );
