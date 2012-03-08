@@ -17,6 +17,8 @@
 
 #include "Acacia.h"
 
+#include "Resources.h"
+
 using namespace ci;
 using namespace ci::app;
 using namespace std;
@@ -44,6 +46,11 @@ void Acacia::setup()
 	mParams.addParam( "Add leaves", &mAddLeaves );
 	mAddParticles = true;
 	mParams.addParam( "Add particles", &mAddParticles );
+	mParams.addPersistentParam( "Particles bloom size", &mBloomParticlesSize, 1.5, " min=1, max=20, step=.5 " );
+	mParams.addPersistentParam( "Particles bloom power", &mBloomParticlesPower, 5.0, " min=0, max=10, step=.05 " );
+	mParams.addPersistentParam( "Leaves bloom size", &mBloomLeavesSize, 1., " min=1, max=20, step=.5 " );
+	mParams.addPersistentParam( "Leaves bloom power", &mBloomLeavesPower, 1.0, " min=0, max=10, step=.05 " );
+
 	mParams.addPersistentParam( "Velocity threshold", &mVelThres, 1.3, " min=0, max=50, step=.1 " );
 	mParams.addPersistentParam( "Velocity divisor", &mVelDiv, 5, " min=1, max=50 " );
 	mParams.addPersistentParam( "Particle Aging", &mParticleAging, 0.9, " min=0, max=1, step=.005 " );
@@ -66,6 +73,13 @@ void Acacia::setup()
 
 	mLeaves.setFluidSolver( &mFluidSolver );
 	mParticles.setFluidSolver( &mFluidSolver );
+
+	// fbo
+	mFbo = gl::Fbo( 1024, 768 );
+
+	mBloomShader = gl::GlslProg(loadResource(RES_PASSTHROUGH_VERT),
+								loadResource(RES_BLOOM_FRAG));
+
 }
 
 void Acacia::instantiate()
@@ -194,19 +208,31 @@ void Acacia::update()
 
 void Acacia::draw()
 {
-	gl::clear(Color(0, 0, 0));
-	gl::setMatricesWindow( getWindowSize() );
+	gl::pushMatrices();
+
+	// store current fbo
+	GLint oldFbo;
+	glGetIntegerv(GL_FRAMEBUFFER_BINDING, &oldFbo);
+
+	mFbo.bindFramebuffer();
+
+	gl::clear( Color::black() );
+	// FIXME: fbo
+	//gl::setMatricesWindow( getWindowSize() );
+	gl::setMatricesWindow( mFbo.getSize() );
 
 	if ( mDrawCamera && mOptFlowTexture )
 	{
 		gl::color( ColorA( 1, 1, 1, .3 ) );
-		gl::draw( mOptFlowTexture, getWindowBounds() );
+		//gl::draw( mOptFlowTexture, getWindowBounds() );
+		gl::draw( mOptFlowTexture, mFbo.getBounds() );
 	}
 
 	if (mDrawAtmosphere)
 	{
 		gl::color( Color::white() );
-		mFluidDrawer.draw( 0, 0, getWindowWidth(), getWindowHeight() );
+		//mFluidDrawer.draw( 0, 0, getWindowWidth(), getWindowHeight() );
+		mFluidDrawer.draw( 0, 0, mFbo.getWidth(), mFbo.getHeight() );
 	}
 
 	mLeaves.draw();
@@ -215,7 +241,8 @@ void Acacia::draw()
 	if ( !mPrevFeatures.empty() )
 	{
 		RectMapping camera2Screen( Rectf(0, 0, CAMERA_WIDTH, CAMERA_HEIGHT),
-				getWindowBounds() );
+				//getWindowBounds() );
+				mFbo.getBounds() );
 
 		if ( mDrawFeatures )
 		{
@@ -252,11 +279,33 @@ void Acacia::draw()
 		}
 	}
 
-	/*
-	gl::drawString("FPS: " + toString(getAverageFps()), Vec2f(10.0f, 10.0f),
-			Color::white(), mFont);
-	*/
+	mFbo.unbindFramebuffer();
 
+	gl::popMatrices();
+
+	// restore old fbo
+	glBindFramebufferEXT( GL_FRAMEBUFFER_EXT, oldFbo );
+
+	gl::setMatricesWindow( Vec2i( 1024, 768 ) );
+	gl::setViewport( Area( 0, 0, 1024, 768 ) );
+	gl::color( Color::white() );
+	gl::Texture fboTexture = mFbo.getTexture();
+	fboTexture.setFlipped();
+	mBloomShader.bind();
+	mBloomShader.uniform( "texture", 0 );
+	if ( mAddLeaves )
+	{
+		mBloomShader.uniform( "glaresize", mBloomLeavesSize / 1024.f );
+		mBloomShader.uniform( "power", mBloomLeavesPower );
+	}
+	else
+	{
+		mBloomShader.uniform( "glaresize", mBloomParticlesSize / 1024.f );
+		mBloomShader.uniform( "power", mBloomParticlesPower );
+	}
+
+	gl::draw( fboTexture );
+	mBloomShader.unbind();
 }
 
 void Acacia::mouseDrag(MouseEvent event)

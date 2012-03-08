@@ -16,6 +16,7 @@ ASSETS += [ 'BeszedBolt' ]
 # Akac
 SOURCES += [ 'Acacia.cpp', 'Leaves.cpp', 'Particles.cpp' ]
 ASSETS += [ 'Akac' ]
+RESOURCES += ['BloomFrag.glsl']
 
 # Hold
 SOURCES += [ 'Moon.cpp' ]

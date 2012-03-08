@@ -409,13 +409,6 @@ void KotoKaoriApp::draw()
 
 	gl::Texture fboTexture = mFbo.getTexture();
 	fboTexture.setFlipped();
-	/*
-	fboTexture.enableAndBind();
-	gl::drawSolidRect( Rectf( MAIN_WIDTH, 0,
-								MAIN_WIDTH + SECONDARY_WIDTH, SECONDARY_HEIGHT ) );
-	gl::disable( GL_TEXTURE_2D );
-	*/
-
 	gl::draw( fboTexture,
 			Rectf( MAIN_WIDTH, 0, MAIN_WIDTH + SECONDARY_WIDTH, SECONDARY_HEIGHT ) );
 

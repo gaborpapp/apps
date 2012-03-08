@@ -3,6 +3,8 @@
 #include "cinder/Cinder.h"
 #include "cinder/app/AppBasic.h"
 #include "cinder/gl/Texture.h"
+#include "cinder/gl/Fbo.h"
+#include "cinder/gl/GlslProg.h"
 #include "cinder/ImageIo.h"
 #include "cinder/Rand.h"
 #include "cinder/Utilities.h"
@@ -54,10 +56,14 @@ class Acacia : public Effect
 		bool mAddLeaves;
 		bool mAddParticles;
 
-
 		bool mDrawAtmosphere;
 		bool mDrawCamera;
 		bool mDrawFeatures;
+
+		float mBloomParticlesSize;
+		float mBloomParticlesPower;
+		float mBloomLeavesSize;
+		float mBloomLeavesPower;
 
 		void clearLeaves();
 		std::vector< ci::gl::Texture > loadTextures( const ci::fs::path &relativeDir );
@@ -89,5 +95,8 @@ class Acacia : public Effect
 		#define CAMERA_WIDTH 160
 		#define CAMERA_HEIGHT 120
 		static const ci::Vec2f CAMERA_SIZE; //( CAMERA_WIDTH, CAMERA_HEIGHT );
+
+		ci::gl::Fbo mFbo;
+		ci::gl::GlslProg mBloomShader;
 };
 
