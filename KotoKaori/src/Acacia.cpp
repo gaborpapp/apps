@@ -42,14 +42,14 @@ void Acacia::setup()
 	mParams.addParam( "Leaf count", &mLeafCount, "", true );
 	mParams.addPersistentParam( "Leaf Aging", &mAging, 0.975, " min=0, max=1, step=.005 " );
 	mParams.addPersistentParam( "Gravity", &mGravity, 0.5, " min=0, max=10, step=.05 " );
-	mAddLeaves = false;
+	mAddLeaves = true;
 	mParams.addParam( "Add leaves", &mAddLeaves );
-	mAddParticles = true;
+	mAddParticles = false;
 	mParams.addParam( "Add particles", &mAddParticles );
-	mParams.addPersistentParam( "Particles bloom size", &mBloomParticlesSize, 1.5, " min=1, max=20, step=.5 " );
-	mParams.addPersistentParam( "Particles bloom power", &mBloomParticlesPower, 5.0, " min=0, max=10, step=.05 " );
+	mParams.addPersistentParam( "Particles bloom size", &mBloomParticlesSize, 2.5, " min=1, max=20, step=.5 " );
+	mParams.addPersistentParam( "Particles bloom power", &mBloomParticlesPower, 3.7, " min=0, max=10, step=.05 " );
 	mParams.addPersistentParam( "Leaves bloom size", &mBloomLeavesSize, 1., " min=1, max=20, step=.5 " );
-	mParams.addPersistentParam( "Leaves bloom power", &mBloomLeavesPower, 1.0, " min=0, max=10, step=.05 " );
+	mParams.addPersistentParam( "Leaves bloom power", &mBloomLeavesPower, .95, " min=0, max=10, step=.05 " );
 
 	mParams.addPersistentParam( "Velocity threshold", &mVelThres, 1.3, " min=0, max=50, step=.1 " );
 	mParams.addPersistentParam( "Velocity divisor", &mVelDiv, 5, " min=1, max=50 " );

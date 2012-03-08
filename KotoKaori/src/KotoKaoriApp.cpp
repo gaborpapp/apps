@@ -91,6 +91,7 @@ class KotoKaoriApp : public ci::app::AppBasic
 
 		bool mFullScreen;
 		float mFps;
+		bool mShowPreview;
 
 		vector<string> mEffectNames;
 
@@ -143,15 +144,16 @@ void KotoKaoriApp::setup()
 
 	mParams.addSeparator();
 	mParams.addPersistentParam("Fullscreen", &mFullScreen, false, " key='f' ");
+	mParams.addPersistentParam("Preview", &mShowPreview, true );
 	mParams.addButton("Screenshot", std::bind(&KotoKaoriApp::saveScreenshot, this));
 	mParams.addParam("Fps", &mFps, "", true);
 
 	// OpenNI
 	try
 	{
-		//mNI = OpenNI( OpenNI::Device() );
+		mNI = OpenNI( OpenNI::Device() );
 
-		//*
+		/*
 		string path = getAppPath().string();
 	#ifdef CINDER_MAC
 		path += "/../";
@@ -159,7 +161,7 @@ void KotoKaoriApp::setup()
 		path += "rec.oni";
 
 		mNI = OpenNI( path );
-		//*/
+		*/
 	}
 	catch (...)
 	{
@@ -194,7 +196,7 @@ void KotoKaoriApp::setup()
 
 	setWindowPos( 0, WINDOW_POSY );
 	setWindowSize( MAIN_WIDTH + SECONDARY_WIDTH, SECONDARY_WIDTH );
-	//setBorderless( true );
+	setBorderless( true );
 	setAlwaysOnTop();
 
 	// FIXME: otherwise the mouse cursor event positions are wrong
@@ -240,6 +242,10 @@ void KotoKaoriApp::keyDown( KeyEvent event )
 {
 	if (event.getCode() == KeyEvent::KEY_ESCAPE)
 		quit();
+	if (event.getChar() == 'b')
+	{
+		setBorderless( !isBorderless() );
+	}
 
 	mEffects[ mEffectIndex ]->keyDown( event );
 }
@@ -412,6 +418,16 @@ void KotoKaoriApp::draw()
 	gl::draw( fboTexture,
 			Rectf( MAIN_WIDTH, 0, MAIN_WIDTH + SECONDARY_WIDTH, SECONDARY_HEIGHT ) );
 
+	if ( mShowPreview )
+	{
+		const int b = 40;
+		const int pw = 320;
+		const int ph = 240;
+
+		Rectf previewRect = Rectf( MAIN_WIDTH - pw - 2 * b, b, MAIN_WIDTH - b, ph + b );
+		gl::draw( fboTexture, previewRect );
+		gl::drawStrokedRect( previewRect );
+	}
 //#endif
 
 	params::InterfaceGl::draw();

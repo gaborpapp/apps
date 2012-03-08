@@ -1,4 +1,5 @@
 #include "cinder/Easing.h"
+#include "cinder/Area.h"
 
 #include "VTT.h"
 
@@ -38,6 +39,8 @@ void VTT::deinstantiate()
 
 void VTT::startMovie()
 {
+	app::timeline().clear();
+
 	if ( mMovie.isPlaying() )
 		mMovie.stop();
 
@@ -76,7 +79,9 @@ void VTT::draw()
 		 ( mApp->getElapsedFrames() > ( mStartFrame + 1 ) ) // fixes remaining last frame from old play
 		 )
 	{
-		Rectf centeredRect = Rectf( mFrameTexture.getBounds() ).getCenteredFit( mApp->getWindowBounds(), true );
+		Rectf centeredRect = Rectf( mFrameTexture.getBounds() ).getCenteredFit(
+				Area( 0, 0, 1024, 768 ), true ); // FIXME: fbo size
+				//mApp->getWindowBounds(), true );
 
 		// FIXME: fbo flip
 		gl::pushMatrices();

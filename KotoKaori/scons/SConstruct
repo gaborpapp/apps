@@ -2,7 +2,7 @@ TARGET = 'KotoKaori'
 
 SOURCES = ['KotoKaoriApp.cpp', 'PParams.cpp', 'Effect.cpp',
 		'NI.cpp', 'Utils.cpp']
-RESOURCES = []
+RESOURCES = ['params.xml']
 ASSETS = []
 
 # KezekLabak

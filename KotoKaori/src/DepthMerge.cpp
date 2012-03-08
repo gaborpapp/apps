@@ -58,7 +58,7 @@ void DepthMerge::setup()
 	mParams.addPersistentParam( "Step", log2Names, &mStepLog2, 4 );
 
 	mParams.addPersistentParam( "Min depth", &mMinDepth, 0, "min=0 max=1 step=0.001 keyIncr=x keyDecr=X" );
-	mParams.addPersistentParam( "Max depth", &mMaxDepth, .345, "min=0 max=1 step=0.001 keyIncr=c keyDecr=C" );
+	mParams.addPersistentParam( "Max depth", &mMaxDepth, .208, "min=0 max=1 step=0.001 keyIncr=c keyDecr=C" );
 
 	/*
 	mParams.addPersistentParam( "Mirror", &mMirror, true, "key=m" );
