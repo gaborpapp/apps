@@ -136,7 +136,7 @@ void KotoKaoriApp::setup()
 	mParams.addParam("Effect", mEffectNames, &mEffectIndex);
 
 	mParams.addSeparator();
-	mParams.addPersistentParam("Mirror", &mNIMirror, true, "key=m" );
+	mParams.addPersistentParam("Mirror", &mNIMirror, false, "key=m" );
 
 	mParams.addSeparator();
 	mParams.addPersistentParam("Fullscreen", &mFullScreen, false, " key='f' ");

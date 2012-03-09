@@ -26,7 +26,7 @@ static const bool PREMULT = true;
 
 SpeechShop::SpeechShop( App *app )
 	: mTextIndex( 0 ),
-	  mIsPlugged( true ),
+	  mIsPlugged( false ),
 	  Effect( app )
 {
 }
@@ -45,11 +45,11 @@ void SpeechShop::setup()
 		typeNames.push_back(mTexts[i].name);
 	mParams.addParam( "Text", typeNames, &mTextIndex,
 			" keyincr='[' keydecr=']' " );
-	mParams.addParam( "Plug", &mIsPlugged, "", true );
+	mParams.addParam( "Plug", &mIsPlugged, "", false );
 
-	mParams.addPersistentParam( "Gravity", &mGravity, 500, " min=10, max=1500, step=10 ");
-	mParams.addPersistentParam( "Min size", &mMinTextSize, 15, " min=5, max=20, step=.5 ");
-	mParams.addPersistentParam( "Max size", &mMaxTextSize, 30, " min=10, max=40, step=.5 ");
+	mParams.addPersistentParam( "Gravity", &mGravity, 550, " min=10, max=1500, step=10 ");
+	mParams.addPersistentParam( "Min size", &mMinTextSize, 17, " min=5, max=20, step=.5 ");
+	mParams.addPersistentParam( "Max size", &mMaxTextSize, 25, " min=10, max=40, step=.5 ");
 
 	const string dirArr[] = { "Left", "Up", "Right", "Down" };
 	const int dirSize = sizeof( dirArr ) / sizeof( dirArr[0] );

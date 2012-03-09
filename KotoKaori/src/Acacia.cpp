@@ -120,7 +120,7 @@ vector< gl::Texture > Acacia::loadTextures( const fs::path &relativeDir )
 
 void Acacia::resize(ResizeEvent event)
 {
-	mFluidSolver.setSize( sFluidSizeX, sFluidSizeX / getWindowAspectRatio() );
+	mFluidSolver.setSize( sFluidSizeX, sFluidSizeX / event.getAspectRatio() );
 	mFluidDrawer.setup( &mFluidSolver );
 	mLeaves.setWindowSize( event.getSize() );
 	mParticles.setWindowSize( event.getSize() );
@@ -130,7 +130,7 @@ void Acacia::addToFluid( Vec2f pos, Vec2f vel, bool addLeaves, bool addParticles
 {
 	// balance the x and y components of speed with the screen aspect ratio
 	float speed = vel.x * vel.x +
-				  vel.y * vel.y * getWindowAspectRatio() * getWindowAspectRatio();
+				  vel.y * vel.y * mFbo.getAspectRatio() * mFbo.getAspectRatio();
 
 	if ( speed > 0 )
 	{
@@ -146,13 +146,13 @@ void Acacia::addToFluid( Vec2f pos, Vec2f vel, bool addLeaves, bool addParticles
 
 			mFluidSolver.addColorAtPos( pos, drawColor * colorMult );
 
-			mLeaves.addLeaf( pos * Vec2f( getWindowSize() ),
+			mLeaves.addLeaf( pos * Vec2f( mFbo.getSize() ),
 					mBWTextures[ Rand::randInt( mBWTextures.size() ) ] );
 		}
 
 		if ( addParticles )
 		{
-			mParticles.addParticle( pos * Vec2f( getWindowSize() ), 15 );
+			mParticles.addParticle( pos * Vec2f( mFbo.getSize() ), 15 );
 		}
 
 		if ( addForce )
@@ -310,16 +310,16 @@ void Acacia::draw()
 
 void Acacia::mouseDrag(MouseEvent event)
 {
-	Vec2f mouseNorm = Vec2f( event.getPos() ) / getWindowSize();
-	Vec2f mouseVel = Vec2f( event.getPos() - mPrevMouse ) / getWindowSize();
+	Vec2f mouseNorm = Vec2f( event.getPos() ) / mFbo.getSize();
+	Vec2f mouseVel = Vec2f( event.getPos() - mPrevMouse ) / mFbo.getSize();
 	addToFluid( mouseNorm, mouseVel, mAddLeaves && event.isLeftDown(), mAddParticles && event.isLeftDown(), true );
 	mPrevMouse = event.getPos();
 }
 
 void Acacia::mouseDown(MouseEvent event)
 {
-	Vec2f mouseNorm = Vec2f( event.getPos() ) / getWindowSize();
-	Vec2f mouseVel = Vec2f( event.getPos() - mPrevMouse ) / getWindowSize();
+	Vec2f mouseNorm = Vec2f( event.getPos() ) / mFbo.getSize();
+	Vec2f mouseVel = Vec2f( event.getPos() - mPrevMouse ) / mFbo.getSize();
 	addToFluid( mouseNorm, mouseVel, false, false, true );
 	mPrevMouse = event.getPos();
 }
