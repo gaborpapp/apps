@@ -1,5 +1,5 @@
 #include "cinder/Easing.h"
-#include "cinder/Area.h"
+#include "cinder/Rect.h"
 
 #include "Moon.h"
 
@@ -80,7 +80,7 @@ void Moon::draw()
 	{
 		Rectf centeredRect = Rectf( mFrameTexture.getBounds() ).getCenteredFit(
 				//mApp->getWindowBounds(), true );
-				Area( 0, 0, 1024, 768 ), true ); // FIXME: fbo size
+				Rectf( 0, 0, 1024, 768 ), true ); // FIXME: fbo size
 
 		// FIXME: fbo flip
 		gl::pushMatrices();

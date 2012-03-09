@@ -47,9 +47,9 @@ void SpeechShop::setup()
 			" keyincr='[' keydecr=']' " );
 	mParams.addParam( "Plug", &mIsPlugged, "", true );
 
-	mParams.addPersistentParam( "Gravity", &mGravity, 500, " min=10, max=500, step=10 ");
-	mParams.addPersistentParam( "Min size", &mMinTextSize, 10, " min=5, max=20, step=.5 ");
-	mParams.addPersistentParam( "Max size", &mMaxTextSize, 25, " min=10, max=40, step=.5 ");
+	mParams.addPersistentParam( "Gravity", &mGravity, 500, " min=10, max=1500, step=10 ");
+	mParams.addPersistentParam( "Min size", &mMinTextSize, 15, " min=5, max=20, step=.5 ");
+	mParams.addPersistentParam( "Max size", &mMaxTextSize, 30, " min=10, max=40, step=.5 ");
 
 	const string dirArr[] = { "Left", "Up", "Right", "Down" };
 	const int dirSize = sizeof( dirArr ) / sizeof( dirArr[0] );

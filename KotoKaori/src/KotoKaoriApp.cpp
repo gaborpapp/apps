@@ -45,11 +45,10 @@ using namespace ci::app;
 using namespace std;
 
 // display sizes, secondary is on the right
-const int WINDOW_POSY = 0;
 const int MAIN_WIDTH = 1024;
-const int MAIN_HEIGHT = 768 - WINDOW_POSY;
+const int MAIN_HEIGHT = 768;
 const int SECONDARY_WIDTH = 1024;
-const int SECONDARY_HEIGHT = 768 - WINDOW_POSY;
+const int SECONDARY_HEIGHT = 768;
 
 class KotoKaoriApp : public ci::app::AppBasic
 {
@@ -92,6 +91,7 @@ class KotoKaoriApp : public ci::app::AppBasic
 		bool mFullScreen;
 		float mFps;
 		bool mShowPreview;
+		int mPreviewSize;
 
 		vector<string> mEffectNames;
 
@@ -99,8 +99,6 @@ class KotoKaoriApp : public ci::app::AppBasic
 		bool mNIMirror;
 
 		gl::Fbo mFbo;
-
-		RectMapping mWindow2Fbo;
 };
 
 KotoKaoriApp::KotoKaoriApp()
@@ -115,17 +113,15 @@ KotoKaoriApp::KotoKaoriApp()
 
 void KotoKaoriApp::prepareSettings(Settings *settings)
 {
-	settings->setWindowSize(640, 480);
-	/*
-	settings->setWindowSize( MAIN_WIDTH + SECONDARY_WIDTH, SECONDARY_WIDTH );
-	settings->setWindowPos( 0, WINDOW_POSY );
-	settings->setBorderless( true );
-	//settings->setAlwaysOnTop();
-	*/
 }
 
 void KotoKaoriApp::setup()
 {
+	setBorderless();
+	setWindowSize( MAIN_WIDTH + SECONDARY_WIDTH, SECONDARY_HEIGHT );
+	setWindowPos( 0, 0 );
+	setAlwaysOnTop();
+
 	gl::disableVerticalSync();
 
 	// params
@@ -145,6 +141,7 @@ void KotoKaoriApp::setup()
 	mParams.addSeparator();
 	mParams.addPersistentParam("Fullscreen", &mFullScreen, false, " key='f' ");
 	mParams.addPersistentParam("Preview", &mShowPreview, true );
+	mParams.addPersistentParam("Preview size", &mPreviewSize, 160, "min=80, max=600" );
 	mParams.addButton("Screenshot", std::bind(&KotoKaoriApp::saveScreenshot, this));
 	mParams.addParam("Fps", &mFps, "", true);
 
@@ -191,19 +188,6 @@ void KotoKaoriApp::setup()
 
 	// fbo
 	mFbo = gl::Fbo( SECONDARY_WIDTH, SECONDARY_HEIGHT );
-	mWindow2Fbo = RectMapping( Area(0, 0, MAIN_WIDTH, MAIN_HEIGHT),
-			mFbo.getBounds());
-
-	setWindowPos( 0, WINDOW_POSY );
-	setWindowSize( MAIN_WIDTH + SECONDARY_WIDTH, SECONDARY_WIDTH );
-	setBorderless( true );
-	setAlwaysOnTop();
-
-	// FIXME: otherwise the mouse cursor event positions are wrong
-	setFullScreen( false );
-	setFullScreen( true );
-	setFullScreen( false );
-
 
 	// OpenNI start
 	mNI.start();
@@ -257,92 +241,11 @@ void KotoKaoriApp::keyUp( KeyEvent event )
 
 void KotoKaoriApp::mouseDown( MouseEvent event )
 {
-	/*
-	Vec2i pos = mWindow2Fbo.map( event.getPos() );
-	unsigned int initiator = 0;
-	unsigned int modifier = 0;
-
-	console() << "mouseDown" << event.getPos() << " " << pos << endl;
-	if (event.isLeft())
-	{
-		initiator |= MouseEvent::LEFT_DOWN;
-	}
-	if (event.isLeftDown())
-	{
-		modifier |= MouseEvent::LEFT_DOWN;
-	}
-	if (event.isRight())
-	{
-		initiator |= MouseEvent::RIGHT_DOWN;
-	}
-	if (event.isRightDown())
-	{
-		modifier |= MouseEvent::RIGHT_DOWN;
-	}
-	if (event.isMiddle())
-	{
-		initiator |= MouseEvent::MIDDLE_DOWN;
-	}
-	if (event.isMiddleDown())
-	{
-		modifier |= MouseEvent::MIDDLE_DOWN;
-	}
-
-	MouseEvent mappedEvent = MouseEvent( initiator,
-										pos.x,
-										pos.y,
-										modifier,
-										event.getWheelIncrement(),
-										event.getNativeModifiers()
-										);
-
-	mEffects[ mEffectIndex ]->mouseDown( mappedEvent );
-	*/
 	mEffects[ mEffectIndex ]->mouseDown( event );
 }
 
 void KotoKaoriApp::mouseDrag( MouseEvent event )
 {
-	/*
-	Vec2i pos = mWindow2Fbo.map( event.getPos() );
-	unsigned int initiator = 0;
-	unsigned int modifier = 0;
-
-	if (event.isLeft())
-	{
-		initiator |= MouseEvent::LEFT_DOWN;
-	}
-	if (event.isLeftDown())
-	{
-		modifier |= MouseEvent::LEFT_DOWN;
-	}
-	if (event.isRight())
-	{
-		initiator |= MouseEvent::RIGHT_DOWN;
-	}
-	if (event.isRightDown())
-	{
-		modifier |= MouseEvent::RIGHT_DOWN;
-	}
-	if (event.isMiddle())
-	{
-		initiator |= MouseEvent::MIDDLE_DOWN;
-	}
-	if (event.isMiddleDown())
-	{
-		modifier |= MouseEvent::MIDDLE_DOWN;
-	}
-
-	MouseEvent mappedEvent = MouseEvent( initiator,
-										pos.x,
-										pos.y,
-										modifier,
-										event.getWheelIncrement(),
-										event.getNativeModifiers()
-										);
-
-	//mEffects[ mEffectIndex ]->mouseDown( mappedEvent );
-	*/
 	mEffects[ mEffectIndex ]->mouseDrag( event );
 }
 
@@ -390,7 +293,6 @@ void KotoKaoriApp::draw()
 	mEffects[ mEffectIndex ]->draw();
 	*/
 
-//#if 0
 	gl::pushMatrices();
 	mFbo.bindFramebuffer();
 
@@ -406,10 +308,8 @@ void KotoKaoriApp::draw()
 	gl::popMatrices();
 
 	gl::clear( Color::black() );
-	gl::setMatricesWindow( Vec2i( MAIN_WIDTH + SECONDARY_WIDTH,
-								  SECONDARY_HEIGHT ) );
-	gl::setViewport( Area( 0, 0, MAIN_WIDTH + SECONDARY_WIDTH,
-								  SECONDARY_HEIGHT ) );
+	gl::setMatricesWindow( getWindowSize() );
+	gl::setViewport( getWindowBounds() );
 
 	gl::color( Color::white() );
 
@@ -420,17 +320,16 @@ void KotoKaoriApp::draw()
 
 	if ( mShowPreview )
 	{
-		const int b = 40;
-		const int pw = 320;
-		const int ph = 240;
+		const int b = 10;
+		const int pw = mPreviewSize;
+		const int ph = mPreviewSize / mFbo.getAspectRatio();
 
-		Rectf previewRect = Rectf( MAIN_WIDTH - pw - 2 * b, b, MAIN_WIDTH - b, ph + b );
+		Rectf previewRect = Rectf( MAIN_WIDTH - pw - b, b, MAIN_WIDTH - b, ph + b );
 		gl::draw( fboTexture, previewRect );
 		gl::drawStrokedRect( previewRect );
 	}
-//#endif
 
-	params::InterfaceGl::draw();
+	params::PInterfaceGl::draw();
 }
 
 CINDER_APP_BASIC(KotoKaoriApp, RendererGl( RendererGl::AA_NONE ) )
