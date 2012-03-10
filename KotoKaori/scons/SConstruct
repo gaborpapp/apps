@@ -4,6 +4,7 @@ SOURCES = ['KotoKaoriApp.cpp', 'PParams.cpp', 'Effect.cpp',
 		'NI.cpp', 'Utils.cpp']
 RESOURCES = []
 ASSETS = []
+ICON = 'koto.icns'
 
 # KezekLabak
 SOURCES += [ 'DepthMerge.cpp' ]
@@ -65,5 +66,5 @@ LIBS += [File(s) for s in CV_LIBS]
 
 SConscript('../../../scons/SConscript',
 	exports = ['TARGET', 'SOURCES', 'INCLUDES', 'LIBS', 'LIBPATH',
-		'ASSETS', 'RESOURCES', 'DEBUG'])
+		'ASSETS', 'RESOURCES', 'ICON', 'DEBUG'])
 
