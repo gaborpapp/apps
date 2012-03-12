@@ -1,5 +1,5 @@
 /*
- Copyright (C) 2011 Gabor Papp
+ Copyright (C) 2012 Gabor Papp
 
  This program is free software; you can redistribute it and/or modify
  it under the terms of the GNU General Public License as published by
@@ -15,11 +15,29 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include "TemplateApp.h"
+#include "cinder/Cinder.h"
+#include "cinder/app/AppBasic.h"
+#include "cinder/gl/gl.h"
+#include "cinder/params/Params.h"
 
 using namespace ci;
 using namespace ci::app;
 using namespace std;
+
+class TemplateApp : public AppBasic
+{
+	public:
+		void prepareSettings(Settings *settings);
+		void setup();
+
+		void keyDown(KeyEvent event);
+
+		void update();
+		void draw();
+
+	private:
+		params::InterfaceGl mParams;
+};
 
 void TemplateApp::prepareSettings(Settings *settings)
 {
@@ -28,19 +46,9 @@ void TemplateApp::prepareSettings(Settings *settings)
 
 void TemplateApp::setup()
 {
-	enableVSync(false);
-}
+	gl::disableVerticalSync();
 
-void TemplateApp::enableVSync(bool vs)
-{
-#if defined(CINDER_MAC)
-	GLint vsync = vs;
-	CGLSetParameter(CGLGetCurrentContext(), kCGLCPSwapInterval, &vsync);
-#endif
-}
-
-void TemplateApp::shutdown()
-{
+	mParams = params::InterfaceGl("Parameters", Vec2i(200, 300));
 }
 
 void TemplateApp::keyDown(KeyEvent event)
@@ -51,18 +59,16 @@ void TemplateApp::keyDown(KeyEvent event)
 		quit();
 }
 
-void TemplateApp::keyUp(KeyEvent event)
-{
-}
-
 void TemplateApp::update()
 {
 }
 
 void TemplateApp::draw()
 {
-	gl::clear(Color(0, 0, 0));
+	gl::clear( Color::black() );
+
+	params::InterfaceGl::draw();
 }
 
-CINDER_APP_BASIC(TemplateApp, RendererGl)
+CINDER_APP_BASIC(TemplateApp, RendererGl( RendererGl::AA_NONE ))
 
