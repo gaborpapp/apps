@@ -1,0 +1,7 @@
+TARGET = 'LiquidApp'
+SOURCES  = ['LiquidApp.cpp']
+DEBUG = 0
+
+SConscript('../../../scons/SConscript',
+	exports = ['TARGET', 'SOURCES', 'DEBUG'])
+
