@@ -64,7 +64,7 @@ void PageCurl::set_bounds(const Area& area)
 
 void PageCurl::load_textures(string dir)
 {
-	string data_path = getAppPath();
+	string data_path = getAppPath().string();
 #ifdef CINDER_MAC
 	data_path += "/Contents/Resources/";
 #endif
@@ -87,7 +87,7 @@ void PageCurl::load_textures(string dir)
 
 void PageCurl::load_samples()
 {
-	string data_path = getAppPath();
+	string data_path = getAppPath().string();
 #ifdef CINDER_MAC
 	data_path += "/Contents/Resources/";
 #endif
@@ -429,7 +429,7 @@ void PageCurl::render(const Vec2f& pos, const int page0_i, const int corner)
 		{
 			shadow.appendVertex(pts[i]);
 		}
-		vector<size_t> indices = page.getIndices();
+		vector<uint32_t> indices = page.getIndices();
 		for (unsigned i = 0; i < indices.size(); i += 3)
 		{
 			shadow.appendTriangle(indices[i], indices[i + 1], indices[i + 2]);
@@ -495,7 +495,7 @@ void PageCurl::render(const Vec2f& pos, const int page0_i, const int corner)
 		{
 			shadow.appendVertex(pts[i]);
 		}
-		vector<size_t> indices = page.getIndices();
+		vector<uint32_t> indices = page.getIndices();
 		for (unsigned i = 0; i < indices.size(); i += 3)
 		{
 			shadow.appendTriangle(indices[i], indices[i + 1], indices[i + 2]);
