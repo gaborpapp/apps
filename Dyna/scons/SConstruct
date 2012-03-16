@@ -1,0 +1,17 @@
+TARGET = 'DynaApp'
+SOURCES  = ['DynaApp.cpp', 'Particles.cpp']
+INCLUDES = []
+DEBUG = 1
+
+# msaFluid
+MSAFLUID_PATH = '../../../blocks/msaFluid/scons/'
+import sys
+sys.path.append(MSAFLUID_PATH)
+import msaFluid
+SOURCES += msaFluid.getSources(MSAFLUID_PATH)
+INCLUDES += msaFluid.getIncludes(MSAFLUID_PATH)
+
+
+SConscript('../../../scons/SConscript',
+	exports = ['TARGET', 'SOURCES', 'INCLUDES', 'DEBUG'])
+
