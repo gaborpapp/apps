@@ -78,6 +78,11 @@ class DynaApp : public AppBasic
 
 		float mStrokeMin;
 		float mStrokeWidth;
+		int mParticleMin;
+		int mParticleMax;
+		float mVelParticleMult;
+		float mVelParticleMin;
+		float mVelParticleMax;
 
 		ciMsaFluidSolver mFluidSolver;
 		ciMsaFluidDrawerGl mFluidDrawer;
@@ -102,7 +107,12 @@ DynaApp::DynaApp() :
 	mDamping( .7 ),
 	mMass( 1 ),
 	mStrokeMin( 1 ),
-	mStrokeWidth( 15 )
+	mStrokeWidth( 15 ),
+	mParticleMin( 0 ),
+	mParticleMax( 40 ),
+	mVelParticleMult( .26 ),
+	mVelParticleMin( 1 ),
+	mVelParticleMax( 60 )
 {
 }
 
@@ -114,8 +124,13 @@ void DynaApp::setup()
 
 	mParams.addParam("Stiffness", &mK, "min=.01 max=.2 step=.01");
 	mParams.addParam("Damping", &mDamping, "min=.25 max=.999 step=.02");
-	mParams.addParam("Stroke min", &mStrokeMin, "min=0 max=30 step=.5");
-	mParams.addParam("Stroke width", &mStrokeWidth, "min=0 max=30 step=.5");
+	mParams.addParam("Stroke min", &mStrokeMin, "min=0 max=50 step=.5");
+	mParams.addParam("Stroke width", &mStrokeWidth, "min=-50 max=50 step=.5");
+	mParams.addParam("Particle min", &mParticleMin, "min=0 max=50");
+	mParams.addParam("Particle max", &mParticleMax, "min=0 max=50");
+	mParams.addParam("Velocity particle multiplier", &mVelParticleMult, "min=0 max=2 step=.01");
+	mParams.addParam("Velocity particle min", &mVelParticleMin, "min=1 max=100 step=.5");
+	mParams.addParam("Velocity particle max", &mVelParticleMax, "min=1 max=100 step=.5");
 
 	// fluid
 	mFluidSolver.setup( sFluidSizeX, sFluidSizeX );
@@ -156,7 +171,12 @@ void DynaApp::addToFluid( Vec2f pos, Vec2f vel, bool addParticles, bool addForce
 
 		if ( addParticles )
 		{
-			mParticles.addParticle( pos * Vec2f( getWindowSize() ), 15 );
+			int count = static_cast<int>(
+						lmap<float>( vel.length() * mVelParticleMult * getWindowWidth(),
+									 mVelParticleMin, mVelParticleMax,
+									 mParticleMin, mParticleMax ) );
+			if (count > 0)
+				mParticles.addParticle( pos * Vec2f( getWindowSize() ), count);
 		}
 		if ( addForce )
 			mFluidSolver.addForceAtPos( pos, vel * velocityMult );
