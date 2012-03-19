@@ -20,13 +20,13 @@
 #include "cinder/Cinder.h"
 #include "cinder/app/AppBasic.h"
 #include "cinder/gl/gl.h"
+#include "cinder/gl/Fbo.h"
 #include "cinder/params/Params.h"
-#include "cinder/CinderMath.h"
-#include "cinder/Easing.h"
 
 #include "ciMsaFluidSolver.h"
 #include "ciMsaFluidDrawerGl.h"
 
+#include "DynaStroke.h"
 #include "Particles.h"
 
 using namespace ci;
@@ -59,25 +59,14 @@ class DynaApp : public AppBasic
 		Vec2i mMousePos;
 		Vec2i mPrevMousePos;
 
-		struct StrokePoint
-		{
-			StrokePoint( Vec2f _p, Vec2f _w ) :
-				p( _p ), w( _w) {}
+		void clearStrokes();
+		list< DynaStroke > mDynaStrokes;
 
-			Vec2f p;
-			Vec2f w;
-		};
+		float mK;
+		float mDamping;
+		float mStrokeMinWidth;
+		float mStrokeMaxWidth;
 
-		list<StrokePoint> mPoints;
-
-		Vec2f mPos; // spring position
-		Vec2f mVel; // velocity
-		float mK; // spring stiffness
-		float mDamping; // friction
-		float mMass;
-
-		float mStrokeMin;
-		float mStrokeWidth;
 		int mParticleMin;
 		int mParticleMax;
 		float mVelParticleMult;
@@ -94,7 +83,7 @@ class DynaApp : public AppBasic
 
 		ci::Vec2i mPrevMouse;
 
-
+		gl::Fbo mFbo;
 };
 
 void DynaApp::prepareSettings(Settings *settings)
@@ -105,9 +94,8 @@ void DynaApp::prepareSettings(Settings *settings)
 DynaApp::DynaApp() :
 	mK( .06 ),
 	mDamping( .7 ),
-	mMass( 1 ),
-	mStrokeMin( 1 ),
-	mStrokeWidth( 15 ),
+	mStrokeMinWidth( 1 ),
+	mStrokeMaxWidth( 16 ),
 	mParticleMin( 0 ),
 	mParticleMax( 40 ),
 	mVelParticleMult( .26 ),
@@ -124,8 +112,11 @@ void DynaApp::setup()
 
 	mParams.addParam("Stiffness", &mK, "min=.01 max=.2 step=.01");
 	mParams.addParam("Damping", &mDamping, "min=.25 max=.999 step=.02");
-	mParams.addParam("Stroke min", &mStrokeMin, "min=0 max=50 step=.5");
-	mParams.addParam("Stroke width", &mStrokeWidth, "min=-50 max=50 step=.5");
+	mParams.addParam("Stroke min", &mStrokeMinWidth, "min=0 max=50 step=.5");
+	mParams.addParam("Stroke width", &mStrokeMaxWidth, "min=-50 max=50 step=.5");
+
+	mParams.addButton("Clear strokes", std::bind(&DynaApp::clearStrokes, this), " key=SPACE ");
+
 	mParams.addParam("Particle min", &mParticleMin, "min=0 max=50");
 	mParams.addParam("Particle max", &mParticleMax, "min=0 max=50");
 	mParams.addParam("Velocity particle multiplier", &mVelParticleMult, "min=0 max=2 step=.01");
@@ -139,13 +130,25 @@ void DynaApp::setup()
 	mFluidDrawer.setup( &mFluidSolver );
 
 	mParticles.setFluidSolver( &mFluidSolver );
+
+	mFbo = gl::Fbo( 1024, 768 );
+	mFluidSolver.setSize( sFluidSizeX, sFluidSizeX / mFbo.getAspectRatio() );
+	mFluidDrawer.setup( &mFluidSolver );
+	mParticles.setWindowSize( mFbo.getSize() );
 }
 
 void DynaApp::resize(ResizeEvent event)
 {
+	/*
 	mFluidSolver.setSize( sFluidSizeX, sFluidSizeX / event.getAspectRatio() );
 	mFluidDrawer.setup( &mFluidSolver );
 	mParticles.setWindowSize( event.getSize() );
+	*/
+}
+
+void DynaApp::clearStrokes()
+{
+	mDynaStrokes.clear();
 }
 
 void DynaApp::keyDown(KeyEvent event)
@@ -176,7 +179,9 @@ void DynaApp::addToFluid( Vec2f pos, Vec2f vel, bool addParticles, bool addForce
 									 mVelParticleMin, mVelParticleMax,
 									 mParticleMin, mParticleMax ) );
 			if (count > 0)
-				mParticles.addParticle( pos * Vec2f( getWindowSize() ), count);
+			{
+				mParticles.addParticle( pos * Vec2f( mFbo.getSize() ), count);
+			}
 		}
 		if ( addForce )
 			mFluidSolver.addForceAtPos( pos, vel * velocityMult );
@@ -187,11 +192,16 @@ void DynaApp::mouseDown(MouseEvent event)
 {
 	if (event.isLeft())
 	{
-		mPos = event.getPos();
-		mVel = Vec2f::zero();
+		mDynaStrokes.push_back( DynaStroke() );
+		DynaStroke *d = &mDynaStrokes.back();
+		d->resize( ResizeEvent( mFbo.getSize() ) );
+		d->setStiffness( mK );
+		d->setDamping( mDamping );
+		d->setStrokeMinWidth( mStrokeMinWidth );
+		d->setStrokeMaxWidth( mStrokeMaxWidth );
+
 		mLeftButton = true;
 		mMousePos = event.getPos();
-		mPoints.clear();
 	}
 }
 
@@ -204,6 +214,7 @@ void DynaApp::mouseDrag(MouseEvent event)
 		Vec2f mouseNorm = Vec2f( mMousePos ) / getWindowSize();
 		Vec2f mouseVel = Vec2f( mMousePos - mPrevMousePos ) / getWindowSize();
 		addToFluid( mouseNorm, mouseVel, true, true );
+
 		mPrevMousePos = mMousePos;
 	}
 }
@@ -219,24 +230,8 @@ void DynaApp::mouseUp(MouseEvent event)
 
 void DynaApp::update()
 {
-	if (mLeftButton)
-	{
-		Vec2f d = mPos - mMousePos; // displacement from the cursor
-		Vec2f f = -mK * d; // Hooke's law F = - k * d
-		Vec2f a = f / mMass; // acceleration, F = ma
-
-		mVel = mVel + a;
-		mVel *= mDamping;
-		mPos += mVel;
-
-		Vec2f ang( -mVel.y, mVel.x );
-		ang.normalize();
-
-		const float maxVel = 60;
-		float s = math<float>::clamp(mVel.length(), 0, maxVel);
-		ang *= mStrokeMin + mStrokeWidth * easeInQuad(s / maxVel);
-		mPoints.push_back( StrokePoint(mPos, ang) );
-	}
+	if ( mLeftButton && !mDynaStrokes.empty() )
+		mDynaStrokes.back().update( Vec2f( mMousePos ) / getWindowSize() );
 
 	mFluidSolver.update();
 
@@ -248,18 +243,29 @@ void DynaApp::draw()
 {
 	gl::clear( Color::black() );
 
+	mFbo.bindFramebuffer();
+	gl::setMatricesWindow( mFbo.getSize(), false );
+	gl::setViewport( mFbo.getBounds() );
+
+	gl::clear( Color::black() );
+
 	gl::color( Color::white() );
 
-	glBegin( GL_QUAD_STRIP );
-	for (list<StrokePoint>::iterator i = mPoints.begin(); i != mPoints.end(); ++i)
+	for (list< DynaStroke >::iterator i = mDynaStrokes.begin(); i != mDynaStrokes.end(); ++i)
 	{
-		StrokePoint *s = &(*i);
-		gl::vertex( s->p + s->w );
-		gl::vertex( s->p - s->w );
+		i->draw();
 	}
-	glEnd();
 
 	mParticles.draw();
+
+	mFbo.unbindFramebuffer();
+
+	gl::setMatricesWindow( getWindowSize() );
+	gl::setViewport( getWindowBounds() );
+
+	gl::color( Color::white() );
+	gl::draw( mFbo.getTexture(), getWindowBounds() );
+
 	params::InterfaceGl::draw();
 }
 

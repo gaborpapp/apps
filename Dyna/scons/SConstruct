@@ -1,5 +1,5 @@
 TARGET = 'DynaApp'
-SOURCES  = ['DynaApp.cpp', 'Particles.cpp']
+SOURCES  = ['DynaApp.cpp', 'Particles.cpp', 'DynaStroke.cpp']
 INCLUDES = []
 DEBUG = 1
 
