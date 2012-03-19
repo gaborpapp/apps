@@ -21,10 +21,13 @@
 #include "cinder/app/AppBasic.h"
 #include "cinder/gl/gl.h"
 #include "cinder/gl/Fbo.h"
+#include "cinder/gl/GlslProg.h"
 #include "cinder/params/Params.h"
 
 #include "ciMsaFluidSolver.h"
 #include "ciMsaFluidDrawerGl.h"
+
+#include "Resources.h"
 
 #include "DynaStroke.h"
 #include "Particles.h"
@@ -84,6 +87,11 @@ class DynaApp : public AppBasic
 		ci::Vec2i mPrevMouse;
 
 		gl::Fbo mFbo;
+		gl::Fbo mBloomFbo;
+		gl::GlslProg mBloomShader;
+
+		int mBloomIterations;
+		float mBloomStrength;
 };
 
 void DynaApp::prepareSettings(Settings *settings)
@@ -100,12 +108,18 @@ DynaApp::DynaApp() :
 	mParticleMax( 40 ),
 	mVelParticleMult( .26 ),
 	mVelParticleMin( 1 ),
-	mVelParticleMax( 60 )
+	mVelParticleMax( 60 ),
+	mBloomIterations( 8 ),
+	mBloomStrength( .8 )
 {
 }
 
 void DynaApp::setup()
 {
+	GLint n;
+	glGetIntegerv( GL_MAX_COLOR_ATTACHMENTS_EXT, &n );
+	console() << "max fbo color attachments " << n << endl;
+
 	gl::disableVerticalSync();
 
 	mParams = params::InterfaceGl("Parameters", Vec2i(200, 300));
@@ -123,6 +137,9 @@ void DynaApp::setup()
 	mParams.addParam("Velocity particle min", &mVelParticleMin, "min=1 max=100 step=.5");
 	mParams.addParam("Velocity particle max", &mVelParticleMax, "min=1 max=100 step=.5");
 
+	mParams.addParam("Bloom iterations", &mBloomIterations, "min=0 max=8");
+	mParams.addParam("Bloom strength", &mBloomStrength, "min=0 max=1. step=.05");
+
 	// fluid
 	mFluidSolver.setup( sFluidSizeX, sFluidSizeX );
 	mFluidSolver.enableRGB(false).setFadeSpeed(0.002).setDeltaT(.5).setVisc(0.00015).setColorDiffusion(0);
@@ -135,6 +152,19 @@ void DynaApp::setup()
 	mFluidSolver.setSize( sFluidSizeX, sFluidSizeX / mFbo.getAspectRatio() );
 	mFluidDrawer.setup( &mFluidSolver );
 	mParticles.setWindowSize( mFbo.getSize() );
+
+	gl::Fbo::Format format;
+	format.enableColorBuffer( true, 8 );
+	format.enableDepthBuffer( false );
+	format.setWrap( false, false );
+
+	mBloomFbo = gl::Fbo( mFbo.getWidth() / 4, mFbo.getHeight() / 4, format );
+	mBloomShader = gl::GlslProg( loadResource( RES_KAWASE_BLOOM_VERT ),
+								 loadResource( RES_KAWASE_BLOOM_FRAG ) );
+	mBloomShader.bind();
+	mBloomShader.uniform( "tex", 0 );
+	mBloomShader.uniform( "pixelSize", Vec2f( 1. / mBloomFbo.getWidth(), 1. / mBloomFbo.getHeight() ) );
+	mBloomShader.unbind();
 }
 
 void DynaApp::resize(ResizeEvent event)
@@ -249,7 +279,8 @@ void DynaApp::draw()
 
 	gl::clear( Color::black() );
 
-	gl::color( Color::white() );
+	//gl::color( Color::white() );
+	gl::color( Color::gray( .2 ) );
 
 	for (list< DynaStroke >::iterator i = mDynaStrokes.begin(); i != mDynaStrokes.end(); ++i)
 	{
@@ -260,11 +291,48 @@ void DynaApp::draw()
 
 	mFbo.unbindFramebuffer();
 
+	// bloom
+	mBloomFbo.bindFramebuffer();
+
+	gl::setMatricesWindow( mBloomFbo.getSize(), false );
+	gl::setViewport( mBloomFbo.getBounds() );
+
+	gl::color( Color::white() );
+	mFbo.getTexture().bind();
+
+	mBloomShader.bind();
+	for (int i = 0; i < mBloomIterations; i++)
+	{
+		glDrawBuffer( GL_COLOR_ATTACHMENT0_EXT + i );
+		mBloomShader.uniform( "iteration", i );
+		gl::drawSolidRect( mBloomFbo.getBounds() );
+		mBloomFbo.bindTexture( 0, i );
+	}
+	mBloomShader.unbind();
+
+	glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);
+	mBloomFbo.unbindFramebuffer();
+
+	// final
 	gl::setMatricesWindow( getWindowSize() );
 	gl::setViewport( getWindowBounds() );
 
 	gl::color( Color::white() );
 	gl::draw( mFbo.getTexture(), getWindowBounds() );
+
+	gl::enableAdditiveBlending();
+
+	gl::color( ColorA( 1., 1., 1., mBloomStrength ) );
+	for (int i = 1; i < mBloomIterations; i++)
+	{
+		gl::draw( mBloomFbo.getTexture( i ), getWindowBounds() );
+	}
+
+	/*
+	gl::color( ColorA( 1., 1., 1., mBloomStrength ) );
+	gl::draw( mBloomFbo.getTexture( (mBloomIterations & 1) ? 1 : 0 ), getWindowBounds() );
+	*/
+	gl::disableAlphaBlending();
 
 	params::InterfaceGl::draw();
 }

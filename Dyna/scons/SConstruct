@@ -1,5 +1,6 @@
 TARGET = 'DynaApp'
 SOURCES  = ['DynaApp.cpp', 'Particles.cpp', 'DynaStroke.cpp']
+RESOURCES = ['KawaseBloom.vert', 'KawaseBloom.frag']
 INCLUDES = []
 DEBUG = 1
 
@@ -13,5 +14,5 @@ INCLUDES += msaFluid.getIncludes(MSAFLUID_PATH)
 
 
 SConscript('../../../scons/SConscript',
-	exports = ['TARGET', 'SOURCES', 'INCLUDES', 'DEBUG'])
+	exports = ['TARGET', 'SOURCES', 'INCLUDES', 'RESOURCES', 'DEBUG'])
 
