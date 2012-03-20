@@ -1,8 +1,8 @@
 TARGET = 'DynaApp'
 SOURCES  = ['DynaApp.cpp', 'Particles.cpp', 'DynaStroke.cpp']
-RESOURCES = ['KawaseBloom.vert', 'KawaseBloom.frag']
+RESOURCES = ['KawaseBloom.vert', 'KawaseBloom.frag', 'brush.png']
 INCLUDES = []
-DEBUG = 1
+DEBUG = 0
 
 # msaFluid
 MSAFLUID_PATH = '../../../blocks/msaFluid/scons/'

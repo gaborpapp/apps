@@ -22,6 +22,8 @@
 #include "cinder/gl/gl.h"
 #include "cinder/gl/Fbo.h"
 #include "cinder/gl/GlslProg.h"
+#include "cinder/gl/Texture.h"
+#include "cinder/ImageIo.h"
 #include "cinder/params/Params.h"
 
 #include "ciMsaFluidSolver.h"
@@ -65,6 +67,9 @@ class DynaApp : public AppBasic
 		void clearStrokes();
 		list< DynaStroke > mDynaStrokes;
 
+		gl::Texture mBrush;
+		float mBrushColor;
+
 		float mK;
 		float mDamping;
 		float mStrokeMinWidth;
@@ -100,6 +105,7 @@ void DynaApp::prepareSettings(Settings *settings)
 }
 
 DynaApp::DynaApp() :
+	mBrushColor( .5 ),
 	mK( .06 ),
 	mDamping( .7 ),
 	mStrokeMinWidth( 1 ),
@@ -124,6 +130,7 @@ void DynaApp::setup()
 
 	mParams = params::InterfaceGl("Parameters", Vec2i(200, 300));
 
+	mParams.addParam("Brush color", &mBrushColor, "min=.0 max=1 step=.02");
 	mParams.addParam("Stiffness", &mK, "min=.01 max=.2 step=.01");
 	mParams.addParam("Damping", &mDamping, "min=.25 max=.999 step=.02");
 	mParams.addParam("Stroke min", &mStrokeMinWidth, "min=0 max=50 step=.5");
@@ -165,6 +172,8 @@ void DynaApp::setup()
 	mBloomShader.uniform( "tex", 0 );
 	mBloomShader.uniform( "pixelSize", Vec2f( 1. / mBloomFbo.getWidth(), 1. / mBloomFbo.getHeight() ) );
 	mBloomShader.unbind();
+
+	mBrush = loadImage( loadResource( RES_BRUSH ) );
 }
 
 void DynaApp::resize(ResizeEvent event)
@@ -280,12 +289,16 @@ void DynaApp::draw()
 	gl::clear( Color::black() );
 
 	//gl::color( Color::white() );
-	gl::color( Color::gray( .2 ) );
+	gl::color( Color::gray( mBrushColor ) );
 
+	gl::enableAlphaBlending();
+	mBrush.enableAndBind();
 	for (list< DynaStroke >::iterator i = mDynaStrokes.begin(); i != mDynaStrokes.end(); ++i)
 	{
 		i->draw();
 	}
+	mBrush.unbind();
+	gl::disableAlphaBlending();
 
 	mParticles.draw();
 

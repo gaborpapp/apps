@@ -51,11 +51,17 @@ void DynaStroke::update( Vec2f pos )
 void DynaStroke::draw()
 {
 	glBegin( GL_QUAD_STRIP );
+	size_t n = mPoints.size();
+	float step = 1. / n;
+	float u = 0;
 	for ( list< StrokePoint >::const_iterator i = mPoints.begin(); i != mPoints.end(); ++i)
 	{
 		const StrokePoint *s = &(*i);
+		glTexCoord2f( u, 0 );
 		gl::vertex( s->p + s->w );
+		glTexCoord2f( u, 1 );
 		gl::vertex( s->p - s->w );
+		u += step;
 	}
 	glEnd();
 }

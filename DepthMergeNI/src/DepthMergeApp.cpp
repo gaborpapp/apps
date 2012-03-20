@@ -148,7 +148,8 @@ void DepthMergeApp::setup()
 #ifdef CINDER_MAC
 		path += "/../";
 #endif
-		path += "rec-12022610062000.oni";
+		//path += "rec-12022610062000.oni";
+		path += "rec-12032014223600.oni";
 		mNI = OpenNI( path );
 		*/
 	}
