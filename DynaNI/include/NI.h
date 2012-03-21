@@ -79,6 +79,8 @@ class OpenNI
 		void			stopRecording();
 		bool			isRecording() const { return mObj->mRecording; }
 
+		UserTracker		getUserTracker() { return mObj->mUserTracker; }
+
 	protected:
 		struct Obj {
 			Obj( int deviceIndex );

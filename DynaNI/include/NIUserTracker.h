@@ -1,6 +1,7 @@
 #pragma once
 
 #include "cinder/Cinder.h"
+#include "cinder/Vector.h"
 #include "cinder/Exception.h"
 
 #include <XnOpenNI.h>
@@ -18,6 +19,10 @@ class UserTracker
 
 		void start();
 
+		ci::Vec2f getJoint2d( XnUserID userId, XnSkeletonJoint jointId );
+		ci::Vec3f getJoint3d( XnUserID userId, XnSkeletonJoint jointId );
+		ci::Vec3f getUserCenter( XnUserID userId );
+
 	protected:
 		struct Obj {
 			Obj( xn::Context context );
@@ -26,6 +31,7 @@ class UserTracker
 			xn::Context mContext;
 
 			xn::UserGenerator mUserGenerator;
+			xn::DepthGenerator mDepthGenerator;
 			static bool sNeedPose;
 			static XnChar sCalibrationPose[20];
 		};

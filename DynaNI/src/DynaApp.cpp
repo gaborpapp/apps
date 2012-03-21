@@ -102,6 +102,8 @@ class DynaApp : public AppBasic
 		float mBloomStrength;
 
 		OpenNI mNI;
+		UserTracker mNIUserTracker;
+		float mZClip;
 };
 
 void DynaApp::prepareSettings(Settings *settings)
@@ -122,7 +124,8 @@ DynaApp::DynaApp() :
 	mVelParticleMin( 1 ),
 	mVelParticleMax( 60 ),
 	mBloomIterations( 8 ),
-	mBloomStrength( .8 )
+	mBloomStrength( .8 ),
+	mZClip( 2000 )
 {
 }
 
@@ -153,6 +156,9 @@ void DynaApp::setup()
 
 	mParams.addParam("Bloom iterations", &mBloomIterations, "min=0 max=8");
 	mParams.addParam("Bloom strength", &mBloomStrength, "min=0 max=1. step=.05");
+
+	mParams.addSeparator();
+	mParams.addParam("Z clip", &mZClip, "min=1 max=10000");
 
 	// fluid
 	mFluidSolver.setup( sFluidSizeX, sFluidSizeX );
@@ -201,10 +207,10 @@ void DynaApp::setup()
 		console() << "Could not open Kinect" << endl;
 		quit();
 	}
-	mNI.setMirrored( false );
+	mNI.setMirrored( true );
 	mNI.setDepthAligned();
-	//mNI.setVideoInfrared();
 	mNI.start();
+	mNIUserTracker = mNI.getUserTracker();
 }
 
 void DynaApp::resize(ResizeEvent event)
@@ -378,6 +384,16 @@ void DynaApp::draw()
 	gl::draw( mBloomFbo.getTexture( (mBloomIterations & 1) ? 1 : 0 ), getWindowBounds() );
 	*/
 	gl::disableAlphaBlending();
+
+	Vec2f rHand = mNIUserTracker.getJoint2d( 1, XN_SKEL_RIGHT_HAND );
+	Vec3f rHand3d = mNIUserTracker.getJoint3d( 1, XN_SKEL_RIGHT_HAND );
+	console() << rHand << " " << rHand3d << endl;
+	if (rHand3d.z < mZClip)
+		gl::color( Color( 0, 1, 0 ) );
+	else
+		gl::color( Color( 1, 0, 0 ) );
+
+	gl::drawSolidCircle( rHand, 5 );
 
 	params::InterfaceGl::draw();
 }

@@ -14,6 +14,16 @@ using namespace std;
 void XN_CALLBACK_TYPE UserTracker::newUserCB( xn::UserGenerator &generator, XnUserID nId, void *pCookie )
 {
 	app::console() << "new user " << nId << endl;
+	UserTracker::Obj *obj = static_cast<UserTracker::Obj *>(pCookie);
+
+	if (Obj::sNeedPose)
+	{
+		obj->mUserGenerator.GetPoseDetectionCap().StartPoseDetection(Obj::sCalibrationPose, nId);
+	}
+	else
+	{
+		obj->mUserGenerator.GetSkeletonCap().RequestCalibration(nId, TRUE);
+	}
 }
 
 void XN_CALLBACK_TYPE UserTracker::lostUserCB( xn::UserGenerator &generator, XnUserID nId, void *pCookie )
@@ -29,6 +39,44 @@ void XN_CALLBACK_TYPE UserTracker::calibrationStartCB( xn::SkeletonCapability &c
 void XN_CALLBACK_TYPE UserTracker::calibrationEndCB( xn::SkeletonCapability &capability, XnUserID nId, XnBool bSuccess, void *pCookie )
 {
 	app::console() << "calibration end " << nId << " status " << bSuccess << endl;
+	UserTracker::Obj *obj = static_cast<UserTracker::Obj *>(pCookie);
+
+	if (bSuccess)
+	{
+		// Calibration succeeded
+		app::console() << "calibration complete for user " << nId << endl;
+		obj->mUserGenerator.GetSkeletonCap().StartTracking(nId);
+	}
+	else
+	{
+		// Calibration failed
+		app::console() << "calibration failed for user " << nId << endl;
+		if (Obj::sNeedPose)
+		{
+			obj->mUserGenerator.GetPoseDetectionCap().StartPoseDetection(Obj::sCalibrationPose, nId);
+		}
+		else
+		{
+			obj->mUserGenerator.GetSkeletonCap().RequestCalibration(nId, TRUE);
+		}
+
+		/*
+		if(eStatus==XN_CALIBRATION_STATUS_MANUAL_ABORT)
+		{
+			printf("Manual abort occured, stop attempting to calibrate!");
+			return;
+		}
+		if (g_bNeedPose)
+		{
+			g_UserGenerator.GetPoseDetectionCap().StartPoseDetection(g_strPose, nId);
+		}
+		else
+		{
+			g_UserGenerator.GetSkeletonCap().RequestCalibration(nId, TRUE);
+		}
+		*/
+	}
+
 }
 
 void XN_CALLBACK_TYPE UserTracker::userPoseDetectedCB( xn::PoseDetectionCapability &capability, const XnChar *strPose, XnUserID nId, void *pCookie )
@@ -55,6 +103,9 @@ UserTracker::Obj::Obj( xn::Context context )
 	: mContext( context )
 {
 	XnStatus rc;
+
+	rc = context.FindExistingNode(XN_NODE_TYPE_DEPTH, mDepthGenerator);
+	CHECK_RC(rc, "Retrieving depth generator");
 
 	rc = mUserGenerator.Create(mContext);
 	if (rc != XN_STATUS_OK)
@@ -109,5 +160,53 @@ void UserTracker::start()
 	XnStatus rc;
 	rc = mObj->mUserGenerator.StartGenerating();
 	CHECK_RC(rc, "UserGenerator.StartGenerating");
+}
+
+Vec2f UserTracker::getJoint2d( XnUserID userId, XnSkeletonJoint jointId )
+{
+	if (mObj->mUserGenerator.GetSkeletonCap().IsTracking( userId ))
+	{
+		XnSkeletonJointPosition joint;
+		mObj->mUserGenerator.GetSkeletonCap().GetSkeletonJointPosition( userId, jointId, joint );
+
+	   if (joint.fConfidence <= 0.)
+		   return Vec2f();
+
+		XnPoint3D pt[1];
+		pt[0] = joint.position;
+
+		mObj->mDepthGenerator.ConvertRealWorldToProjective( 1, pt, pt );
+
+		return Vec2f( pt[0].X, pt[0].Y );
+	}
+	else
+	{
+		return Vec2f();
+	}
+}
+
+Vec3f UserTracker::getJoint3d( XnUserID userId, XnSkeletonJoint jointId )
+{
+	if (mObj->mUserGenerator.GetSkeletonCap().IsTracking( userId ))
+	{
+		XnSkeletonJointPosition joint;
+		mObj->mUserGenerator.GetSkeletonCap().GetSkeletonJointPosition( userId, jointId, joint );
+
+		if (joint.fConfidence <= 0.)
+			return Vec3f();
+
+		return Vec3f( joint.position.X, joint.position.Y, joint.position.Z );
+	}
+	else
+	{
+		return Vec3f();
+	}
+}
+
+Vec3f UserTracker::getUserCenter( XnUserID userId )
+{
+	XnPoint3D center;
+	mObj->mUserGenerator.GetCoM( userId, center );
+	return Vec3f( center.X, center.Y, center.Z );
 }
 
