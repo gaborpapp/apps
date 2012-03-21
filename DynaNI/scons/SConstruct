@@ -1,0 +1,28 @@
+TARGET = 'DynaApp'
+SOURCES = ['DynaApp.cpp', 'Particles.cpp', 'DynaStroke.cpp']
+SOURCES += ['NI.cpp', 'NIUserTracker.cpp']
+
+RESOURCES = ['KawaseBloom.vert', 'KawaseBloom.frag', 'brush.png']
+DEBUG = 0
+
+INCLUDES = []
+LIBS = []
+LIBPATH = []
+
+# msaFluid
+MSAFLUID_PATH = '../../../blocks/msaFluid/scons/'
+import sys
+sys.path.append(MSAFLUID_PATH)
+import msaFluid
+SOURCES += msaFluid.getSources(MSAFLUID_PATH)
+INCLUDES += msaFluid.getIncludes(MSAFLUID_PATH)
+
+# OpenNI
+INCLUDES += ['/usr/include/ni/', '/usr/include/nite/']
+LIBS += ['OpenNI', 'usb-1.0']
+LIBPATH += ['/usr/lib/', '/opt/local/lib/']
+
+SConscript('../../../scons/SConscript',
+	exports = ['TARGET', 'SOURCES', 'INCLUDES', 'RESOURCES',
+		'LIBS', 'LIBPATH', 'DEBUG'])
+
