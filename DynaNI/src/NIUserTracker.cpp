@@ -24,11 +24,23 @@ void XN_CALLBACK_TYPE UserTracker::newUserCB( xn::UserGenerator &generator, XnUs
 	{
 		obj->mUserGenerator.GetSkeletonCap().RequestCalibration(nId, TRUE);
 	}
+
+	for ( list< Listener *>::const_iterator i = obj->mListeners.begin();
+			i != obj->mListeners.end(); ++i )
+	{
+		(*i)->newUser( UserEvent( nId ) );
+	}
 }
 
 void XN_CALLBACK_TYPE UserTracker::lostUserCB( xn::UserGenerator &generator, XnUserID nId, void *pCookie )
 {
 	app::console() << "lost user " << nId << endl;
+	UserTracker::Obj *obj = static_cast<UserTracker::Obj *>(pCookie);
+	for ( list< Listener *>::const_iterator i = obj->mListeners.begin();
+			i != obj->mListeners.end(); ++i )
+	{
+		(*i)->lostUser( UserEvent( nId ) );
+	}
 }
 
 void XN_CALLBACK_TYPE UserTracker::calibrationStartCB( xn::SkeletonCapability &capability, XnUserID nId, void *pCookie )
@@ -160,6 +172,11 @@ void UserTracker::start()
 	XnStatus rc;
 	rc = mObj->mUserGenerator.StartGenerating();
 	CHECK_RC(rc, "UserGenerator.StartGenerating");
+}
+
+void UserTracker::addListener( Listener *listener )
+{
+	mObj->mListeners.push_back( listener );
 }
 
 Vec2f UserTracker::getJoint2d( XnUserID userId, XnSkeletonJoint jointId )

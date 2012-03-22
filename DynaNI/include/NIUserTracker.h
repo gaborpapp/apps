@@ -1,5 +1,7 @@
 #pragma once
 
+#include <list>
+
 #include "cinder/Cinder.h"
 #include "cinder/Vector.h"
 #include "cinder/Exception.h"
@@ -17,11 +19,27 @@ class UserTracker
 		UserTracker() {}
 		UserTracker( xn::Context context );
 
+		struct UserEvent
+		{
+			UserEvent( unsigned aId ) : id( aId ) {}
+
+			unsigned id;
+		};
+
+		class Listener
+		{
+			public:
+				virtual void newUser( UserEvent event ) = 0;
+				virtual void lostUser( UserEvent event ) = 0;
+		};
+
 		void start();
 
 		ci::Vec2f getJoint2d( XnUserID userId, XnSkeletonJoint jointId );
 		ci::Vec3f getJoint3d( XnUserID userId, XnSkeletonJoint jointId );
 		ci::Vec3f getUserCenter( XnUserID userId );
+
+		void addListener( Listener *listener );
 
 	protected:
 		struct Obj {
@@ -32,6 +50,8 @@ class UserTracker
 
 			xn::UserGenerator mUserGenerator;
 			xn::DepthGenerator mDepthGenerator;
+			std::list< Listener * > mListeners;
+
 			static bool sNeedPose;
 			static XnChar sCalibrationPose[20];
 		};

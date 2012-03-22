@@ -40,7 +40,7 @@ using namespace ci;
 using namespace ci::app;
 using namespace std;
 
-class DynaApp : public AppBasic
+class DynaApp : public AppBasic, UserTracker::Listener
 {
 	public:
 		DynaApp();
@@ -55,6 +55,9 @@ class DynaApp : public AppBasic
 		void mouseDown(MouseEvent event);
 		void mouseDrag(MouseEvent event);
 		void mouseUp(MouseEvent event);
+
+		void newUser(UserTracker::UserEvent event);
+		void lostUser(UserTracker::UserEvent event);
 
 		void update();
 		void draw();
@@ -104,6 +107,8 @@ class DynaApp : public AppBasic
 		OpenNI mNI;
 		UserTracker mNIUserTracker;
 		float mZClip;
+		float mVideoOpacity;
+		float mFps;
 };
 
 void DynaApp::prepareSettings(Settings *settings)
@@ -125,7 +130,8 @@ DynaApp::DynaApp() :
 	mVelParticleMax( 60 ),
 	mBloomIterations( 8 ),
 	mBloomStrength( .8 ),
-	mZClip( 2000 )
+	mZClip( 2000 ),
+	mVideoOpacity( .3 )
 {
 }
 
@@ -159,6 +165,10 @@ void DynaApp::setup()
 
 	mParams.addSeparator();
 	mParams.addParam("Z clip", &mZClip, "min=1 max=10000");
+	mParams.addParam("Video opacity", &mVideoOpacity, "min=0 max=1. step=.05");
+	mParams.addSeparator();
+	mParams.addParam("Fps", &mFps, "", true);
+
 
 	// fluid
 	mFluidSolver.setup( sFluidSizeX, sFluidSizeX );
@@ -211,6 +221,17 @@ void DynaApp::setup()
 	mNI.setDepthAligned();
 	mNI.start();
 	mNIUserTracker = mNI.getUserTracker();
+	mNIUserTracker.addListener( this );
+}
+
+void DynaApp::newUser(UserTracker::UserEvent event)
+{
+	console() << "app new " << event.id << endl;
+}
+
+void DynaApp::lostUser(UserTracker::UserEvent event)
+{
+	console() << "app lost " << event.id << endl;
 }
 
 void DynaApp::resize(ResizeEvent event)
@@ -307,9 +328,52 @@ void DynaApp::mouseUp(MouseEvent event)
 
 void DynaApp::update()
 {
+	mFps = getAverageFps();
+
 	if ( mLeftButton && !mDynaStrokes.empty() )
 		mDynaStrokes.back().update( Vec2f( mMousePos ) / getWindowSize() );
 
+	// NI drawing
+	static bool lastActiveHand = false;
+
+	Vec2f rHand = mNIUserTracker.getJoint2d( 1, XN_SKEL_RIGHT_HAND );
+	Vec3f rHand3d = mNIUserTracker.getJoint3d( 1, XN_SKEL_RIGHT_HAND );
+	bool activeHand = (rHand3d.z < mZClip) && (rHand3d.z > 0);
+	static Vec2f lastHand;
+
+	if ((activeHand && !lastActiveHand) ||
+		(activeHand && mDynaStrokes.empty()))
+	{
+		mDynaStrokes.push_back( DynaStroke() );
+		DynaStroke *d = &mDynaStrokes.back();
+		d->resize( ResizeEvent( mFbo.getSize() ) );
+		d->setStiffness( mK );
+		d->setDamping( mDamping );
+		d->setStrokeMinWidth( mStrokeMinWidth );
+		d->setStrokeMaxWidth( mStrokeMaxWidth );
+		d->setMaxVelocity( mMaxVelocity );
+	}
+	if (activeHand)
+	{
+		Vec2f hand = rHand / Vec2f( 640, 480 );
+		mDynaStrokes.back().update( hand );
+
+		if (lastActiveHand)
+		{
+			Vec2f vel = Vec2f( hand - lastHand );
+			addToFluid( hand, vel, true, true );
+		}
+		lastHand = hand;
+	}
+	lastActiveHand = activeHand;
+
+	gl::color( Color::white() );
+	if (activeHand)
+		gl::drawSolidCircle( rHand, 5 );
+	else
+		gl::drawStrokedCircle( rHand, 5);
+
+	// fluid & particles
 	mFluidSolver.update();
 
 	mParticles.setAging( 0.9 );
@@ -368,10 +432,13 @@ void DynaApp::draw()
 	gl::setMatricesWindow( getWindowSize() );
 	gl::setViewport( getWindowBounds() );
 
-	gl::color( Color::white() );
-	gl::draw( mFbo.getTexture(), getWindowBounds() );
+	gl::color( Color::gray( mVideoOpacity ));
+	gl::draw( mNI.getVideoImage(), getWindowBounds() );
 
 	gl::enableAdditiveBlending();
+
+	gl::color( Color::white() );
+	gl::draw( mFbo.getTexture(), getWindowBounds() );
 
 	gl::color( ColorA( 1., 1., 1., mBloomStrength ) );
 	for (int i = 1; i < mBloomIterations; i++)
@@ -384,16 +451,6 @@ void DynaApp::draw()
 	gl::draw( mBloomFbo.getTexture( (mBloomIterations & 1) ? 1 : 0 ), getWindowBounds() );
 	*/
 	gl::disableAlphaBlending();
-
-	Vec2f rHand = mNIUserTracker.getJoint2d( 1, XN_SKEL_RIGHT_HAND );
-	Vec3f rHand3d = mNIUserTracker.getJoint3d( 1, XN_SKEL_RIGHT_HAND );
-	console() << rHand << " " << rHand3d << endl;
-	if (rHand3d.z < mZClip)
-		gl::color( Color( 0, 1, 0 ) );
-	else
-		gl::color( Color( 1, 0, 0 ) );
-
-	gl::drawSolidCircle( rHand, 5 );
 
 	params::InterfaceGl::draw();
 }
