@@ -46,6 +46,13 @@ void XN_CALLBACK_TYPE UserTracker::lostUserCB( xn::UserGenerator &generator, XnU
 void XN_CALLBACK_TYPE UserTracker::calibrationStartCB( xn::SkeletonCapability &capability, XnUserID nId, void *pCookie )
 {
 	app::console() << "calibration start " << nId << endl;
+
+	UserTracker::Obj *obj = static_cast<UserTracker::Obj *>(pCookie);
+	for ( list< Listener *>::const_iterator i = obj->mListeners.begin();
+			i != obj->mListeners.end(); ++i )
+	{
+		(*i)->calibrationStart( UserEvent( nId ) );
+	}
 }
 
 void XN_CALLBACK_TYPE UserTracker::calibrationEndCB( xn::SkeletonCapability &capability, XnUserID nId, XnBool bSuccess, void *pCookie )
@@ -71,24 +78,13 @@ void XN_CALLBACK_TYPE UserTracker::calibrationEndCB( xn::SkeletonCapability &cap
 		{
 			obj->mUserGenerator.GetSkeletonCap().RequestCalibration(nId, TRUE);
 		}
-
-		/*
-		if(eStatus==XN_CALIBRATION_STATUS_MANUAL_ABORT)
-		{
-			printf("Manual abort occured, stop attempting to calibrate!");
-			return;
-		}
-		if (g_bNeedPose)
-		{
-			g_UserGenerator.GetPoseDetectionCap().StartPoseDetection(g_strPose, nId);
-		}
-		else
-		{
-			g_UserGenerator.GetSkeletonCap().RequestCalibration(nId, TRUE);
-		}
-		*/
 	}
 
+	for ( list< Listener *>::const_iterator i = obj->mListeners.begin();
+			i != obj->mListeners.end(); ++i )
+	{
+		(*i)->calibrationEnd( UserEvent( nId ) );
+	}
 }
 
 void XN_CALLBACK_TYPE UserTracker::userPoseDetectedCB( xn::PoseDetectionCapability &capability, const XnChar *strPose, XnUserID nId, void *pCookie )
@@ -181,6 +177,18 @@ void UserTracker::start()
 void UserTracker::addListener( Listener *listener )
 {
 	mObj->mListeners.push_back( listener );
+}
+
+vector< unsigned > UserTracker::getUsers()
+{
+	XnUserID aUsers[20];
+	XnUInt16 nUsers = 20;
+	mObj->mUserGenerator.GetUsers( aUsers, nUsers );
+	vector< unsigned > users;
+	for ( unsigned i = 0; i < nUsers; i++)
+		users.push_back( aUsers[i] );
+
+	return users;
 }
 
 Vec2f UserTracker::getJoint2d( XnUserID userId, XnSkeletonJoint jointId )

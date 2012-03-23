@@ -1,5 +1,6 @@
 #pragma once
 
+#include <vector>
 #include <list>
 
 #include "cinder/Cinder.h"
@@ -29,11 +30,15 @@ class UserTracker
 		class Listener
 		{
 			public:
-				virtual void newUser( UserEvent event ) = 0;
-				virtual void lostUser( UserEvent event ) = 0;
+				virtual void newUser( UserEvent event ) {}
+				virtual void lostUser( UserEvent event ) {}
+				virtual void calibrationStart( UserEvent event ) {}
+				virtual void calibrationEnd( UserEvent event ) {}
 		};
 
 		void start();
+
+		std::vector< unsigned > getUsers();
 
 		ci::Vec2f getJoint2d( XnUserID userId, XnSkeletonJoint jointId );
 		ci::Vec3f getJoint3d( XnUserID userId, XnSkeletonJoint jointId );

@@ -16,6 +16,7 @@
 */
 
 #include <list>
+#include <map>
 
 #include "cinder/Cinder.h"
 #include "cinder/app/AppBasic.h"
@@ -58,6 +59,7 @@ class DynaApp : public AppBasic, UserTracker::Listener
 
 		void newUser(UserTracker::UserEvent event);
 		void lostUser(UserTracker::UserEvent event);
+		void calibrationEnd(UserTracker::UserEvent event);
 
 		void update();
 		void draw();
@@ -112,6 +114,28 @@ class DynaApp : public AppBasic, UserTracker::Listener
 		float mZClip;
 		float mVideoOpacity;
 		float mFps;
+		bool mShowHands;
+
+		struct UserStrokes
+		{
+			UserStrokes()
+			{
+				for (int i = 0; i < JOINTS; i++)
+				{
+					mPrevActive[i] = false;
+					mStrokes[i] = NULL;
+				}
+			}
+
+			static const int JOINTS = 2;
+
+			DynaStroke *mStrokes[JOINTS];
+
+			bool mActive[JOINTS];
+			bool mPrevActive[JOINTS];
+			Vec2f mHand[JOINTS];
+		};
+		map< unsigned, UserStrokes > mUserStrokes;
 };
 
 void DynaApp::prepareSettings(Settings *settings)
@@ -171,7 +195,7 @@ void DynaApp::setup()
 	mParams.addParam("Video opacity", &mVideoOpacity, "min=0 max=1. step=.05");
 	mParams.addSeparator();
 	mParams.addParam("Fps", &mFps, "", true);
-
+	mParams.addParam("Show hands", &mShowHands);
 
 	// fluid
 	mFluidSolver.setup( sFluidSizeX, sFluidSizeX );
@@ -217,16 +241,16 @@ void DynaApp::setup()
 	// OpenNI
 	try
 	{
-		//mNI = OpenNI( OpenNI::Device() );
+		mNI = OpenNI( OpenNI::Device() );
 
-		//*
+		/*
 		string path = getAppPath().string();
 	#ifdef CINDER_MAC
 		path += "/../";
 	#endif
 		path += "rec-12032014223600.oni";
 		mNI = OpenNI( path );
-		//*/
+		*/
 	}
 	catch (...)
 	{
@@ -245,9 +269,19 @@ void DynaApp::newUser(UserTracker::UserEvent event)
 	console() << "app new " << event.id << endl;
 }
 
+void DynaApp::calibrationEnd(UserTracker::UserEvent event)
+{
+	console() << "app calib end " << event.id << endl;
+	map< unsigned, UserStrokes >::iterator it;
+	it = mUserStrokes.find( event.id );
+	if ( it == mUserStrokes.end() )
+		mUserStrokes[ event.id ] = UserStrokes();
+}
+
 void DynaApp::lostUser(UserTracker::UserEvent event)
 {
 	console() << "app lost " << event.id << endl;
+	mUserStrokes.erase( event.id );
 }
 
 void DynaApp::resize(ResizeEvent event)
@@ -261,6 +295,7 @@ void DynaApp::resize(ResizeEvent event)
 
 void DynaApp::clearStrokes()
 {
+	mUserStrokes.clear();
 	mDynaStrokes.clear();
 }
 
@@ -349,42 +384,64 @@ void DynaApp::update()
 	if ( mLeftButton && !mDynaStrokes.empty() )
 		mDynaStrokes.back().update( Vec2f( mMousePos ) / getWindowSize() );
 
-	// NI drawing
-	static bool lastActiveHand = false;
-
-	Vec2f rHand = mNIUserTracker.getJoint2d( 1, XN_SKEL_RIGHT_HAND );
-	Vec3f rHand3d = mNIUserTracker.getJoint3d( 1, XN_SKEL_RIGHT_HAND );
-	bool activeHand = (rHand3d.z < mZClip) && (rHand3d.z > 0);
-	static Vec2f lastHand;
-
-	if ((activeHand && !lastActiveHand) ||
-		(activeHand && mDynaStrokes.empty()))
+	// NI user hands
+	vector< unsigned > users = mNIUserTracker.getUsers();
+	for ( vector< unsigned >::const_iterator it = users.begin();
+			it < users.end(); ++it )
 	{
-		mDynaStrokes.push_back( DynaStroke() );
-		DynaStroke *d = &mDynaStrokes.back();
-		d->resize( ResizeEvent( mFbo.getSize() ) );
-		d->setStiffness( mK );
-		d->setDamping( mDamping );
-		d->setStrokeMinWidth( mStrokeMinWidth );
-		d->setStrokeMaxWidth( mStrokeMaxWidth );
-		d->setMaxVelocity( mMaxVelocity );
-	}
-	if (activeHand)
-	{
-		Vec2f hand = rHand / Vec2f( 640, 480 );
-		mDynaStrokes.back().update( hand );
+		unsigned id = *it;
 
-		if (lastActiveHand)
+		map< unsigned, UserStrokes >::iterator strokeIt = mUserStrokes.find( id );
+		if ( strokeIt != mUserStrokes.end() )
 		{
-			Vec2f vel = Vec2f( hand - lastHand );
-			addToFluid( hand, vel, true, true );
-		}
-		lastHand = hand;
-	}
-	lastActiveHand = activeHand;
+			UserStrokes *us = &(strokeIt->second);
 
+			XnSkeletonJoint jointIds[] = { XN_SKEL_LEFT_HAND,
+							XN_SKEL_RIGHT_HAND };
+			for ( int i = 0; i < UserStrokes::JOINTS; i++ )
+			{
+				Vec2f hand = mNIUserTracker.getJoint2d( id, jointIds[i] );
+				Vec3f hand3d = mNIUserTracker.getJoint3d( id, jointIds[i] );
+				us->mActive[i] = (hand3d.z < mZClip) && (hand3d.z > 0);
+
+				if (us->mActive[i] && !us->mPrevActive[i])
+				{
+					mDynaStrokes.push_back( DynaStroke() );
+					DynaStroke *d = &mDynaStrokes.back();
+					d->resize( ResizeEvent( mFbo.getSize() ) );
+					d->setStiffness( mK );
+					d->setDamping( mDamping );
+					d->setStrokeMinWidth( mStrokeMinWidth );
+					d->setStrokeMaxWidth( mStrokeMaxWidth );
+					d->setMaxVelocity( mMaxVelocity );
+					us->mStrokes[i] = d;
+				}
+
+				if (us->mActive[i])
+				{
+					hand /= Vec2f( 640, 480 );
+					us->mStrokes[i]->update( hand );
+					if (us->mPrevActive[i])
+					{
+						Vec2f vel = Vec2f( hand - us->mHand[i] );
+						addToFluid( hand, vel, true, true );
+					}
+					us->mHand[i] = hand;
+				}
+				us->mPrevActive[i] = us->mActive[i];
+			}
+		}
+		else /* strokes were cleared */
+		{
+			mUserStrokes[ id ] = UserStrokes();
+		}
+	}
+
+
+	// kinect video texture
 	if ( mNI.checkNewVideoFrame() )
 		mColorTexture = mNI.getVideoImage();
+
 	// fluid & particles
 	mFluidSolver.update();
 
@@ -402,7 +459,6 @@ void DynaApp::draw()
 
 	gl::clear( Color::black() );
 
-	//gl::color( Color::white() );
 	gl::color( Color::gray( mBrushColor ) );
 
 	gl::enableAlphaBlending();
@@ -463,25 +519,6 @@ void DynaApp::draw()
 	gl::disable( GL_TEXTURE_2D );
 	mMixerShader.unbind();
 
-#if 0
-	gl::color( Color::gray( mVideoOpacity ));
-	mGrayscaleShader.bind();
-	gl::draw( mNI.getVideoImage(), getWindowBounds() );
-	mGrayscaleShader.unbind();
-
-	gl::enableAdditiveBlending();
-
-	gl::color( Color::white() );
-	gl::draw( mFbo.getTexture(), getWindowBounds() );
-
-	gl::color( ColorA( 1., 1., 1., mBloomStrength ) );
-	for (int i = 1; i < mBloomIterations; i++)
-	{
-		gl::draw( mBloomFbo.getTexture( i ), getWindowBounds() );
-	}
-	gl::disableAlphaBlending();
-
-#endif
 	params::InterfaceGl::draw();
 }
 
