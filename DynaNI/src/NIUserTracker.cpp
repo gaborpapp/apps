@@ -116,12 +116,16 @@ UserTracker::Obj::Obj( xn::Context context )
 {
 	XnStatus rc;
 
-	rc = context.FindExistingNode(XN_NODE_TYPE_DEPTH, mDepthGenerator);
+	rc = mContext.FindExistingNode(XN_NODE_TYPE_DEPTH, mDepthGenerator);
 	CHECK_RC(rc, "Retrieving depth generator");
 
-	rc = mUserGenerator.Create(mContext);
+	rc = mContext.FindExistingNode(XN_NODE_TYPE_USER, mUserGenerator);
 	if (rc != XN_STATUS_OK)
-		throw ExcFailedUserGeneratorInit();
+	{
+		rc = mUserGenerator.Create(mContext);
+		if (rc != XN_STATUS_OK)
+			throw ExcFailedUserGeneratorInit();
+	}
 
 	if (!mUserGenerator.IsCapabilitySupported(XN_CAPABILITY_SKELETON))
 		throw ExcNoSkeletonCapability();

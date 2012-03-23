@@ -100,12 +100,15 @@ class DynaApp : public AppBasic, UserTracker::Listener
 		gl::Fbo mFbo;
 		gl::Fbo mBloomFbo;
 		gl::GlslProg mBloomShader;
+		gl::GlslProg mGrayscaleShader;
+		gl::GlslProg mMixerShader;
 
 		int mBloomIterations;
 		float mBloomStrength;
 
 		OpenNI mNI;
 		UserTracker mNIUserTracker;
+		gl::Texture mColorTexture;
 		float mZClip;
 		float mVideoOpacity;
 		float mFps;
@@ -143,7 +146,7 @@ void DynaApp::setup()
 
 	gl::disableVerticalSync();
 
-	mParams = params::InterfaceGl("Parameters", Vec2i(200, 300));
+	mParams = params::InterfaceGl("Parameters", Vec2i(350, 350));
 
 	mParams.addParam("Brush color", &mBrushColor, "min=.0 max=1 step=.02");
 	mParams.addParam("Stiffness", &mK, "min=.01 max=.2 step=.01");
@@ -196,21 +199,34 @@ void DynaApp::setup()
 	mBloomShader.uniform( "pixelSize", Vec2f( 1. / mBloomFbo.getWidth(), 1. / mBloomFbo.getHeight() ) );
 	mBloomShader.unbind();
 
+	mGrayscaleShader = gl::GlslProg( loadResource( RES_PASSTHROUGH_VERT ),
+								 loadResource( RES_GRAYSCALE_FRAG ) );
+	mGrayscaleShader.bind();
+	mGrayscaleShader.uniform( "tex", 0 );
+	mGrayscaleShader.unbind();
+
+	mMixerShader = gl::GlslProg( loadResource( RES_PASSTHROUGH_VERT ),
+								 loadResource( RES_MIXER_FRAG ) );
+	mMixerShader.bind();
+	int texUnits[] = { 0, 1, 2, 3, 4, 5, 6, 7, 8 };
+	mMixerShader.uniform("tex", texUnits, 9);
+	mMixerShader.unbind();
+
 	mBrush = loadImage( loadResource( RES_BRUSH ) );
 
 	// OpenNI
 	try
 	{
-		mNI = OpenNI( OpenNI::Device() );
+		//mNI = OpenNI( OpenNI::Device() );
 
-		/*
-		   string path = getAppPath().string();
-		#ifdef CINDER_MAC
-			path += "/../";
-		#endif
-			path += "rec-12022610062000.oni";
-			mNI = OpenNI( path );
-		*/
+		//*
+		string path = getAppPath().string();
+	#ifdef CINDER_MAC
+		path += "/../";
+	#endif
+		path += "rec-12032014223600.oni";
+		mNI = OpenNI( path );
+		//*/
 	}
 	catch (...)
 	{
@@ -367,12 +383,8 @@ void DynaApp::update()
 	}
 	lastActiveHand = activeHand;
 
-	gl::color( Color::white() );
-	if (activeHand)
-		gl::drawSolidCircle( rHand, 5 );
-	else
-		gl::drawStrokedCircle( rHand, 5);
-
+	if ( mNI.checkNewVideoFrame() )
+		mColorTexture = mNI.getVideoImage();
 	// fluid & particles
 	mFluidSolver.update();
 
@@ -432,8 +444,30 @@ void DynaApp::draw()
 	gl::setMatricesWindow( getWindowSize() );
 	gl::setViewport( getWindowBounds() );
 
+	gl::enableAlphaBlending();
+
+	mMixerShader.bind();
+	mMixerShader.uniform( "mixOpacity", mVideoOpacity );
+
+	gl::enable( GL_TEXTURE_2D );
+	if ( mColorTexture )
+		mColorTexture.bind( 0 );
+
+	mFbo.getTexture().bind( 1 );
+	for (int i = 1; i < mBloomIterations; i++)
+	{
+		mBloomFbo.getTexture( i ).bind( i + 1 );
+	}
+
+	gl::drawSolidRect( getWindowBounds() );
+	gl::disable( GL_TEXTURE_2D );
+	mMixerShader.unbind();
+
+#if 0
 	gl::color( Color::gray( mVideoOpacity ));
+	mGrayscaleShader.bind();
 	gl::draw( mNI.getVideoImage(), getWindowBounds() );
+	mGrayscaleShader.unbind();
 
 	gl::enableAdditiveBlending();
 
@@ -445,13 +479,9 @@ void DynaApp::draw()
 	{
 		gl::draw( mBloomFbo.getTexture( i ), getWindowBounds() );
 	}
-
-	/*
-	gl::color( ColorA( 1., 1., 1., mBloomStrength ) );
-	gl::draw( mBloomFbo.getTexture( (mBloomIterations & 1) ? 1 : 0 ), getWindowBounds() );
-	*/
 	gl::disableAlphaBlending();
 
+#endif
 	params::InterfaceGl::draw();
 }
 

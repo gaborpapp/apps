@@ -72,7 +72,7 @@ class ImageSourceOpenNIInfrared : public ImageSource {
 
 	protected:
 		shared_ptr<OpenNI::Obj>		mOwnerObj;
-		uint8_t					*mData;
+		uint8_t						*mData;
 };
 
 class ImageSourceOpenNIDepth : public ImageSource {
@@ -268,6 +268,9 @@ OpenNI::Obj::Obj( const fs::path &recording )
 		mColorBuffers = BufferManager<uint8_t>( mIRWidth * mIRHeight * 3, this );
 		mVideoInfrared = true;
 	}
+
+	// user tracker
+	mUserTracker = UserTracker(mContext);
 
 	mLastVideoFrameInfrared = mVideoInfrared;
 }

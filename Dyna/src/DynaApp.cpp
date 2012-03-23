@@ -97,6 +97,7 @@ class DynaApp : public AppBasic
 
 		int mBloomIterations;
 		float mBloomStrength;
+		float mFps;
 };
 
 void DynaApp::prepareSettings(Settings *settings)
@@ -146,6 +147,9 @@ void DynaApp::setup()
 
 	mParams.addParam("Bloom iterations", &mBloomIterations, "min=0 max=8");
 	mParams.addParam("Bloom strength", &mBloomStrength, "min=0 max=1. step=.05");
+
+	mParams.addSeparator();
+	mParams.addParam("Fps", &mFps, "", true);
 
 	// fluid
 	mFluidSolver.setup( sFluidSizeX, sFluidSizeX );
@@ -269,6 +273,8 @@ void DynaApp::mouseUp(MouseEvent event)
 
 void DynaApp::update()
 {
+	mFps = getAverageFps();
+
 	if ( mLeftButton && !mDynaStrokes.empty() )
 		mDynaStrokes.back().update( Vec2f( mMousePos ) / getWindowSize() );
 
