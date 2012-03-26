@@ -54,12 +54,14 @@ class DoFNIApp : public AppBasic
 
 		float mDofAmount;
 		float mFocus;
+		float mAperture;
 		float mFps;
 };
 
 DoFNIApp::DoFNIApp()
 	: mFocus( 0.3 ),
-	  mDofAmount( 70. )
+	  mDofAmount( 90. ),
+	  mAperture( 0.99 )
 {
 }
 
@@ -75,6 +77,7 @@ void DoFNIApp::setup()
 	mParams = params::InterfaceGl("Parameters", Vec2i(200, 300));
 
 	mParams.addParam( "Dof amount", &mDofAmount, "min=1 max=300 step=.5" );
+	mParams.addParam( "Aperture", &mAperture, "min=0 max=1 step=.01" );
 	mParams.addParam( "Focus", &mFocus, "min=0 max=1 step=.01" );
 	mParams.addParam( "Fps", &mFps, "", true );
 
@@ -136,6 +139,7 @@ void DoFNIApp::draw()
 		mShaderDof.bind();
 		mShaderDof.uniform( "amount", mDofAmount );
 		mShaderDof.uniform( "focus", mFocus );
+		mShaderDof.uniform( "aperture", mAperture );
 		mShaderDof.uniform( "isize", Vec2f( 1. / mColorTxt.getWidth(),
 					1. / mColorTxt.getHeight() ) );
 

@@ -5,7 +5,7 @@ uniform sampler2D rgb;
 uniform sampler2D depth;
  
 const float blurclamp = 3.0; // max blur amount
-const float bias = 0.6; // aperture - bigger values for shallower depth of field
+uniform float aperture; // bigger values for shallower depth of field
 uniform float focus;
 uniform vec2 isize;
 uniform float amount;
@@ -16,7 +16,7 @@ void main()
 
 	float factor = ( depth1.x - focus );
 
-	vec2 dofblur = vec2( clamp( factor * bias, -blurclamp, blurclamp ) ) * isize * amount;
+	vec2 dofblur = vec2( clamp( factor * aperture, -blurclamp, blurclamp ) ) * isize * amount;
 
 	vec4 col = texture2D( rgb, gl_TexCoord[0].xy );
 	col += texture2D( rgb, gl_TexCoord[0].xy + vec2( 0.0, 0.4 ) * dofblur );

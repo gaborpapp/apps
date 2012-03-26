@@ -111,6 +111,7 @@ class DynaApp : public AppBasic, UserTracker::Listener
 		float mBloomStrength;
 
 		float mDofAmount;
+		float mDofAperture;
 		float mDofFocus;
 
 		OpenNI mNI;
@@ -166,6 +167,7 @@ DynaApp::DynaApp() :
 	mZClip( 2000 ),
 	mVideoOpacity( .3 ),
 	mDofAmount( 190. ),
+	mDofAperture( .99 ),
 	mDofFocus( .2 )
 {
 }
@@ -202,6 +204,7 @@ void DynaApp::setup()
 	mParams.addParam("Z clip", &mZClip, "min=1 max=10000");
 	mParams.addParam("Video opacity", &mVideoOpacity, "min=0 max=1. step=.05");
 	mParams.addParam("Dof amount", &mDofAmount, "min=1 max=250. step=.5");
+	mParams.addParam("Dof aperture", &mDofAperture, "min=0 max=1. step=.01");
 	mParams.addParam("Dof focus", &mDofFocus, "min=0 max=1. step=.01");
 	mParams.addSeparator();
 	mParams.addParam("Fps", &mFps, "", true);
@@ -530,6 +533,7 @@ void DynaApp::draw()
 
 		mDofShader.bind();
 		mDofShader.uniform( "amount", mDofAmount );
+		mDofShader.uniform( "aperture", mDofAperture );
 		mDofShader.uniform( "focus", mDofFocus );
 		gl::drawSolidRect( mDofFbo.getBounds() );
 		mDofShader.unbind();
