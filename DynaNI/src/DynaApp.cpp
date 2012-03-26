@@ -101,16 +101,22 @@ class DynaApp : public AppBasic, UserTracker::Listener
 
 		gl::Fbo mFbo;
 		gl::Fbo mBloomFbo;
+		gl::Fbo mDofFbo;
 		gl::GlslProg mBloomShader;
 		gl::GlslProg mGrayscaleShader;
 		gl::GlslProg mMixerShader;
+		gl::GlslProg mDofShader;
 
 		int mBloomIterations;
 		float mBloomStrength;
 
+		float mDofAmount;
+		float mDofFocus;
+
 		OpenNI mNI;
 		UserTracker mNIUserTracker;
 		gl::Texture mColorTexture;
+		gl::Texture mDepthTexture;
 		float mZClip;
 		float mVideoOpacity;
 		float mFps;
@@ -158,7 +164,9 @@ DynaApp::DynaApp() :
 	mBloomIterations( 8 ),
 	mBloomStrength( .8 ),
 	mZClip( 2000 ),
-	mVideoOpacity( .3 )
+	mVideoOpacity( .3 ),
+	mDofAmount( 190. ),
+	mDofFocus( .2 )
 {
 }
 
@@ -193,6 +201,8 @@ void DynaApp::setup()
 	mParams.addSeparator();
 	mParams.addParam("Z clip", &mZClip, "min=1 max=10000");
 	mParams.addParam("Video opacity", &mVideoOpacity, "min=0 max=1. step=.05");
+	mParams.addParam("Dof amount", &mDofAmount, "min=1 max=250. step=.5");
+	mParams.addParam("Dof focus", &mDofFocus, "min=0 max=1. step=.01");
 	mParams.addSeparator();
 	mParams.addParam("Fps", &mFps, "", true);
 	mParams.addParam("Show hands", &mShowHands);
@@ -235,6 +245,14 @@ void DynaApp::setup()
 	int texUnits[] = { 0, 1, 2, 3, 4, 5, 6, 7, 8 };
 	mMixerShader.uniform("tex", texUnits, 9);
 	mMixerShader.unbind();
+
+	mDofFbo = gl::Fbo( mFbo.getWidth(), mFbo.getHeight() );
+	mDofShader = gl::GlslProg( loadResource( RES_PASSTHROUGH_VERT ), loadResource( RES_DOF_FRAG ) );
+	mDofShader.bind();
+	mDofShader.uniform( "rgb", 0 );
+	mDofShader.uniform( "depth", 1 );
+	mDofShader.uniform( "isize", Vec2f( 1.0 / mDofFbo.getWidth(), 1.0 / mDofFbo.getHeight() ) );
+	mDofShader.unbind();
 
 	mBrush = loadImage( loadResource( RES_BRUSH ) );
 
@@ -438,9 +456,11 @@ void DynaApp::update()
 	}
 
 
-	// kinect video texture
+	// kinect textures
 	if ( mNI.checkNewVideoFrame() )
 		mColorTexture = mNI.getVideoImage();
+	if ( mNI.checkNewDepthFrame() )
+		mDepthTexture = mNI.getDepthImage();
 
 	// fluid & particles
 	mFluidSolver.update();
@@ -496,6 +516,30 @@ void DynaApp::draw()
 	glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);
 	mBloomFbo.unbindFramebuffer();
 
+	// dof
+	mDofFbo.bindFramebuffer();
+	gl::setMatricesWindow( mDofFbo.getSize(), false );
+	gl::setViewport( mDofFbo.getBounds() );
+
+	gl::clear( Color::black() );
+	gl::color( Color::white() );
+	if ( mDepthTexture && mColorTexture )
+	{
+		mColorTexture.bind( 0 );
+		mDepthTexture.bind( 1 );
+
+		mDofShader.bind();
+		mDofShader.uniform( "amount", mDofAmount );
+		mDofShader.uniform( "focus", mDofFocus );
+		gl::drawSolidRect( mDofFbo.getBounds() );
+		mDofShader.unbind();
+
+		mColorTexture.unbind();
+		mDepthTexture.unbind();
+	}
+
+	mDofFbo.unbindFramebuffer();
+
 	// final
 	gl::setMatricesWindow( getWindowSize() );
 	gl::setViewport( getWindowBounds() );
@@ -506,8 +550,7 @@ void DynaApp::draw()
 	mMixerShader.uniform( "mixOpacity", mVideoOpacity );
 
 	gl::enable( GL_TEXTURE_2D );
-	if ( mColorTexture )
-		mColorTexture.bind( 0 );
+	mDofFbo.bindTexture( 0 );
 
 	mFbo.getTexture().bind( 1 );
 	for (int i = 1; i < mBloomIterations; i++)

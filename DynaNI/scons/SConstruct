@@ -3,9 +3,9 @@ SOURCES = ['DynaApp.cpp', 'Particles.cpp', 'DynaStroke.cpp']
 SOURCES += ['NI.cpp', 'NIUserTracker.cpp']
 
 RESOURCES = ['KawaseBloom.vert', 'KawaseBloom.frag', 'brush.png',
-		'PassThrough.vert', 'Grayscale.frag', 'Mixer.frag']
+		'PassThrough.vert', 'Grayscale.frag', 'Mixer.frag', 'DoF.frag']
 
-DEBUG = 1
+DEBUG = 0
 
 INCLUDES = []
 LIBS = []
