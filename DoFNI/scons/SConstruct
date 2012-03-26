@@ -1,0 +1,13 @@
+TARGET = 'DoFNIApp'
+SOURCES  = ['DoFNIApp.cpp', 'NI.cpp', 'NIUserTracker.cpp']
+RESOURCES = ['dof.vert', 'dof.frag']
+DEBUG = 1
+
+INCLUDES = ['/usr/include/ni/', '/usr/include/nite/']
+LIBS = ['OpenNI', 'usb-1.0']
+LIBPATH = ['/usr/lib/', '/opt/local/lib/']
+
+SConscript('../../../scons/SConscript',
+	exports = ['TARGET', 'SOURCES', 'INCLUDES', 'DEBUG', \
+			'LIBS', 'LIBPATH', 'RESOURCES'])
+
