@@ -110,6 +110,7 @@ class DynaApp : public AppBasic, UserTracker::Listener
 		int mBloomIterations;
 		float mBloomStrength;
 
+		bool mDof;
 		float mDofAmount;
 		float mDofAperture;
 		float mDofFocus;
@@ -166,6 +167,7 @@ DynaApp::DynaApp() :
 	mBloomStrength( .8 ),
 	mZClip( 2000 ),
 	mVideoOpacity( .3 ),
+	mDof( false ),
 	mDofAmount( 190. ),
 	mDofAperture( .99 ),
 	mDofFocus( .2 )
@@ -180,7 +182,7 @@ void DynaApp::setup()
 
 	gl::disableVerticalSync();
 
-	mParams = params::InterfaceGl("Parameters", Vec2i(350, 350));
+	mParams = params::InterfaceGl("Parameters", Vec2i(350, 450));
 
 	mParams.addParam("Brush color", &mBrushColor, "min=.0 max=1 step=.02");
 	mParams.addParam("Stiffness", &mK, "min=.01 max=.2 step=.01");
@@ -203,6 +205,7 @@ void DynaApp::setup()
 	mParams.addSeparator();
 	mParams.addParam("Z clip", &mZClip, "min=1 max=10000");
 	mParams.addParam("Video opacity", &mVideoOpacity, "min=0 max=1. step=.05");
+	mParams.addParam("Dof", &mDof);
 	mParams.addParam("Dof amount", &mDofAmount, "min=1 max=250. step=.5");
 	mParams.addParam("Dof aperture", &mDofAperture, "min=0 max=1. step=.01");
 	mParams.addParam("Dof focus", &mDofFocus, "min=0 max=1. step=.01");
@@ -458,7 +461,6 @@ void DynaApp::update()
 		}
 	}
 
-
 	// kinect textures
 	if ( mNI.checkNewVideoFrame() )
 		mColorTexture = mNI.getVideoImage();
@@ -520,29 +522,32 @@ void DynaApp::draw()
 	mBloomFbo.unbindFramebuffer();
 
 	// dof
-	mDofFbo.bindFramebuffer();
-	gl::setMatricesWindow( mDofFbo.getSize(), false );
-	gl::setViewport( mDofFbo.getBounds() );
-
-	gl::clear( Color::black() );
-	gl::color( Color::white() );
-	if ( mDepthTexture && mColorTexture )
+	if ( mDof )
 	{
-		mColorTexture.bind( 0 );
-		mDepthTexture.bind( 1 );
+		mDofFbo.bindFramebuffer();
+		gl::setMatricesWindow( mDofFbo.getSize(), false );
+		gl::setViewport( mDofFbo.getBounds() );
 
-		mDofShader.bind();
-		mDofShader.uniform( "amount", mDofAmount );
-		mDofShader.uniform( "aperture", mDofAperture );
-		mDofShader.uniform( "focus", mDofFocus );
-		gl::drawSolidRect( mDofFbo.getBounds() );
-		mDofShader.unbind();
+		gl::clear( Color::black() );
+		gl::color( Color::white() );
+		if ( mDepthTexture && mColorTexture )
+		{
+			mColorTexture.bind( 0 );
+			mDepthTexture.bind( 1 );
 
-		mColorTexture.unbind();
-		mDepthTexture.unbind();
+			mDofShader.bind();
+			mDofShader.uniform( "amount", mDofAmount );
+			mDofShader.uniform( "aperture", mDofAperture );
+			mDofShader.uniform( "focus", mDofFocus );
+			gl::drawSolidRect( mDofFbo.getBounds() );
+			mDofShader.unbind();
+
+			mColorTexture.unbind();
+			mDepthTexture.unbind();
+		}
+
+		mDofFbo.unbindFramebuffer();
 	}
-
-	mDofFbo.unbindFramebuffer();
 
 	// final
 	gl::setMatricesWindow( getWindowSize() );
@@ -554,7 +559,11 @@ void DynaApp::draw()
 	mMixerShader.uniform( "mixOpacity", mVideoOpacity );
 
 	gl::enable( GL_TEXTURE_2D );
-	mDofFbo.bindTexture( 0 );
+	if ( mDof )
+		mDofFbo.bindTexture( 0 );
+	else
+	if ( mColorTexture )
+		mColorTexture.bind( 0 );
 
 	mFbo.getTexture().bind( 1 );
 	for (int i = 1; i < mBloomIterations; i++)
