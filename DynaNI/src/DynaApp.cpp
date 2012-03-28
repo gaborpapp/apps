@@ -27,6 +27,8 @@
 #include "cinder/ImageIo.h"
 #include "cinder/params/Params.h"
 
+#include "AntTweakBar.h"
+
 #include "ciMsaFluidSolver.h"
 #include "ciMsaFluidDrawerGl.h"
 
@@ -183,6 +185,8 @@ void DynaApp::setup()
 	gl::disableVerticalSync();
 
 	mParams = params::InterfaceGl("Parameters", Vec2i(350, 450));
+	// mParams.setOptions(" TW_HELP ", " visible=false "); // FIXME: not working
+	TwDefine(" TW_HELP visible=false ");
 
 	mParams.addParam("Brush color", &mBrushColor, "min=.0 max=1 step=.02");
 	mParams.addParam("Stiffness", &mK, "min=.01 max=.2 step=.01");
@@ -190,7 +194,7 @@ void DynaApp::setup()
 	mParams.addParam("Stroke min", &mStrokeMinWidth, "min=0 max=50 step=.5");
 	mParams.addParam("Stroke width", &mStrokeMaxWidth, "min=-50 max=50 step=.5");
 
-	mParams.addButton("Clear strokes", std::bind(&DynaApp::clearStrokes, this), " key=SPACE ");
+	//mParams.addButton("Clear strokes", std::bind(&DynaApp::clearStrokes, this), " key=SPACE ");
 
 	mParams.addParam("Particle min", &mParticleMin, "min=0 max=50");
 	mParams.addParam("Particle max", &mParticleMax, "min=0 max=50");
@@ -329,8 +333,14 @@ void DynaApp::keyDown(KeyEvent event)
 {
 	if (event.getChar() == 'f')
 		setFullScreen(!isFullScreen());
+	else
+	if (event.getChar() == 's')
+		mParams.show( !mParams.isVisible() );
 	if (event.getCode() == KeyEvent::KEY_ESCAPE)
 		quit();
+	else
+	if (event.getCode() == KeyEvent::KEY_SPACE)
+		clearStrokes();
 }
 
 void DynaApp::addToFluid( Vec2f pos, Vec2f vel, bool addParticles, bool addForce )
