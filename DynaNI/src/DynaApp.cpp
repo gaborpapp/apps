@@ -221,15 +221,17 @@ void DynaApp::setup()
 
 	mParticles.setFluidSolver( &mFluidSolver );
 
-	mFbo = gl::Fbo( 1024, 768 );
+	gl::Fbo::Format format;
+	format.setWrap( GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE );
+
+	mFbo = gl::Fbo( 1024, 768, format );
 	mFluidSolver.setSize( sFluidSizeX, sFluidSizeX / mFbo.getAspectRatio() );
 	mFluidDrawer.setup( &mFluidSolver );
 	mParticles.setWindowSize( mFbo.getSize() );
 
-	gl::Fbo::Format format;
 	format.enableColorBuffer( true, 8 );
 	format.enableDepthBuffer( false );
-	format.setWrap( false, false );
+	format.setWrap( GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE );
 
 	mBloomFbo = gl::Fbo( mFbo.getWidth() / 4, mFbo.getHeight() / 4, format );
 	mBloomShader = gl::GlslProg( loadResource( RES_KAWASE_BLOOM_VERT ),
