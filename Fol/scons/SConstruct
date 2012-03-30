@@ -1,0 +1,20 @@
+TARGET = 'FolApp'
+SOURCES  = ['FolApp.cpp', 'Utils.cpp']
+DEBUG = 1
+
+INCLUDES = []
+RESOURCES = ['kernel.png', 'Blur.frag', 'PassThrough.vert',
+		'Wave.vert', 'Wave.frag']
+LIBS = []
+LIBPATH = []
+
+# OpenNI
+SOURCES += ['NI.cpp', 'NIUserTracker.cpp']
+INCLUDES += ['/usr/include/ni/', '/usr/include/nite/']
+LIBS += ['OpenNI', 'usb-1.0']
+LIBPATH += ['/usr/lib/', '/opt/local/lib/']
+
+SConscript('../../../scons/SConscript',
+	exports = ['TARGET', 'SOURCES', 'INCLUDES', 'RESOURCES',
+		'LIBS', 'LIBPATH', 'DEBUG'])
+
