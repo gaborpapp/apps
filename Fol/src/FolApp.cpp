@@ -288,7 +288,7 @@ void FolApp::draw()
 	gl::disableDepthWrite();
 
 	gl::enableAdditiveBlending();
-	gl::color( ColorA( 1, 1, 1, .03 ) );
+	gl::color( ColorA( 1, 1, 1, .025 ) );
 
 	gl::pushMatrices();
 	gl::scale( Vec2f( getWindowWidth() / (float)VBO_X_SIZE,

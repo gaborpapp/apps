@@ -26,6 +26,9 @@
 #include "cinder/gl/Texture.h"
 #include "cinder/ImageIo.h"
 #include "cinder/params/Params.h"
+#include "cinder/Timeline.h"
+#include "cinder/audio/Output.h"
+#include "cinder/audio/Io.h"
 
 #include "AntTweakBar.h"
 
@@ -38,6 +41,7 @@
 
 #include "DynaStroke.h"
 #include "Particles.h"
+#include "Utils.h"
 
 using namespace ci;
 using namespace ci::app;
@@ -95,6 +99,8 @@ class DynaApp : public AppBasic, UserTracker::Listener
 		ciMsaFluidDrawerGl mFluidDrawer;
 		static const int sFluidSizeX = 128;
 
+		void saveScreenshot();
+
 		void addToFluid(Vec2f pos, Vec2f vel, bool addParticles, bool addForce);
 
 		ParticleManager mParticles;
@@ -123,6 +129,7 @@ class DynaApp : public AppBasic, UserTracker::Listener
 		gl::Texture mDepthTexture;
 		float mZClip;
 		float mVideoOpacity;
+		ci::Anim< float > mFlash;
 		float mFps;
 		bool mShowHands;
 
@@ -146,6 +153,9 @@ class DynaApp : public AppBasic, UserTracker::Listener
 			Vec2f mHand[JOINTS];
 		};
 		map< unsigned, UserStrokes > mUserStrokes;
+
+
+		audio::SourceRef mAudioShutter;
 };
 
 void DynaApp::prepareSettings(Settings *settings)
@@ -169,6 +179,7 @@ DynaApp::DynaApp() :
 	mBloomStrength( .8 ),
 	mZClip( 2000 ),
 	mVideoOpacity( .3 ),
+	mFlash( .0 ),
 	mDof( false ),
 	mDofAmount( 190. ),
 	mDofAperture( .99 ),
@@ -268,19 +279,22 @@ void DynaApp::setup()
 
 	mBrush = loadImage( loadResource( RES_BRUSH ) );
 
+	// audio
+	mAudioShutter = audio::load( loadResource( RES_SHUTTER ) );
+
 	// OpenNI
 	try
 	{
-		mNI = OpenNI( OpenNI::Device() );
+		//mNI = OpenNI( OpenNI::Device() );
 
-		/*
+		///*
 		string path = getAppPath().string();
 	#ifdef CINDER_MAC
 		path += "/../";
 	#endif
 		path += "rec-12032014223600.oni";
 		mNI = OpenNI( path );
-		*/
+		//*/
 	}
 	catch (...)
 	{
@@ -292,6 +306,37 @@ void DynaApp::setup()
 	mNI.start();
 	mNIUserTracker = mNI.getUserTracker();
 	mNIUserTracker.addListener( this );
+}
+
+void DynaApp::saveScreenshot()
+{
+	string path = getAppPath().string();
+#ifdef CINDER_MAC
+	path += "/../";
+#endif
+	path += "snap-" + timeStamp() + ".png";
+	fs::path pngPath(path);
+
+	// flash
+	mFlash = 0;
+	timeline().apply( &mFlash, .9f, .2f, EaseOutQuad() );
+	timeline().appendTo( &mFlash, .0f, .4f, EaseInQuad() );
+
+	audio::Output::play( mAudioShutter );
+
+	try
+	{
+		Surface srf = copyWindowSurface();
+
+		if (!pngPath.empty())
+		{
+			writeImage( pngPath, srf );
+		}
+	}
+	catch ( ... )
+	{
+		console() << "unable to save image file " << path << endl;
+	}
 }
 
 void DynaApp::newUser(UserTracker::UserEvent event)
@@ -341,6 +386,9 @@ void DynaApp::keyDown(KeyEvent event)
 	else
 	if (event.getCode() == KeyEvent::KEY_SPACE)
 		clearStrokes();
+	else
+	if (event.getCode() == KeyEvent::KEY_RETURN)
+		saveScreenshot();
 }
 
 void DynaApp::addToFluid( Vec2f pos, Vec2f vel, bool addParticles, bool addForce )
@@ -569,6 +617,7 @@ void DynaApp::draw()
 
 	mMixerShader.bind();
 	mMixerShader.uniform( "mixOpacity", mVideoOpacity );
+	mMixerShader.uniform( "flash", mFlash );
 
 	gl::enable( GL_TEXTURE_2D );
 	if ( mDof )

@@ -1,9 +1,10 @@
 TARGET = 'DynaApp'
-SOURCES = ['DynaApp.cpp', 'Particles.cpp', 'DynaStroke.cpp']
+SOURCES = ['DynaApp.cpp', 'Particles.cpp', 'DynaStroke.cpp', 'Utils.cpp']
 SOURCES += ['NI.cpp', 'NIUserTracker.cpp']
 
 RESOURCES = ['KawaseBloom.vert', 'KawaseBloom.frag', 'brush.png',
-		'PassThrough.vert', 'Grayscale.frag', 'Mixer.frag', 'DoF.frag']
+		'PassThrough.vert', 'Grayscale.frag', 'Mixer.frag', 'DoF.frag',
+		'72714__horsthorstensen__shutter-photo.mp3']
 
 DEBUG = 0
 

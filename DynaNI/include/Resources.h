@@ -10,3 +10,5 @@
 #define RES_MIXER_FRAG			CINDER_RESOURCE(../resources/, Mixer.frag, 133, GLSL)
 #define RES_DOF_FRAG			CINDER_RESOURCE(../resources/, DoF.frag, 134, GLSL)
 
+#define RES_SHUTTER		CINDER_RESOURCE(../resources/, 72714__horsthorstensen__shutter-photo.mp3, 135, MP3)
+

@@ -3,6 +3,7 @@
 uniform sampler2D tex[9];
 
 uniform float mixOpacity;
+uniform float flash;
 
 void main()
 {
@@ -27,6 +28,9 @@ void main()
 		color += mixOpacity * texture2D( tex[i], gl_TexCoord[0].st );
 	}
 	*/
+
+	color += flash;
+
 	gl_FragColor = color;
 }
 
