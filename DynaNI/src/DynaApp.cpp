@@ -226,7 +226,7 @@ DynaApp::DynaApp() :
 	mDofAmount( 190. ),
 	mDofAperture( .99 ),
 	mDofFocus( .2 ),
-	mPoseDuration( 2.5 ),
+	mPoseDuration( 2. ),
 	mGameDuration( 20. ),
 	mState( STATE_IDLE )
 {
@@ -546,6 +546,7 @@ void DynaApp::update()
 
 	// detect start gesture
 	vector< unsigned > users = mNIUserTracker.getUsers();
+	mPoseHoldDuration = 0;
 	for ( vector< unsigned >::const_iterator it = users.begin();
 			it < users.end(); ++it )
 	{
@@ -582,47 +583,27 @@ void DynaApp::update()
 					}
 					else
 					{
-						ui->mPoseTimeStart[i] = -1.;
+						// clear both start times if one is lost
+						for ( int j = 0; j < UserInit::JOINTS; j++ )
+							ui->mPoseTimeStart[j] = -1.;
 					}
 					//console() << i << " " << initPose << " " << ui->mPoseTimeStart[i] << endl;
 				}
 
 				bool init = true;
-				mPoseHoldDuration = 0;
+				float userPoseHoldDuration = 0;
 				for ( int i = 0; i < UserInit::JOINTS; i++ )
 				{
 					init = init && ( ui->mPoseTimeStart[i] > 0 ) &&
 						( ( currentTime - ui->mPoseTimeStart[i] ) >= mPoseDuration );
 
 					if (ui->mPoseTimeStart[ i ] > 0)
-						mPoseHoldDuration += currentTime - ui->mPoseTimeStart[ i ];
-					else
-						mPoseHoldDuration = -1000;
-				}
-				mPoseHoldDuration /= UserInit::JOINTS;
-				if ( ( mState == STATE_IDLE ) && ( mPoseHoldDuration > .1 ) )
-				{
-					mState = STATE_POSE;
-				}
-				else
-				if ( ( mState == STATE_GAME ) && ( mPoseHoldDuration > 2. ) )
-				{
-					mState = STATE_POSE;
-					for ( int i = 0; i < UserInit::JOINTS; i++ )
-					{
-						ui->mPoseTimeStart[ i ] = currentTime;
-						mPoseHoldDuration = 0.01;
-					}
+						userPoseHoldDuration += currentTime - ui->mPoseTimeStart[ i ];
 				}
 
-				// change state when pose is cancelled
-				if (mPoseHoldDuration <= 0)
-				{
-					if ( mGameTimer > .0 )
-						mState = STATE_GAME;
-					else
-						mState = STATE_IDLE;
-				}
+				userPoseHoldDuration /= UserInit::JOINTS;
+				if ( mPoseHoldDuration < userPoseHoldDuration)
+					mPoseHoldDuration = userPoseHoldDuration;
 
 				ui->mRecognized = init;
 
@@ -636,9 +617,16 @@ void DynaApp::update()
 					clearStrokes();
 
 					mState = STATE_GAME;
+					// clear pose start
+					for ( int i = 0; i < UserInit::JOINTS; i++ )
+					{
+						ui->mPoseTimeStart[ i ] = currentTime;
+					}
+					mPoseHoldDuration = 0;
 
 					// add callback when game time ends
 					mGameTimer = mGameDuration;
+					mFlash = 0;
 					timeline().clear(); // clear old callbacks
 					timeline().apply( &mGameTimer, .0f, mGameDuration ).finishFn( std::bind( &DynaApp::endGame, this ) );
 				}
@@ -648,6 +636,37 @@ void DynaApp::update()
 		{
 		}
 		//console() << "id: " << id << " " << mUserInitialized[id].mRecognized << endl;
+	}
+
+	// state change
+	if ( ( mState == STATE_IDLE ) && ( mPoseHoldDuration > .1 ) )
+	{
+		mState = STATE_POSE;
+	}
+	else
+	if ( ( mState == STATE_GAME ) && ( mPoseHoldDuration > 1. ) )
+	{
+		mState = STATE_POSE;
+		// clear all user pose start times
+		double currentTime = getElapsedSeconds();
+		map< unsigned, UserInit >::iterator initIt;
+		for ( initIt = mUserInitialized.begin(); initIt != mUserInitialized.end(); ++initIt )
+		{
+			UserInit *ui = &(initIt->second);
+			for ( int i = 0; i < UserInit::JOINTS; i++ )
+			{
+				ui->mPoseTimeStart[ i ] = currentTime;
+			}
+		}
+	}
+
+	// change state when pose is cancelled
+	if (mPoseHoldDuration <= 0)
+	{
+		if ( mGameTimer > .0 )
+			mState = STATE_GAME;
+		else
+			mState = STATE_IDLE;
 	}
 
 	// NI user hands
