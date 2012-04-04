@@ -1,10 +1,8 @@
 TARGET = 'DynaApp'
-SOURCES = ['DynaApp.cpp', 'Particles.cpp', 'DynaStroke.cpp', 'Utils.cpp']
+SOURCES = ['DynaApp.cpp', 'Particles.cpp', 'DynaStroke.cpp', 'Utils.cpp', 'TimerDisplay.cpp']
 SOURCES += ['NI.cpp', 'NIUserTracker.cpp']
 
-RESOURCES = ['KawaseBloom.vert', 'KawaseBloom.frag', 'brush.png',
-		'PassThrough.vert', 'Grayscale.frag', 'Mixer.frag', 'DoF.frag',
-		'72714__horsthorstensen__shutter-photo.mp3']
+RESOURCES = ['shaders', 'audio', 'gfx']
 
 DEBUG = 0
 

@@ -1,0 +1,4 @@
+# scons
+.sconsign.dblite
+*.o
+

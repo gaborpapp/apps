@@ -43,6 +43,8 @@
 #include "Particles.h"
 #include "Utils.h"
 
+#include "TimerDisplay.h"
+
 using namespace ci;
 using namespace ci::app;
 using namespace std;
@@ -99,7 +101,10 @@ class DynaApp : public AppBasic, UserTracker::Listener
 		ciMsaFluidDrawerGl mFluidDrawer;
 		static const int sFluidSizeX = 128;
 
+		#define SCREENSHOT_FOLDER "screenshots/"
 		void saveScreenshot();
+
+		void endGame();
 
 		void addToFluid(Vec2f pos, Vec2f vel, bool addParticles, bool addForce);
 
@@ -111,7 +116,6 @@ class DynaApp : public AppBasic, UserTracker::Listener
 		gl::Fbo mBloomFbo;
 		gl::Fbo mDofFbo;
 		gl::GlslProg mBloomShader;
-		gl::GlslProg mGrayscaleShader;
 		gl::GlslProg mMixerShader;
 		gl::GlslProg mDofShader;
 
@@ -136,6 +140,7 @@ class DynaApp : public AppBasic, UserTracker::Listener
 		struct UserStrokes
 		{
 			UserStrokes()
+				: mInitialized( false )
 			{
 				for (int i = 0; i < JOINTS; i++)
 				{
@@ -151,11 +156,48 @@ class DynaApp : public AppBasic, UserTracker::Listener
 			bool mActive[JOINTS];
 			bool mPrevActive[JOINTS];
 			Vec2f mHand[JOINTS];
+
+			bool mInitialized; // start gesture detected
 		};
 		map< unsigned, UserStrokes > mUserStrokes;
 
+		// start gesture is recognized, the user can draw
+		// it the hands are active
+		struct UserInit
+		{
+			UserInit()
+				: mRecognized( false )
+			{
+				for (int i = 0; i < JOINTS; i++)
+				{
+					mPoseTimeStart[i] = -1;
+				}
+			}
+
+			bool mRecognized; // gesture recognized
+			static const int JOINTS = 2;
+
+			double mPoseTimeStart[JOINTS];
+		};
+		map< unsigned, UserInit > mUserInitialized;
 
 		audio::SourceRef mAudioShutter;
+
+		float mPoseDuration; // maximum duration to hold start pose
+		float mPoseHoldDuration; // current pose hold duration
+		float mGameDuration;
+		Anim< float > mGameTimer;
+
+		TimerDisplay mPoseTimerDisplay;
+		TimerDisplay mGameTimerDisplay;
+
+		enum
+		{
+			STATE_POSE = 0,
+			STATE_GAME,
+			STATE_IDLE
+		} States;
+		int mState;
 };
 
 void DynaApp::prepareSettings(Settings *settings)
@@ -183,7 +225,10 @@ DynaApp::DynaApp() :
 	mDof( false ),
 	mDofAmount( 190. ),
 	mDofAperture( .99 ),
-	mDofFocus( .2 )
+	mDofFocus( .2 ),
+	mPoseDuration( 2.5 ),
+	mGameDuration( 20. ),
+	mState( STATE_IDLE )
 {
 }
 
@@ -219,6 +264,8 @@ void DynaApp::setup()
 
 	mParams.addSeparator();
 	mParams.addParam("Z clip", &mZClip, "min=1 max=10000");
+	mParams.addParam("Pose duration", &mPoseDuration, "min=1. max=10 step=.5");
+	mParams.addParam("Game duration", &mGameDuration, "min=10 max=200");
 	mParams.addParam("Video opacity", &mVideoOpacity, "min=0 max=1. step=.05");
 	mParams.addParam("Dof", &mDof);
 	mParams.addParam("Dof amount", &mDofAmount, "min=1 max=250. step=.5");
@@ -256,12 +303,6 @@ void DynaApp::setup()
 	mBloomShader.uniform( "pixelSize", Vec2f( 1. / mBloomFbo.getWidth(), 1. / mBloomFbo.getHeight() ) );
 	mBloomShader.unbind();
 
-	mGrayscaleShader = gl::GlslProg( loadResource( RES_PASSTHROUGH_VERT ),
-								 loadResource( RES_GRAYSCALE_FRAG ) );
-	mGrayscaleShader.bind();
-	mGrayscaleShader.uniform( "tex", 0 );
-	mGrayscaleShader.unbind();
-
 	mMixerShader = gl::GlslProg( loadResource( RES_PASSTHROUGH_VERT ),
 								 loadResource( RES_MIXER_FRAG ) );
 	mMixerShader.bind();
@@ -285,16 +326,17 @@ void DynaApp::setup()
 	// OpenNI
 	try
 	{
-		//mNI = OpenNI( OpenNI::Device() );
+		mNI = OpenNI( OpenNI::Device() );
 
-		///*
+		/*
 		string path = getAppPath().string();
 	#ifdef CINDER_MAC
 		path += "/../";
 	#endif
-		path += "rec-12032014223600.oni";
+		//path += "rec-12032014223600.oni";
+		path += "captured.oni";
 		mNI = OpenNI( path );
-		//*/
+		*/
 	}
 	catch (...)
 	{
@@ -306,6 +348,23 @@ void DynaApp::setup()
 	mNI.start();
 	mNIUserTracker = mNI.getUserTracker();
 	mNIUserTracker.addListener( this );
+
+#ifdef CINDER_MAC
+	fs::create_directory( "/../" SCREENSHOT_FOLDER );
+#else
+	fs::create_directory( SCREENSHOT_FOLDER );
+#endif
+
+	mPoseTimerDisplay = TimerDisplay( RES_TIMER_POSE_BOTTOM_LEFT,
+			RES_TIMER_POSE_BOTTOM_MIDDLE,
+			RES_TIMER_POSE_BOTTOM_RIGHT,
+			RES_TIMER_POSE_DOT_0,
+			RES_TIMER_POSE_DOT_1 );
+	mGameTimerDisplay = TimerDisplay( RES_TIMER_GAME_BOTTOM_LEFT,
+			RES_TIMER_GAME_BOTTOM_MIDDLE,
+			RES_TIMER_GAME_BOTTOM_RIGHT,
+			RES_TIMER_GAME_DOT_0,
+			RES_TIMER_GAME_DOT_1 );
 }
 
 void DynaApp::saveScreenshot()
@@ -314,6 +373,7 @@ void DynaApp::saveScreenshot()
 #ifdef CINDER_MAC
 	path += "/../";
 #endif
+	path += SCREENSHOT_FOLDER;
 	path += "snap-" + timeStamp() + ".png";
 	fs::path pngPath(path);
 
@@ -347,16 +407,24 @@ void DynaApp::newUser(UserTracker::UserEvent event)
 void DynaApp::calibrationEnd(UserTracker::UserEvent event)
 {
 	console() << "app calib end " << event.id << endl;
+	/*
 	map< unsigned, UserStrokes >::iterator it;
 	it = mUserStrokes.find( event.id );
 	if ( it == mUserStrokes.end() )
 		mUserStrokes[ event.id ] = UserStrokes();
+	*/
+
+	map< unsigned, UserInit >::iterator it;
+	it = mUserInitialized.find( event.id );
+	if ( it == mUserInitialized.end() )
+		mUserInitialized[ event.id ] = UserInit();
 }
 
 void DynaApp::lostUser(UserTracker::UserEvent event)
 {
 	console() << "app lost " << event.id << endl;
 	mUserStrokes.erase( event.id );
+	mUserInitialized.erase( event.id );
 }
 
 void DynaApp::resize(ResizeEvent event)
@@ -372,6 +440,14 @@ void DynaApp::clearStrokes()
 {
 	mUserStrokes.clear();
 	mDynaStrokes.clear();
+}
+
+void DynaApp::endGame()
+{
+	saveScreenshot();
+	clearStrokes();
+
+	mState = STATE_IDLE;
 }
 
 void DynaApp::keyDown(KeyEvent event)
@@ -468,20 +544,127 @@ void DynaApp::update()
 	if ( mLeftButton && !mDynaStrokes.empty() )
 		mDynaStrokes.back().update( Vec2f( mMousePos ) / getWindowSize() );
 
-	// NI user hands
+	// detect start gesture
 	vector< unsigned > users = mNIUserTracker.getUsers();
 	for ( vector< unsigned >::const_iterator it = users.begin();
 			it < users.end(); ++it )
 	{
 		unsigned id = *it;
 
+		map< unsigned, UserInit >::iterator initIt = mUserInitialized.find( id );
+		if ( initIt != mUserInitialized.end() )
+		{
+			UserInit *ui = &(initIt->second);
+
+			if (!ui->mRecognized)
+			{
+				XnSkeletonJoint jointIds[] = { XN_SKEL_LEFT_HAND,
+					XN_SKEL_RIGHT_HAND };
+
+				XnSkeletonJoint limitIds[] = { XN_SKEL_LEFT_SHOULDER,
+					XN_SKEL_RIGHT_SHOULDER };
+
+				double currentTime = getElapsedSeconds();
+				for ( int i = 0; i < UserInit::JOINTS; i++ )
+				{
+					Vec2f hand = mNIUserTracker.getJoint2d( id, jointIds[i] );
+					float handConf = mNIUserTracker.getJointConfidance( id, jointIds[i] );
+					Vec2f limit = mNIUserTracker.getJoint2d( id, limitIds[i] );
+					float limitConf = mNIUserTracker.getJointConfidance( id, limitIds[i] );
+
+					//console() << i << " " << hand << " [" << handConf << "] " << limit << " [" << limitConf << "]" << endl;
+					bool initPose = (handConf > .5) && (limitConf > .5) &&
+						(hand.y < limit.y);
+					if (initPose)
+					{
+						if (ui->mPoseTimeStart[i] < 0)
+							ui->mPoseTimeStart[i] = currentTime;
+					}
+					else
+					{
+						ui->mPoseTimeStart[i] = -1.;
+					}
+					//console() << i << " " << initPose << " " << ui->mPoseTimeStart[i] << endl;
+				}
+
+				bool init = true;
+				mPoseHoldDuration = 0;
+				for ( int i = 0; i < UserInit::JOINTS; i++ )
+				{
+					init = init && ( ui->mPoseTimeStart[i] > 0 ) &&
+						( ( currentTime - ui->mPoseTimeStart[i] ) >= mPoseDuration );
+
+					if (ui->mPoseTimeStart[ i ] > 0)
+						mPoseHoldDuration += currentTime - ui->mPoseTimeStart[ i ];
+					else
+						mPoseHoldDuration = -1000;
+				}
+				mPoseHoldDuration /= UserInit::JOINTS;
+				if ( ( mState == STATE_IDLE ) && ( mPoseHoldDuration > .1 ) )
+				{
+					mState = STATE_POSE;
+				}
+				else
+				if ( ( mState == STATE_GAME ) && ( mPoseHoldDuration > 2. ) )
+				{
+					mState = STATE_POSE;
+					for ( int i = 0; i < UserInit::JOINTS; i++ )
+					{
+						ui->mPoseTimeStart[ i ] = currentTime;
+						mPoseHoldDuration = 0.01;
+					}
+				}
+
+				// change state when pose is cancelled
+				if (mPoseHoldDuration <= 0)
+				{
+					if ( mGameTimer > .0 )
+						mState = STATE_GAME;
+					else
+						mState = STATE_IDLE;
+				}
+
+				ui->mRecognized = init;
+
+				if ( ui->mRecognized )
+				{
+					// clear pose detection start time
+					for ( int i = 0; i < UserInit::JOINTS; i++ )
+						ui->mPoseTimeStart[i] = -1.;
+
+					// init gesture found clear screen and strokes
+					clearStrokes();
+
+					mState = STATE_GAME;
+
+					// add callback when game time ends
+					mGameTimer = mGameDuration;
+					timeline().clear(); // clear old callbacks
+					timeline().apply( &mGameTimer, .0f, mGameDuration ).finishFn( std::bind( &DynaApp::endGame, this ) );
+				}
+			}
+		}
+		else /* users were cleared */
+		{
+		}
+		//console() << "id: " << id << " " << mUserInitialized[id].mRecognized << endl;
+	}
+
+	// NI user hands
+	for ( vector< unsigned >::const_iterator it = users.begin();
+			it < users.end(); ++it )
+	{
+		unsigned id = *it;
+
+		//console() << "user hands " << id << " " << mUserInitialized[ id ].mInitialized << endl;
 		map< unsigned, UserStrokes >::iterator strokeIt = mUserStrokes.find( id );
+		// check if the user has strokes already
 		if ( strokeIt != mUserStrokes.end() )
 		{
 			UserStrokes *us = &(strokeIt->second);
 
 			XnSkeletonJoint jointIds[] = { XN_SKEL_LEFT_HAND,
-							XN_SKEL_RIGHT_HAND };
+				XN_SKEL_RIGHT_HAND };
 			for ( int i = 0; i < UserStrokes::JOINTS; i++ )
 			{
 				Vec2f hand = mNIUserTracker.getJoint2d( id, jointIds[i] );
@@ -515,9 +698,14 @@ void DynaApp::update()
 				us->mPrevActive[i] = us->mActive[i];
 			}
 		}
-		else /* strokes were cleared */
+		else
 		{
-			mUserStrokes[ id ] = UserStrokes();
+			// if the user has been initialized with start gesture
+			if ( mUserInitialized[ id ].mRecognized )
+			{
+				mUserStrokes[ id ] = UserStrokes();
+				mUserInitialized[ id ].mRecognized = false;
+			}
 		}
 	}
 
@@ -635,6 +823,17 @@ void DynaApp::draw()
 	gl::drawSolidRect( getWindowBounds() );
 	gl::disable( GL_TEXTURE_2D );
 	mMixerShader.unbind();
+
+	switch ( mState )
+	{
+		case STATE_POSE:
+			mPoseTimerDisplay.draw( mPoseHoldDuration / mPoseDuration );
+			break;
+
+		case STATE_GAME:
+			mGameTimerDisplay.draw( 1. - mGameTimer / mGameDuration );
+			break;
+	}
 
 	params::InterfaceGl::draw();
 }

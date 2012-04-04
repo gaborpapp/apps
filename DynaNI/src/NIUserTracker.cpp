@@ -232,6 +232,21 @@ Vec3f UserTracker::getJoint3d( XnUserID userId, XnSkeletonJoint jointId )
 	}
 }
 
+float UserTracker::getJointConfidance( XnUserID userId, XnSkeletonJoint jointId )
+{
+	if (mObj->mUserGenerator.GetSkeletonCap().IsTracking( userId ))
+	{
+		XnSkeletonJointPosition joint;
+		mObj->mUserGenerator.GetSkeletonCap().GetSkeletonJointPosition( userId, jointId, joint );
+
+		return joint.fConfidence;
+	}
+	else
+	{
+		return 0;
+	}
+}
+
 Vec3f UserTracker::getUserCenter( XnUserID userId )
 {
 	XnPoint3D center;
