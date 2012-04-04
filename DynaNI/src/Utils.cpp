@@ -2,6 +2,9 @@
 #include <sstream>
 #include <iomanip>
 
+#include "cinder/app/App.h"
+#include "cinder/ImageIo.h"
+
 #include "Utils.h"
 
 using namespace std;
@@ -31,6 +34,24 @@ std::string timeStamp()
 	last_sec = tm.tm_sec;
 
 	return ss.str();
+}
+
+vector< gl::Texture > loadTextures( const fs::path &relativeDir )
+{
+	vector< gl::Texture > textures;
+
+	fs::path dataPath = app::getAssetPath( relativeDir );
+
+	for (fs::directory_iterator it( dataPath ); it != fs::directory_iterator(); ++it)
+	{
+		if (fs::is_regular_file(*it) && (it->path().extension().string() == ".png"))
+		{
+			gl::Texture t = loadImage( app::loadAsset( relativeDir / it->path().filename() ) );
+			textures.push_back( t );
+		}
+	}
+
+	return textures;
 }
 
 } // namespace cinder

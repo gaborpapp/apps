@@ -2,14 +2,15 @@
 
 #include <list>
 
-#include <cinder/Vector.h>
-#include <cinder/app/App.h>
-#include <cinder/gl/gl.h>
+#include "cinder/Vector.h"
+#include "cinder/app/App.h"
+#include "cinder/gl/gl.h"
+#include "cinder/gl/Texture.h"
 
 class DynaStroke
 {
 	public:
-		DynaStroke();
+		DynaStroke( ci::gl::Texture brush );
 
 		void resize( ci::app::ResizeEvent event );
 
@@ -56,5 +57,6 @@ class DynaStroke
 		float mMaxVelocity;
 
 		ci::Vec2i mWindowSize;
+		ci::gl::Texture mBrush;
 };
 

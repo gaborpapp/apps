@@ -7,12 +7,13 @@ using namespace std;
 using namespace ci;
 using namespace ci::app;
 
-DynaStroke::DynaStroke() :
+DynaStroke::DynaStroke( gl::Texture brush ) :
 	mK( .06 ),
 	mDamping( .7 ),
 	mMass( 1 ),
 	mStrokeMinWidth( 1 ),
-	mStrokeMaxWidth( 15 )
+	mStrokeMaxWidth( 15 ),
+	mBrush( brush )
 {
 }
 
@@ -49,6 +50,7 @@ void DynaStroke::update( Vec2f pos )
 
 void DynaStroke::draw()
 {
+	mBrush.bind();
 	glBegin( GL_QUAD_STRIP );
 	size_t n = mPoints.size();
 	float step = 1. / n;
@@ -63,5 +65,6 @@ void DynaStroke::draw()
 		u += step;
 	}
 	glEnd();
+	mBrush.unbind();
 }
 

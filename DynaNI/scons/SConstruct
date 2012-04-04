@@ -3,6 +3,7 @@ SOURCES = ['DynaApp.cpp', 'Particles.cpp', 'DynaStroke.cpp', 'Utils.cpp', 'Timer
 SOURCES += ['NI.cpp', 'NIUserTracker.cpp']
 
 RESOURCES = ['shaders', 'audio', 'gfx']
+ASSETS = ['brushes']
 
 DEBUG = 0
 
@@ -24,6 +25,6 @@ LIBS += ['OpenNI', 'usb-1.0']
 LIBPATH += ['/usr/lib/', '/opt/local/lib/']
 
 SConscript('../../../scons/SConscript',
-	exports = ['TARGET', 'SOURCES', 'INCLUDES', 'RESOURCES',
+	exports = ['TARGET', 'SOURCES', 'INCLUDES', 'RESOURCES', 'ASSETS',
 		'LIBS', 'LIBPATH', 'DEBUG'])
 

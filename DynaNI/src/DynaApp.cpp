@@ -27,6 +27,7 @@
 #include "cinder/ImageIo.h"
 #include "cinder/params/Params.h"
 #include "cinder/Timeline.h"
+#include "cinder/Rand.h"
 #include "cinder/audio/Output.h"
 #include "cinder/audio/Io.h"
 
@@ -82,7 +83,7 @@ class DynaApp : public AppBasic, UserTracker::Listener
 		void clearStrokes();
 		list< DynaStroke > mDynaStrokes;
 
-		gl::Texture mBrush;
+		static vector< gl::Texture > mBrushes;
 		float mBrushColor;
 
 		float mK;
@@ -172,13 +173,18 @@ class DynaApp : public AppBasic, UserTracker::Listener
 				{
 					mPoseTimeStart[i] = -1;
 				}
+
+				mBrush = mBrushes[ Rand::randInt( 0, mBrushes.size() ) ];
 			}
 
 			bool mRecognized; // gesture recognized
 			static const int JOINTS = 2;
 
 			double mPoseTimeStart[JOINTS];
+
+			gl::Texture mBrush;
 		};
+
 		map< unsigned, UserInit > mUserInitialized;
 
 		audio::SourceRef mAudioShutter;
@@ -199,6 +205,8 @@ class DynaApp : public AppBasic, UserTracker::Listener
 		} States;
 		int mState;
 };
+
+vector< gl::Texture > DynaApp::mBrushes;
 
 void DynaApp::prepareSettings(Settings *settings)
 {
@@ -318,7 +326,9 @@ void DynaApp::setup()
 	mDofShader.uniform( "isize", Vec2f( 1.0 / mDofFbo.getWidth(), 1.0 / mDofFbo.getHeight() ) );
 	mDofShader.unbind();
 
-	mBrush = loadImage( loadResource( RES_BRUSH ) );
+	mBrushes = loadTextures("brushes");
+	//mBrush = mBrushes[0]; // TEST
+	//loadImage( loadResource( RES_BRUSH ) );
 
 	// audio
 	mAudioShutter = audio::load( loadResource( RES_SHUTTER ) );
@@ -500,7 +510,7 @@ void DynaApp::mouseDown(MouseEvent event)
 {
 	if (event.isLeft())
 	{
-		mDynaStrokes.push_back( DynaStroke() );
+		mDynaStrokes.push_back( DynaStroke( mBrushes[ Rand::randInt( 0, mBrushes.size() ) ] ) );
 		DynaStroke *d = &mDynaStrokes.back();
 		d->resize( ResizeEvent( mFbo.getSize() ) );
 		d->setStiffness( mK );
@@ -677,6 +687,9 @@ void DynaApp::update()
 
 		//console() << "user hands " << id << " " << mUserInitialized[ id ].mInitialized << endl;
 		map< unsigned, UserStrokes >::iterator strokeIt = mUserStrokes.find( id );
+		map< unsigned, UserInit >::iterator initIt = mUserInitialized.find( id );
+		UserInit *ui = &(initIt->second);
+
 		// check if the user has strokes already
 		if ( strokeIt != mUserStrokes.end() )
 		{
@@ -692,7 +705,7 @@ void DynaApp::update()
 
 				if (us->mActive[i] && !us->mPrevActive[i])
 				{
-					mDynaStrokes.push_back( DynaStroke() );
+					mDynaStrokes.push_back( DynaStroke( ui->mBrush ) );
 					DynaStroke *d = &mDynaStrokes.back();
 					d->resize( ResizeEvent( mFbo.getSize() ) );
 					d->setStiffness( mK );
@@ -754,13 +767,13 @@ void DynaApp::draw()
 	gl::color( Color::gray( mBrushColor ) );
 
 	gl::enableAlphaBlending();
-	mBrush.enableAndBind();
+	gl::enable( GL_TEXTURE_2D );
 	for (list< DynaStroke >::iterator i = mDynaStrokes.begin(); i != mDynaStrokes.end(); ++i)
 	{
 		i->draw();
 	}
-	mBrush.unbind();
 	gl::disableAlphaBlending();
+	gl::disable( GL_TEXTURE_2D );
 
 	mParticles.draw();
 
