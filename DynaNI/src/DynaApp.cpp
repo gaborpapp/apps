@@ -168,20 +168,26 @@ class DynaApp : public AppBasic, UserTracker::Listener
 		struct UserInit
 		{
 			UserInit()
-				: mRecognized( false )
+			{
+				reset();
+				mRecognized = false;
+				mBrush = mBrushes[ Rand::randInt( 0, mBrushes.size() ) ];
+			}
+
+			void reset()
 			{
 				for (int i = 0; i < JOINTS; i++)
 				{
 					mPoseTimeStart[i] = -1;
+					mJointMovement[i].set( 0, 0, 0, 0 );
 				}
-
-				mBrush = mBrushes[ Rand::randInt( 0, mBrushes.size() ) ];
 			}
 
 			bool mRecognized; // gesture recognized
 			static const int JOINTS = 2;
 
 			double mPoseTimeStart[JOINTS];
+			Rectf mJointMovement[JOINTS];
 
 			gl::Texture mBrush;
 		};
@@ -192,6 +198,7 @@ class DynaApp : public AppBasic, UserTracker::Listener
 
 		float mPoseDuration; // maximum duration to hold start pose
 		float mPoseHoldDuration; // current pose hold duration
+		float mPoseHoldAreaThr; // hand movement area threshold during pose
 		float mGameDuration;
 		Anim< float > mGameTimer;
 
@@ -229,6 +236,7 @@ DynaApp::DynaApp() :
 	mBloomIterations( 8 ),
 	mBloomStrength( .8 ),
 	mZClip( 2000 ),
+	mPoseHoldAreaThr( 200 ),
 	mVideoOpacity( .3 ),
 	mFlash( .0 ),
 	mDof( false ),
@@ -253,14 +261,15 @@ void DynaApp::setup()
 	// mParams.setOptions(" TW_HELP ", " visible=false "); // FIXME: not working
 	TwDefine(" TW_HELP visible=false ");
 
+	mParams.addText("Brush simulation");
 	mParams.addParam("Brush color", &mBrushColor, "min=.0 max=1 step=.02");
 	mParams.addParam("Stiffness", &mK, "min=.01 max=.2 step=.01");
 	mParams.addParam("Damping", &mDamping, "min=.25 max=.999 step=.02");
 	mParams.addParam("Stroke min", &mStrokeMinWidth, "min=0 max=50 step=.5");
 	mParams.addParam("Stroke width", &mStrokeMaxWidth, "min=-50 max=50 step=.5");
 
-	//mParams.addButton("Clear strokes", std::bind(&DynaApp::clearStrokes, this), " key=SPACE ");
-
+	mParams.addSeparator();
+	mParams.addText("Particles");
 	mParams.addParam("Particle min", &mParticleMin, "min=0 max=50");
 	mParams.addParam("Particle max", &mParticleMax, "min=0 max=50");
 	mParams.addParam("Velocity max", &mMaxVelocity, "min=1 max=100");
@@ -268,19 +277,33 @@ void DynaApp::setup()
 	mParams.addParam("Velocity particle min", &mVelParticleMin, "min=1 max=100 step=.5");
 	mParams.addParam("Velocity particle max", &mVelParticleMax, "min=1 max=100 step=.5");
 
+	mParams.addSeparator();
+	mParams.addText("Visuals");
+	mParams.addParam("Video opacity", &mVideoOpacity, "min=0 max=1. step=.05");
+	mParams.addSeparator();
+
 	mParams.addParam("Bloom iterations", &mBloomIterations, "min=0 max=8");
 	mParams.addParam("Bloom strength", &mBloomStrength, "min=0 max=1. step=.05");
-
 	mParams.addSeparator();
-	mParams.addParam("Z clip", &mZClip, "min=1 max=10000");
-	mParams.addParam("Pose duration", &mPoseDuration, "min=1. max=10 step=.5");
-	mParams.addParam("Game duration", &mGameDuration, "min=10 max=200");
-	mParams.addParam("Video opacity", &mVideoOpacity, "min=0 max=1. step=.05");
 	mParams.addParam("Dof", &mDof);
 	mParams.addParam("Dof amount", &mDofAmount, "min=1 max=250. step=.5");
 	mParams.addParam("Dof aperture", &mDofAperture, "min=0 max=1. step=.01");
 	mParams.addParam("Dof focus", &mDofFocus, "min=0 max=1. step=.01");
+
 	mParams.addSeparator();
+	mParams.addText("Tracking");
+	mParams.addParam("Z clip", &mZClip, "min=1 max=10000");
+	mParams.addParam("Start pose movement", &mPoseHoldAreaThr,
+			"min=10 max=10000 "
+			"help='allowed area of hand movement during start pose without losing the pose'");
+
+	mParams.addSeparator();
+	mParams.addText("Game logic");
+	mParams.addParam("Pose duration", &mPoseDuration, "min=1. max=10 step=.5");
+	mParams.addParam("Game duration", &mGameDuration, "min=10 max=200");
+
+	mParams.addSeparator();
+	mParams.addText("Debug");
 	mParams.addParam("Fps", &mFps, "", true);
 	mParams.addParam("Show hands", &mShowHands);
 
@@ -590,17 +613,27 @@ void DynaApp::update()
 
 					//console() << i << " " << hand << " [" << handConf << "] " << limit << " [" << limitConf << "]" << endl;
 					bool initPose = (handConf > .5) && (limitConf > .5) &&
-						(hand.y < limit.y);
+						(hand.y < limit.y) && (ui->mJointMovement[i].calcArea() <= mPoseHoldAreaThr );
 					if (initPose)
 					{
 						if (ui->mPoseTimeStart[i] < 0)
 							ui->mPoseTimeStart[i] = currentTime;
+
+						if (ui->mJointMovement[i].calcArea() == 0)
+						{
+							ui->mJointMovement[i] = Rectf( hand, hand + Vec2f( 1, 1 ) );
+						}
+						else
+						{
+							ui->mJointMovement[i].include( hand );
+						}
+
+
 					}
 					else
 					{
-						// clear both start times if one is lost
-						for ( int j = 0; j < UserInit::JOINTS; j++ )
-							ui->mPoseTimeStart[j] = -1.;
+						// reset if one hand is lost
+						ui->reset();
 					}
 					//console() << i << " " << initPose << " " << ui->mPoseTimeStart[i] << endl;
 				}
@@ -624,19 +657,12 @@ void DynaApp::update()
 
 				if ( ui->mRecognized )
 				{
-					// clear pose detection start time
-					for ( int i = 0; i < UserInit::JOINTS; i++ )
-						ui->mPoseTimeStart[i] = -1.;
-
 					// init gesture found clear screen and strokes
 					clearStrokes();
 
 					mState = STATE_GAME;
 					// clear pose start
-					for ( int i = 0; i < UserInit::JOINTS; i++ )
-					{
-						ui->mPoseTimeStart[ i ] = currentTime;
-					}
+					ui->reset();
 					mPoseHoldDuration = 0;
 
 					// add callback when game time ends
