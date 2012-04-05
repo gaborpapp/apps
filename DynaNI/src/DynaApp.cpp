@@ -25,7 +25,7 @@
 #include "cinder/gl/GlslProg.h"
 #include "cinder/gl/Texture.h"
 #include "cinder/ImageIo.h"
-#include "cinder/params/Params.h"
+//#include "cinder/params/Params.h"
 #include "cinder/Timeline.h"
 #include "cinder/Rand.h"
 #include "cinder/audio/Output.h"
@@ -40,11 +40,14 @@
 
 #include "NI.h"
 
+#include "PParams.h"
 #include "DynaStroke.h"
 #include "Particles.h"
 #include "Utils.h"
 
 #include "TimerDisplay.h"
+#include "HandCursor.h"
+
 
 using namespace ci;
 using namespace ci::app;
@@ -57,6 +60,7 @@ class DynaApp : public AppBasic, UserTracker::Listener
 
 		void prepareSettings(Settings *settings);
 		void setup();
+		void shutdown();
 
 		void resize(ResizeEvent event);
 
@@ -74,7 +78,7 @@ class DynaApp : public AppBasic, UserTracker::Listener
 		void draw();
 
 	private:
-		params::InterfaceGl mParams;
+		params::PInterfaceGl mParams;
 
 		bool mLeftButton;
 		Vec2i mMousePos;
@@ -205,6 +209,10 @@ class DynaApp : public AppBasic, UserTracker::Listener
 		TimerDisplay mPoseTimerDisplay;
 		TimerDisplay mGameTimerDisplay;
 
+		vector< HandCursor > mHandCursors;
+		float mHandPosCoeff;
+		float mHandTransparencyCoeff;
+
 		enum
 		{
 			STATE_POSE = 0,
@@ -245,7 +253,10 @@ DynaApp::DynaApp() :
 	mDofFocus( .2 ),
 	mPoseDuration( 2. ),
 	mGameDuration( 20. ),
-	mState( STATE_IDLE )
+	mHandPosCoeff( 500. ),
+	mHandTransparencyCoeff( 500. ),
+	mState( STATE_IDLE ),
+	mShowHands( true )
 {
 }
 
@@ -257,55 +268,65 @@ void DynaApp::setup()
 
 	gl::disableVerticalSync();
 
-	mParams = params::InterfaceGl("Parameters", Vec2i(350, 450));
+	// params
+	string paramsXml = getResourcePath().string() + "/params.xml";
+	params::PInterfaceGl::load( paramsXml );
+
+	mParams = params::PInterfaceGl("Parameters", Vec2i(350, 700));
+	mParams.addPersistentSizeAndPosition();
+
 	// mParams.setOptions(" TW_HELP ", " visible=false "); // FIXME: not working
 	TwDefine(" TW_HELP visible=false ");
 
 	mParams.addText("Brush simulation");
-	mParams.addParam("Brush color", &mBrushColor, "min=.0 max=1 step=.02");
-	mParams.addParam("Stiffness", &mK, "min=.01 max=.2 step=.01");
-	mParams.addParam("Damping", &mDamping, "min=.25 max=.999 step=.02");
-	mParams.addParam("Stroke min", &mStrokeMinWidth, "min=0 max=50 step=.5");
-	mParams.addParam("Stroke width", &mStrokeMaxWidth, "min=-50 max=50 step=.5");
+	mParams.addPersistentParam("Brush color", &mBrushColor, mBrushColor, "min=.0 max=1 step=.02");
+	mParams.addPersistentParam("Stiffness", &mK, mK, "min=.01 max=.2 step=.01");
+	mParams.addPersistentParam("Damping", &mDamping, mDamping, "min=.25 max=.999 step=.02");
+	mParams.addPersistentParam("Stroke min", &mStrokeMinWidth, mStrokeMinWidth, "min=0 max=50 step=.5");
+	mParams.addPersistentParam("Stroke width", &mStrokeMaxWidth, mStrokeMaxWidth, "min=-50 max=50 step=.5");
 
 	mParams.addSeparator();
 	mParams.addText("Particles");
-	mParams.addParam("Particle min", &mParticleMin, "min=0 max=50");
-	mParams.addParam("Particle max", &mParticleMax, "min=0 max=50");
-	mParams.addParam("Velocity max", &mMaxVelocity, "min=1 max=100");
-	mParams.addParam("Velocity particle multiplier", &mVelParticleMult, "min=0 max=2 step=.01");
-	mParams.addParam("Velocity particle min", &mVelParticleMin, "min=1 max=100 step=.5");
-	mParams.addParam("Velocity particle max", &mVelParticleMax, "min=1 max=100 step=.5");
+	mParams.addPersistentParam("Particle min", &mParticleMin, mParticleMin, "min=0 max=50");
+	mParams.addPersistentParam("Particle max", &mParticleMax, mParticleMax, "min=0 max=50");
+	mParams.addPersistentParam("Velocity max", &mMaxVelocity, mMaxVelocity, "min=1 max=100");
+	mParams.addPersistentParam("Velocity particle multiplier", &mVelParticleMult, mVelParticleMult, "min=0 max=2 step=.01");
+	mParams.addPersistentParam("Velocity particle min", &mVelParticleMin, mVelParticleMin, "min=1 max=100 step=.5");
+	mParams.addPersistentParam("Velocity particle max", &mVelParticleMax, mVelParticleMax, "min=1 max=100 step=.5");
 
 	mParams.addSeparator();
 	mParams.addText("Visuals");
-	mParams.addParam("Video opacity", &mVideoOpacity, "min=0 max=1. step=.05");
+	mParams.addPersistentParam("Video opacity", &mVideoOpacity, mVideoOpacity, "min=0 max=1. step=.05");
 	mParams.addSeparator();
 
-	mParams.addParam("Bloom iterations", &mBloomIterations, "min=0 max=8");
-	mParams.addParam("Bloom strength", &mBloomStrength, "min=0 max=1. step=.05");
+	mParams.addPersistentParam("Bloom iterations", &mBloomIterations, mBloomIterations, "min=0 max=8");
+	mParams.addPersistentParam("Bloom strength", &mBloomStrength, mBloomStrength, "min=0 max=1. step=.05");
 	mParams.addSeparator();
-	mParams.addParam("Dof", &mDof);
+	mParams.addPersistentParam("Dof", &mDof, mDof);
 	mParams.addParam("Dof amount", &mDofAmount, "min=1 max=250. step=.5");
 	mParams.addParam("Dof aperture", &mDofAperture, "min=0 max=1. step=.01");
 	mParams.addParam("Dof focus", &mDofFocus, "min=0 max=1. step=.01");
 
 	mParams.addSeparator();
+	mParams.addPersistentParam("Enable cursors", &mShowHands, mShowHands);
+	mParams.addPersistentParam("Cursor persp", &mHandPosCoeff, mHandPosCoeff, "min=100. max=20000. step=1");
+	mParams.addPersistentParam("Cursor transparency", &mHandTransparencyCoeff, mHandTransparencyCoeff, "min=100. max=20000. step=1");
+
+	mParams.addSeparator();
 	mParams.addText("Tracking");
-	mParams.addParam("Z clip", &mZClip, "min=1 max=10000");
-	mParams.addParam("Start pose movement", &mPoseHoldAreaThr,
+	mParams.addPersistentParam("Z clip", &mZClip, mZClip, "min=1 max=10000");
+	mParams.addPersistentParam("Start pose movement", &mPoseHoldAreaThr, mPoseHoldAreaThr, 
 			"min=10 max=10000 "
 			"help='allowed area of hand movement during start pose without losing the pose'");
 
 	mParams.addSeparator();
 	mParams.addText("Game logic");
-	mParams.addParam("Pose duration", &mPoseDuration, "min=1. max=10 step=.5");
-	mParams.addParam("Game duration", &mGameDuration, "min=10 max=200");
+	mParams.addPersistentParam("Pose duration", &mPoseDuration, mPoseDuration, "min=1. max=10 step=.5");
+	mParams.addPersistentParam("Game duration", &mGameDuration, mGameDuration, "min=10 max=200");
 
 	mParams.addSeparator();
 	mParams.addText("Debug");
 	mParams.addParam("Fps", &mFps, "", true);
-	mParams.addParam("Show hands", &mShowHands);
 
 	// fluid
 	mFluidSolver.setup( sFluidSizeX, sFluidSizeX );
@@ -405,6 +426,16 @@ void DynaApp::setup()
 			RES_TIMER_GAME_DOT_1 );
 
 	Rand::randomize();
+
+	setFullScreen( true );
+	hideCursor();
+
+	mParams.hide();
+}
+
+void DynaApp::shutdown()
+{
+	params::PInterfaceGl::save();
 }
 
 void DynaApp::saveScreenshot()
@@ -491,10 +522,22 @@ void DynaApp::endGame()
 void DynaApp::keyDown(KeyEvent event)
 {
 	if (event.getChar() == 'f')
+	{
 		setFullScreen(!isFullScreen());
+		if (isFullScreen())
+			hideCursor();
+		else
+			showCursor();
+	}
 	else
 	if (event.getChar() == 's')
+	{
 		mParams.show( !mParams.isVisible() );
+		if ( !mParams.isVisible() )
+			hideCursor();
+		else
+			showCursor();
+	}
 	if (event.getCode() == KeyEvent::KEY_ESCAPE)
 		quit();
 	else
@@ -711,6 +754,7 @@ void DynaApp::update()
 	}
 
 	// NI user hands
+	mHandCursors.clear();
 	for ( vector< unsigned >::const_iterator it = users.begin();
 			it < users.end(); ++it )
 	{
@@ -733,6 +777,8 @@ void DynaApp::update()
 				Vec2f hand = mNIUserTracker.getJoint2d( id, jointIds[i] );
 				Vec3f hand3d = mNIUserTracker.getJoint3d( id, jointIds[i] );
 				us->mActive[i] = (hand3d.z < mZClip) && (hand3d.z > 0);
+
+				mHandCursors.push_back( HandCursor( i, hand / Vec2f( 640, 480 ), hand3d.z ) );
 
 				if (us->mActive[i] && !us->mPrevActive[i])
 				{
@@ -888,6 +934,26 @@ void DynaApp::draw()
 	gl::disable( GL_TEXTURE_2D );
 	mMixerShader.unbind();
 
+	// cursors
+	if ( mShowHands )
+	{
+		gl::enable( GL_TEXTURE_2D );
+		gl::enableAlphaBlending();
+
+		HandCursor::setBounds( mOutputFbo.getBounds() );
+		HandCursor::setZClip( mZClip );
+		HandCursor::setPosCoeff( mHandPosCoeff );
+		HandCursor::setTransparencyCoeff( mHandTransparencyCoeff );
+		for ( vector< HandCursor >::iterator it = mHandCursors.begin();
+				it != mHandCursors.end(); ++it )
+		{
+			it->draw();
+		}
+
+		gl::disableAlphaBlending();
+		gl::disable( GL_TEXTURE_2D );
+	}
+
 	mOutputFbo.unbindFramebuffer();
 
 	// draw output to window
@@ -905,6 +971,7 @@ void DynaApp::draw()
 
 	gl::draw( outputTexture, outputRect );
 
+	gl::enableAlphaBlending();
 	switch ( mState )
 	{
 		case STATE_POSE:
@@ -915,6 +982,7 @@ void DynaApp::draw()
 			mGameTimerDisplay.draw( 1. - mGameTimer / mGameDuration );
 			break;
 	}
+	gl::disableAlphaBlending();
 
 	params::InterfaceGl::draw();
 }
