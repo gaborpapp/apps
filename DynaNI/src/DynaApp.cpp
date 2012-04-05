@@ -116,6 +116,7 @@ class DynaApp : public AppBasic, UserTracker::Listener
 		gl::Fbo mFbo;
 		gl::Fbo mBloomFbo;
 		gl::Fbo mDofFbo;
+		gl::Fbo mOutputFbo;
 		gl::GlslProg mBloomShader;
 		gl::GlslProg mMixerShader;
 		gl::GlslProg mDofShader;
@@ -311,6 +312,10 @@ void DynaApp::setup()
 	mBloomShader.uniform( "pixelSize", Vec2f( 1. / mBloomFbo.getWidth(), 1. / mBloomFbo.getHeight() ) );
 	mBloomShader.unbind();
 
+	format = gl::Fbo::Format();
+	format.enableDepthBuffer( false );
+	mOutputFbo = gl::Fbo( 1024, 768, format );
+
 	mMixerShader = gl::GlslProg( loadResource( RES_PASSTHROUGH_VERT ),
 								 loadResource( RES_MIXER_FRAG ) );
 	mMixerShader.bind();
@@ -375,6 +380,8 @@ void DynaApp::setup()
 			RES_TIMER_GAME_BOTTOM_RIGHT,
 			RES_TIMER_GAME_DOT_0,
 			RES_TIMER_GAME_DOT_1 );
+
+	Rand::randomize();
 }
 
 void DynaApp::saveScreenshot()
@@ -396,11 +403,9 @@ void DynaApp::saveScreenshot()
 
 	try
 	{
-		Surface srf = copyWindowSurface();
-
 		if (!pngPath.empty())
 		{
-			writeImage( pngPath, srf );
+			writeImage( pngPath, mOutputFbo.getTexture() );
 		}
 	}
 	catch ( ... )
@@ -830,8 +835,9 @@ void DynaApp::draw()
 	}
 
 	// final
-	gl::setMatricesWindow( getWindowSize() );
-	gl::setViewport( getWindowBounds() );
+	mOutputFbo.bindFramebuffer();
+	gl::setMatricesWindow( mOutputFbo.getSize(), false );
+	gl::setViewport( mOutputFbo.getBounds() );
 
 	gl::enableAlphaBlending();
 
@@ -852,9 +858,26 @@ void DynaApp::draw()
 		mBloomFbo.getTexture( i ).bind( i + 1 );
 	}
 
-	gl::drawSolidRect( getWindowBounds() );
+	gl::drawSolidRect( mOutputFbo.getBounds() );
 	gl::disable( GL_TEXTURE_2D );
 	mMixerShader.unbind();
+
+	mOutputFbo.unbindFramebuffer();
+
+	// draw output to window
+	gl::setMatricesWindow( getWindowSize() );
+	gl::setViewport( getWindowBounds() );
+
+	gl::Texture outputTexture = mOutputFbo.getTexture();
+	Rectf outputRect( mOutputFbo.getBounds() );
+	Rectf screenRect( getWindowBounds() );
+	outputRect = outputRect.getCenteredFit( screenRect, true );
+	if ( screenRect.getAspectRatio() > outputRect.getAspectRatio() )
+		outputRect.scaleCentered( screenRect.getWidth() / outputRect.getWidth() );
+	else
+		outputRect.scaleCentered( screenRect.getHeight() / outputRect.getHeight() );
+
+	gl::draw( outputTexture, outputRect );
 
 	switch ( mState )
 	{
