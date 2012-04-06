@@ -44,6 +44,8 @@ class UserTracker
 		ci::Vec3f getJoint3d( XnUserID userId, XnSkeletonJoint jointId );
 		float getJointConfidance( XnUserID userId, XnSkeletonJoint jointId );
 
+		void setSmoothing( float s );
+
 		ci::Vec3f getUserCenter( XnUserID userId );
 
 		void addListener( Listener *listener );

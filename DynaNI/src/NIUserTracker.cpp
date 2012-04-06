@@ -247,6 +247,11 @@ float UserTracker::getJointConfidance( XnUserID userId, XnSkeletonJoint jointId 
 	}
 }
 
+void UserTracker::setSmoothing( float s )
+{
+	mObj->mUserGenerator.GetSkeletonCap().SetSmoothing( s );
+}
+
 Vec3f UserTracker::getUserCenter( XnUserID userId )
 {
 	XnPoint3D center;

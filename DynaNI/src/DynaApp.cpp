@@ -203,6 +203,7 @@ class DynaApp : public AppBasic, UserTracker::Listener
 		float mPoseDuration; // maximum duration to hold start pose
 		float mPoseHoldDuration; // current pose hold duration
 		float mPoseHoldAreaThr; // hand movement area threshold during pose
+		float mSkeletonSmoothing;
 		float mGameDuration;
 		Anim< float > mGameTimer;
 
@@ -233,7 +234,7 @@ DynaApp::DynaApp() :
 	mBrushColor( .5 ),
 	mK( .06 ),
 	mDamping( .7 ),
-	mStrokeMinWidth( 1 ),
+	mStrokeMinWidth( 10 ),
 	mStrokeMaxWidth( 16 ),
 	mMaxVelocity( 40 ),
 	mParticleMin( 0 ),
@@ -243,9 +244,9 @@ DynaApp::DynaApp() :
 	mVelParticleMax( 60 ),
 	mBloomIterations( 8 ),
 	mBloomStrength( .8 ),
-	mZClip( 2000 ),
-	mPoseHoldAreaThr( 200 ),
-	mVideoOpacity( .3 ),
+	mZClip( 1085 ),
+	mPoseHoldAreaThr( 300 ),
+	mVideoOpacity( 1. ),
 	mFlash( .0 ),
 	mDof( false ),
 	mDofAmount( 190. ),
@@ -254,7 +255,7 @@ DynaApp::DynaApp() :
 	mPoseDuration( 2. ),
 	mGameDuration( 20. ),
 	mHandPosCoeff( 500. ),
-	mHandTransparencyCoeff( 500. ),
+	mHandTransparencyCoeff( 465. ),
 	mState( STATE_IDLE ),
 	mShowHands( true )
 {
@@ -315,7 +316,9 @@ void DynaApp::setup()
 	mParams.addSeparator();
 	mParams.addText("Tracking");
 	mParams.addPersistentParam("Z clip", &mZClip, mZClip, "min=1 max=10000");
-	mParams.addPersistentParam("Start pose movement", &mPoseHoldAreaThr, mPoseHoldAreaThr, 
+	mParams.addPersistentParam("Skeleton smoothing", &mSkeletonSmoothing, 0.7,
+			"min=0 max=1 step=.05");
+	mParams.addPersistentParam("Start pose movement", &mPoseHoldAreaThr, mPoseHoldAreaThr,
 			"min=10 max=10000 "
 			"help='allowed area of hand movement during start pose without losing the pose'");
 
@@ -533,10 +536,13 @@ void DynaApp::keyDown(KeyEvent event)
 	if (event.getChar() == 's')
 	{
 		mParams.show( !mParams.isVisible() );
-		if ( !mParams.isVisible() )
-			hideCursor();
-		else
-			showCursor();
+		if (isFullScreen())
+		{
+			if ( !mParams.isVisible() )
+				hideCursor();
+			else
+				showCursor();
+		}
 	}
 	if (event.getCode() == KeyEvent::KEY_ESCAPE)
 		quit();
@@ -624,6 +630,8 @@ void DynaApp::update()
 
 	if ( mLeftButton && !mDynaStrokes.empty() )
 		mDynaStrokes.back().update( Vec2f( mMousePos ) / getWindowSize() );
+
+	mNIUserTracker.setSmoothing( mSkeletonSmoothing );
 
 	// detect start gesture
 	vector< unsigned > users = mNIUserTracker.getUsers();
