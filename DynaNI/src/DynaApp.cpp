@@ -139,6 +139,8 @@ class DynaApp : public AppBasic, UserTracker::Listener
 		gl::Texture mDepthTexture;
 		float mZClip;
 		float mVideoOpacity;
+		float mVideoNoise;
+		float mVideoNoiseFreq;
 		ci::Anim< float > mFlash;
 		float mFps;
 		bool mShowHands;
@@ -246,7 +248,9 @@ DynaApp::DynaApp() :
 	mBloomStrength( .8 ),
 	mZClip( 1085 ),
 	mPoseHoldAreaThr( 300 ),
-	mVideoOpacity( 1. ),
+	mVideoOpacity( .55 ),
+	mVideoNoise( .15 ),
+	mVideoNoiseFreq( 11. ),
 	mFlash( .0 ),
 	mDof( false ),
 	mDofAmount( 190. ),
@@ -298,6 +302,8 @@ void DynaApp::setup()
 	mParams.addSeparator();
 	mParams.addText("Visuals");
 	mParams.addPersistentParam("Video opacity", &mVideoOpacity, mVideoOpacity, "min=0 max=1. step=.05");
+	mParams.addPersistentParam("Video noise", &mVideoNoise, mVideoNoise, "min=0 max=1. step=.05");
+	mParams.addPersistentParam("Video noise freq", &mVideoNoiseFreq, mVideoNoiseFreq, "min=0 max=11. step=.01");
 	mParams.addSeparator();
 
 	mParams.addPersistentParam("Bloom iterations", &mBloomIterations, mBloomIterations, "min=0 max=8");
@@ -924,6 +930,9 @@ void DynaApp::draw()
 	mMixerShader.bind();
 	mMixerShader.uniform( "mixOpacity", mVideoOpacity );
 	mMixerShader.uniform( "flash", mFlash );
+	mMixerShader.uniform( "randSeed", static_cast< float >( getElapsedSeconds() ) );
+	mMixerShader.uniform( "randFreqMultiplier", exp( mVideoNoiseFreq ) );
+	mMixerShader.uniform( "noiseStrength", mVideoNoise );
 
 	gl::enable( GL_TEXTURE_2D );
 	if ( mDof )

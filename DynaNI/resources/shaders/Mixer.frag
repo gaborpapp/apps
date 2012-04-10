@@ -5,10 +5,21 @@ uniform sampler2D tex[9];
 uniform float mixOpacity;
 uniform float flash;
 
+uniform float randSeed;
+uniform float noiseStrength;
+uniform float randFreqMultiplier;
+
+float rand(vec2 co)
+{
+	return fract( sin( dot( co.xy + vec2( randSeed, randSeed ),
+							vec2( 12.9898, 78.233 ) ) ) * 0.437585453 * randFreqMultiplier );
+}
+
 void main()
 {
 	vec4 c = texture2D( tex[0], gl_TexCoord[0].st );
 	float gray = mixOpacity * dot( c.rgb, vec3( .3, .59, .11 ) );
+	gray +=  noiseStrength * ( ( 2. * rand( gl_FragCoord.xy ) ) - 1. );
 	
 	// FIXME: opacity
 	vec4 color = vec4( gray, gray, gray, mixOpacity );
