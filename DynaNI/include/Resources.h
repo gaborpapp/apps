@@ -8,6 +8,8 @@
 #define RES_MIXER_FRAG			CINDER_RESOURCE(../resources/, shaders/Mixer.frag, 133, GLSL)
 #define RES_DOF_FRAG			CINDER_RESOURCE(../resources/, shaders/DoF.frag, 134, GLSL)
 
+#define RES_GALLERY_FRAG		CINDER_RESOURCE(../resources/, shaders/Gallery.frag, 148, GLSL)
+
 #define RES_SHUTTER				CINDER_RESOURCE(../resources/, audio/72714__horsthorstensen__shutter-photo.mp3, 135, MP3)
 
 #define RES_TIMER_GAME_BOTTOM_LEFT		CINDER_RESOURCE(../resources/, gfx/game/game-bottom-left.png, 136, PNG)

@@ -1,6 +1,6 @@
 TARGET = 'DynaApp'
 SOURCES = ['DynaApp.cpp', 'Particles.cpp', 'DynaStroke.cpp', 'Utils.cpp',
-		'TimerDisplay.cpp', 'HandCursor.cpp', 'PParams.cpp']
+		'TimerDisplay.cpp', 'HandCursor.cpp', 'PParams.cpp', 'Gallery.cpp']
 SOURCES += ['NI.cpp', 'NIUserTracker.cpp']
 
 RESOURCES = ['shaders', 'audio', 'gfx']

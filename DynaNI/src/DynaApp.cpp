@@ -47,7 +47,7 @@
 
 #include "TimerDisplay.h"
 #include "HandCursor.h"
-
+#include "Gallery.h"
 
 using namespace ci;
 using namespace ci::app;
@@ -80,6 +80,9 @@ class DynaApp : public AppBasic, UserTracker::Listener
 	private:
 		params::PInterfaceGl mParams;
 
+		void drawGallery();
+		void drawGame();
+
 		bool mLeftButton;
 		Vec2i mMousePos;
 		Vec2i mPrevMousePos;
@@ -87,7 +90,7 @@ class DynaApp : public AppBasic, UserTracker::Listener
 		void clearStrokes();
 		list< DynaStroke > mDynaStrokes;
 
-		static vector< gl::Texture > mBrushes;
+		static vector< gl::Texture > sBrushes;
 		float mBrushColor;
 
 		float mK;
@@ -106,7 +109,7 @@ class DynaApp : public AppBasic, UserTracker::Listener
 		ciMsaFluidDrawerGl mFluidDrawer;
 		static const int sFluidSizeX = 128;
 
-		#define SCREENSHOT_FOLDER "screenshots/"
+		static fs::path sScreenshotFolder;
 		void saveScreenshot();
 
 		void endGame();
@@ -181,7 +184,7 @@ class DynaApp : public AppBasic, UserTracker::Listener
 			{
 				reset();
 				mRecognized = false;
-				mBrush = mBrushes[ Rand::randInt( 0, mBrushes.size() ) ];
+				mBrush = sBrushes[ Rand::randInt( 0, sBrushes.size() ) ];
 			}
 
 			void reset()
@@ -227,9 +230,14 @@ class DynaApp : public AppBasic, UserTracker::Listener
 			STATE_IDLE
 		} States;
 		int mState;
+
+		Gallery mGallery;
 };
 
-vector< gl::Texture > DynaApp::mBrushes;
+vector< gl::Texture > DynaApp::sBrushes;
+#define SCREENSHOT_FOLDER "screenshots/"
+fs::path DynaApp::sScreenshotFolder( "" );
+
 
 void DynaApp::prepareSettings(Settings *settings)
 {
@@ -392,8 +400,8 @@ void DynaApp::setup()
 	mDofShader.uniform( "isize", Vec2f( 1.0 / mDofFbo.getWidth(), 1.0 / mDofFbo.getHeight() ) );
 	mDofShader.unbind();
 
-	mBrushes = loadTextures("brushes");
-	//mBrush = mBrushes[0]; // TEST
+	sBrushes = loadTextures("brushes");
+	//mBrush = sBrushes[0]; // TEST
 	//loadImage( loadResource( RES_BRUSH ) );
 
 	// audio
@@ -444,7 +452,17 @@ void DynaApp::setup()
 
 	Rand::randomize();
 
-	setFullScreen( true );
+	// gallery
+	fs::path sScreenshotFolder = getAppPath();
+#ifdef CINDER_MAC
+	sScreenshotFolder /= "..";
+#endif
+	sScreenshotFolder /= SCREENSHOT_FOLDER;
+
+	mGallery = Gallery( sScreenshotFolder );
+
+	//
+	//setFullScreen( true );
 	hideCursor();
 
 	mParams.hide();
@@ -457,13 +475,7 @@ void DynaApp::shutdown()
 
 void DynaApp::saveScreenshot()
 {
-	string path = getAppPath().string();
-#ifdef CINDER_MAC
-	path += "/../";
-#endif
-	path += SCREENSHOT_FOLDER;
-	path += "snap-" + timeStamp() + ".png";
-	fs::path pngPath(path);
+	fs::path pngPath( sScreenshotFolder / fs::path( timeStamp() ) / ".png" );
 
 	// flash
 	mFlash = 0;
@@ -481,7 +493,7 @@ void DynaApp::saveScreenshot()
 	}
 	catch ( ... )
 	{
-		console() << "unable to save image file " << path << endl;
+		console() << "unable to save image file " << pngPath << endl;
 	}
 }
 
@@ -601,7 +613,7 @@ void DynaApp::mouseDown(MouseEvent event)
 {
 	if (event.isLeft())
 	{
-		mDynaStrokes.push_back( DynaStroke( mBrushes[ Rand::randInt( 0, mBrushes.size() ) ] ) );
+		mDynaStrokes.push_back( DynaStroke( sBrushes[ Rand::randInt( 0, sBrushes.size() ) ] ) );
 		DynaStroke *d = &mDynaStrokes.back();
 		d->resize( ResizeEvent( mFbo.getSize() ) );
 		d->setStiffness( mK );
@@ -853,10 +865,22 @@ void DynaApp::update()
 	mParticles.update( getElapsedSeconds() );
 }
 
-void DynaApp::draw()
+void DynaApp::drawGallery()
 {
 	gl::clear( Color::black() );
 
+	gl::setMatricesWindow( getWindowSize() );
+	gl::setViewport( getWindowBounds() );
+
+	mGallery.setNoiseFreq( exp( mVideoNoiseFreq ) );
+	mGallery.enableVignetting( mEnableVignetting );
+	mGallery.enableTvLines( mEnableTvLines );
+
+	mGallery.render( getWindowBounds() );
+}
+
+void DynaApp::drawGame()
+{
 	mFbo.bindFramebuffer();
 	gl::setMatricesWindow( mFbo.getSize(), false );
 	gl::setViewport( mFbo.getBounds() );
@@ -1010,6 +1034,13 @@ void DynaApp::draw()
 			break;
 	}
 	gl::disableAlphaBlending();
+}
+
+void DynaApp::draw()
+{
+	gl::clear( Color::black() );
+
+	drawGallery();
 
 	params::InterfaceGl::draw();
 }
