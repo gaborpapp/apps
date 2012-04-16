@@ -9,6 +9,9 @@ uniform float randSeed;
 uniform float noiseStrength;
 uniform float randFreqMultiplier;
 
+uniform bool enableTvLines;
+uniform bool enableVignetting;
+
 float rand(vec2 co)
 {
 	return fract( sin( dot( co.xy + vec2( randSeed, randSeed ),
@@ -17,28 +20,28 @@ float rand(vec2 co)
 
 void main()
 {
-	vec4 c = texture2D( tex[0], gl_TexCoord[0].st );
+	vec2 uv = gl_TexCoord[0].st;
+
+	vec4 c = texture2D( tex[0], uv );
 	float gray = mixOpacity * dot( c.rgb, vec3( .3, .59, .11 ) );
 	gray +=  noiseStrength * ( ( 2. * rand( gl_FragCoord.xy ) ) - 1. );
 	
-	// FIXME: opacity
 	vec4 color = vec4( gray, gray, gray, mixOpacity );
 
-	color += texture2D( tex[1], gl_TexCoord[0].st );
-	color += texture2D( tex[2], gl_TexCoord[0].st );
-	color += texture2D( tex[3], gl_TexCoord[0].st );
-	color += texture2D( tex[4], gl_TexCoord[0].st );
-	color += texture2D( tex[5], gl_TexCoord[0].st );
-	color += texture2D( tex[6], gl_TexCoord[0].st );
-	color += texture2D( tex[7], gl_TexCoord[0].st );
-	color += texture2D( tex[8], gl_TexCoord[0].st );
+	if ( enableVignetting )
+		color *= .5 + .5 * 16. * uv.x * uv.y * ( 1.0 - uv.x ) * ( 1.0 - uv.y );
 
-	/*
-	for ( int i = 1; i < 9; i ++)
-	{
-		color += mixOpacity * texture2D( tex[i], gl_TexCoord[0].st );
-	}
-	*/
+	if ( enableTvLines )
+		color *= .9 + .1 * sin( 10.0 * randSeed + uv.y * 1000.0 );
+
+	color += texture2D( tex[1], uv );
+	color += texture2D( tex[2], uv );
+	color += texture2D( tex[3], uv );
+	color += texture2D( tex[4], uv );
+	color += texture2D( tex[5], uv );
+	color += texture2D( tex[6], uv );
+	color += texture2D( tex[7], uv );
+	color += texture2D( tex[8], uv );
 
 	color += flash;
 

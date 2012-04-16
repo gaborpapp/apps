@@ -35,6 +35,7 @@ void HandCursor::draw()
 
 	Vec2f center = mBounds.getSize() / 2;
 	Vec2f pos = mPos * mBounds.getSize();
+	Vec2f handCenter = mTextures[ mType ].getSize() / 2.;
 
 	for ( int i = 0; i < 3; i++ )
 	{
@@ -43,6 +44,7 @@ void HandCursor::draw()
 		gl::scale( Vec2f( scaleVal, scaleVal ) );
 		gl::translate( - center );
 		gl::color( ColorA( 1, 1, 1, transpVal ) );
+		gl::translate( - handCenter );
 		gl::draw( mTextures[ mType ], pos );
 		gl::popModelView();
 

@@ -141,6 +141,10 @@ class DynaApp : public AppBasic, UserTracker::Listener
 		float mVideoOpacity;
 		float mVideoNoise;
 		float mVideoNoiseFreq;
+
+		bool mEnableVignetting;
+		bool mEnableTvLines;
+
 		ci::Anim< float > mFlash;
 		float mFps;
 		bool mShowHands;
@@ -251,6 +255,8 @@ DynaApp::DynaApp() :
 	mVideoOpacity( .55 ),
 	mVideoNoise( .15 ),
 	mVideoNoiseFreq( 11. ),
+	mEnableVignetting( true ),
+	mEnableTvLines( true ),
 	mFlash( .0 ),
 	mDof( false ),
 	mDofAmount( 190. ),
@@ -304,6 +310,8 @@ void DynaApp::setup()
 	mParams.addPersistentParam("Video opacity", &mVideoOpacity, mVideoOpacity, "min=0 max=1. step=.05");
 	mParams.addPersistentParam("Video noise", &mVideoNoise, mVideoNoise, "min=0 max=1. step=.05");
 	mParams.addPersistentParam("Video noise freq", &mVideoNoiseFreq, mVideoNoiseFreq, "min=0 max=11. step=.01");
+	mParams.addPersistentParam("Vignetting", &mEnableVignetting, mEnableVignetting);
+	mParams.addPersistentParam("TV lines", &mEnableTvLines, mEnableTvLines);
 	mParams.addSeparator();
 
 	mParams.addPersistentParam("Bloom iterations", &mBloomIterations, mBloomIterations, "min=0 max=8");
@@ -394,9 +402,9 @@ void DynaApp::setup()
 	// OpenNI
 	try
 	{
-		mNI = OpenNI( OpenNI::Device() );
+		//mNI = OpenNI( OpenNI::Device() );
 
-		/*
+		//*
 		string path = getAppPath().string();
 	#ifdef CINDER_MAC
 		path += "/../";
@@ -404,7 +412,7 @@ void DynaApp::setup()
 		//path += "rec-12032014223600.oni";
 		path += "captured.oni";
 		mNI = OpenNI( path );
-		*/
+		//*/
 	}
 	catch (...)
 	{
@@ -933,6 +941,8 @@ void DynaApp::draw()
 	mMixerShader.uniform( "randSeed", static_cast< float >( getElapsedSeconds() ) );
 	mMixerShader.uniform( "randFreqMultiplier", exp( mVideoNoiseFreq ) );
 	mMixerShader.uniform( "noiseStrength", mVideoNoise );
+	mMixerShader.uniform( "enableVignetting", mEnableVignetting );
+	mMixerShader.uniform( "enableTvLines", mEnableTvLines );
 
 	gl::enable( GL_TEXTURE_2D );
 	if ( mDof )
