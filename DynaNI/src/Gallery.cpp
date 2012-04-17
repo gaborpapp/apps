@@ -2,6 +2,8 @@
 #include "cinder/ImageIo.h"
 #include "cinder/Rand.h"
 #include "cinder/gl/gl.h"
+#include "cinder/Easing.h"
+#include "cinder/CinderMath.h"
 
 #include "Gallery.h"
 
@@ -12,10 +14,8 @@ using namespace std;
 
 Gallery::Gallery( fs::path &folder, int rows /* = 3 */, int columns /* = 4 */ )
 	: mGalleryFolder( folder ),
-	  mHorizontalMargin( .05 ),
-	  mVerticalMargin( 0.05 ),
-	  mCellHorizontalSpacing( 0.04 ),
-	  mCellVerticalSpacing( 0.06 )
+	  mLastRows( -1 ),
+	  mLastColumns( -1 )
 {
 	refreshList();
 
@@ -23,18 +23,44 @@ Gallery::Gallery( fs::path &folder, int rows /* = 3 */, int columns /* = 4 */ )
 
 	mGalleryShader = gl::GlslProg( app::loadResource( RES_PASSTHROUGH_VERT ),
 								   app::loadResource( RES_GALLERY_FRAG ) );
+
+	mParams = params::PInterfaceGl("Gallery", Vec2i(350, 500));
+	mParams.addPersistentSizeAndPosition();
+	mParams.addPersistentParam("Rows", &mRows, mRows, "min=1 max=10");
+	mParams.addPersistentParam("Columns", &mColumns, mColumns, "min=1 max=10");
+
+	mParams.addPersistentParam("Horizontal margin", &mHorizontalMargin, .05, "min=.0 max=.5 step=.005");
+
+	mParams.addPersistentParam("Vertical margin", &mVerticalMargin, .05, "min=.0 max=.5 step=.005");
+	mParams.addPersistentParam("Horizontal spacing", &mCellHorizontalSpacing, .04, "min=.0 max=.5 step=.005");
+	mParams.addPersistentParam("Vertical spacing", &mCellVerticalSpacing, .06, "min=.0 max=.5 step=.005");
+
+	mParams.addPersistentParam("Flip duration", &Picture::sFlipDuration, 2.5, "min=.5 max=10. step=.5");
+	mParams.addPersistentParam("Flip frequency", &mFlipFrequency, 3, "min=.5 max=20. step=.5");
 }
 
 void Gallery::resize( int rows, int columns)
 {
-	if ( ( rows != mRows ) || ( columns != mColumns ) )
+	if ( ( rows != mLastRows ) || ( columns != mLastColumns ) )
 	{
 		mRows = rows;
 		mColumns = columns;
 
+		mTextures.clear();
+		int n = min( 2 * mRows * mColumns, (int)mFiles.size() );
+		int filesStart = mFiles.size() - n;
+		for ( int i = filesStart; i < filesStart + n; i++ )
+		{
+			mTextures.push_back( gl::Texture( loadImage( mFiles[ i ] ) ) );
+		}
+
 		mPictures.clear();
 		for (int i = 0; i < mRows * mColumns; i++)
 			mPictures.push_back( Picture( this ) );
+
+
+		mLastRows = mRows;
+		mLastColumns = mColumns;
 	}
 }
 
@@ -56,10 +82,24 @@ void Gallery::refreshList()
 
 void Gallery::update()
 {
+	static double lastFlip = app::getElapsedSeconds();
+	double currentTime = app::getElapsedSeconds();
+
+	if ( ( currentTime - lastFlip ) >= mFlipFrequency )
+	{
+		int r = Rand::randInt( mPictures.size() );
+		mPictures[ r ].flip();
+		lastFlip = currentTime;
+	}
 }
 
 void Gallery::render( const Area &area )
 {
+	if ( ( mRows != mLastRows ) || ( mColumns != mLastColumns ) )
+	{
+		resize( mRows, mColumns );
+	}
+
 	mGalleryShader.bind();
 	mGalleryShader.uniform( "time", static_cast< float >( app::getElapsedSeconds() ) );
 	mGalleryShader.uniform( "enableTvLines", mEnableTvLines );
@@ -95,19 +135,56 @@ void Gallery::render( const Area &area )
 }
 
 Gallery::Picture::Picture( Gallery *g )
-	: mGallery( g )
+	: mGallery( g ),
+	  flipping( false )
 {
-	if ( !mGallery->mFiles.empty() )
+	setRandomTexture();
+}
+
+void Gallery::Picture::setRandomTexture()
+{
+	if ( !mGallery->mTextures.empty() )
 	{
-		int r = Rand::randInt( mGallery->mFiles.size() );
-		fs::path path = mGallery->mFiles[ r ];
-		mTexture = loadImage( path );
+		int r = Rand::randInt( mGallery->mTextures.size() );
+		mTexture = mGallery->mTextures[ r ];
 	}
+}
+
+float Gallery::Picture::sFlipDuration = 2.5;
+
+void Gallery::Picture::flip()
+{
+	if ( flipping )
+		return;
+
+	flipStart = app::getElapsedSeconds();
+	flipping = true;
+	flipTextureChanged = false;
 }
 
 void Gallery::Picture::render( const Rectf &rect )
 {
 	Rectf txtRect;
+
+	gl::pushModelView();
+
+	Vec2f flipScale( 1, 1 );
+
+	if ( flipping )
+	{
+		float flipU = easeInOutQuart( math<float>::clamp(
+				( app::getElapsedSeconds() - flipStart ) / sFlipDuration ) );
+
+		if ( ( flipU >= .5 ) && !flipTextureChanged )
+		{
+			setRandomTexture();
+			flipTextureChanged = true;
+		}
+
+		flipScale = Vec2f( math<float>::abs( flipU * 2 - 1 ), 1 );
+		if ( flipU >= 1 )
+			flipping = false;
+	}
 
 	if ( mTexture )
 	{
@@ -122,11 +199,17 @@ void Gallery::Picture::render( const Rectf &rect )
 	}
 
 	txtRect = txtRect.getCenteredFit( rect, false );
+
+	gl::translate( txtRect.getCenter() );
+	gl::scale( flipScale );
+	gl::translate( -txtRect.getCenter() );
 	gl::drawSolidRect( txtRect );
 
 	if ( mTexture )
 		mTexture.unbind();
 	else
 		gl::color( Color::white() );
+
+	gl::popModelView();
 }
 

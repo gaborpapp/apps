@@ -231,7 +231,9 @@ class DynaApp : public AppBasic, UserTracker::Listener
 		} States;
 		int mState;
 
-		Gallery mGallery;
+		shared_ptr< Gallery > mGallery;
+
+		//Gallery mGallery;
 };
 
 vector< gl::Texture > DynaApp::sBrushes;
@@ -316,7 +318,7 @@ void DynaApp::setup()
 	mParams.addSeparator();
 	mParams.addText("Visuals");
 	mParams.addPersistentParam("Video opacity", &mVideoOpacity, mVideoOpacity, "min=0 max=1. step=.05");
-	mParams.addPersistentParam("Video noise", &mVideoNoise, mVideoNoise, "min=0 max=1. step=.05");
+	mParams.addPersistentParam("Video noise", &mVideoNoise, mVideoNoise, "min=0 max=1. step=.005");
 	mParams.addPersistentParam("Video noise freq", &mVideoNoiseFreq, mVideoNoiseFreq, "min=0 max=11. step=.01");
 	mParams.addPersistentParam("Vignetting", &mEnableVignetting, mEnableVignetting);
 	mParams.addPersistentParam("TV lines", &mEnableTvLines, mEnableTvLines);
@@ -410,9 +412,9 @@ void DynaApp::setup()
 	// OpenNI
 	try
 	{
-		//mNI = OpenNI( OpenNI::Device() );
+		mNI = OpenNI( OpenNI::Device() );
 
-		//*
+		/*
 		string path = getAppPath().string();
 	#ifdef CINDER_MAC
 		path += "/../";
@@ -420,7 +422,7 @@ void DynaApp::setup()
 		//path += "rec-12032014223600.oni";
 		path += "captured.oni";
 		mNI = OpenNI( path );
-		//*/
+		*/
 	}
 	catch (...)
 	{
@@ -459,13 +461,14 @@ void DynaApp::setup()
 #endif
 	sScreenshotFolder /= SCREENSHOT_FOLDER;
 
-	mGallery = Gallery( sScreenshotFolder );
+	mGallery = shared_ptr< Gallery >( new Gallery( sScreenshotFolder ) );
 
 	//
 	//setFullScreen( true );
-	hideCursor();
+	//hideCursor();
 
 	mParams.hide();
+	mGallery->paramsHide();
 }
 
 void DynaApp::shutdown()
@@ -562,6 +565,7 @@ void DynaApp::keyDown(KeyEvent event)
 	if (event.getChar() == 's')
 	{
 		mParams.show( !mParams.isVisible() );
+		mGallery->paramsShow( !mGallery->isParamsVisible() );
 		if (isFullScreen())
 		{
 			if ( !mParams.isVisible() )
@@ -863,6 +867,8 @@ void DynaApp::update()
 
 	mParticles.setAging( 0.9 );
 	mParticles.update( getElapsedSeconds() );
+
+	mGallery->update();
 }
 
 void DynaApp::drawGallery()
@@ -872,11 +878,11 @@ void DynaApp::drawGallery()
 	gl::setMatricesWindow( getWindowSize() );
 	gl::setViewport( getWindowBounds() );
 
-	mGallery.setNoiseFreq( exp( mVideoNoiseFreq ) );
-	mGallery.enableVignetting( mEnableVignetting );
-	mGallery.enableTvLines( mEnableTvLines );
+	mGallery->setNoiseFreq( exp( mVideoNoiseFreq ) );
+	mGallery->enableVignetting( mEnableVignetting );
+	mGallery->enableTvLines( mEnableTvLines );
 
-	mGallery.render( getWindowBounds() );
+	mGallery->render( getWindowBounds() );
 }
 
 void DynaApp::drawGame()
@@ -1040,7 +1046,8 @@ void DynaApp::draw()
 {
 	gl::clear( Color::black() );
 
-	drawGallery();
+	//drawGallery();
+	drawGame();
 
 	params::InterfaceGl::draw();
 }
