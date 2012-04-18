@@ -4,7 +4,7 @@ SOURCES = ['DynaApp.cpp', 'Particles.cpp', 'DynaStroke.cpp', 'Utils.cpp',
 SOURCES += ['NI.cpp', 'NIUserTracker.cpp']
 
 RESOURCES = ['shaders', 'audio', 'gfx']
-ASSETS = ['brushes']
+ASSETS = ['brushes', 'pose-anim']
 
 DEBUG = 0
 

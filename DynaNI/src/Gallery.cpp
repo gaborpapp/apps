@@ -39,7 +39,7 @@ Gallery::Gallery( fs::path &folder, int rows /* = 3 */, int columns /* = 4 */ )
 	mParams.addPersistentParam("Flip frequency", &mFlipFrequency, 3, "min=.5 max=20. step=.5");
 }
 
-void Gallery::resize( int rows, int columns)
+void Gallery::resize( int rows, int columns )
 {
 	if ( ( rows != mLastRows ) || ( columns != mLastColumns ) )
 	{
@@ -47,7 +47,8 @@ void Gallery::resize( int rows, int columns)
 		mColumns = columns;
 
 		mTextures.clear();
-		int n = min( 2 * mRows * mColumns, (int)mFiles.size() );
+		mMaxTextures = 3 * mRows * mColumns;
+		int n = min( mMaxTextures, (int)mFiles.size() );
 		int filesStart = mFiles.size() - n;
 		for ( int i = filesStart; i < filesStart + n; i++ )
 		{
@@ -58,10 +59,16 @@ void Gallery::resize( int rows, int columns)
 		for (int i = 0; i < mRows * mColumns; i++)
 			mPictures.push_back( Picture( this ) );
 
-
 		mLastRows = mRows;
 		mLastColumns = mColumns;
 	}
+}
+
+void Gallery::addImage( fs::path imagePath )
+{
+	mTextures.push_back( gl::Texture( loadImage( imagePath ) ) );
+	if ( mTextures.size() > mMaxTextures )
+		mTextures.erase( mTextures.begin(), mTextures.begin() + mTextures.size() - mMaxTextures );
 }
 
 void Gallery::refreshList()

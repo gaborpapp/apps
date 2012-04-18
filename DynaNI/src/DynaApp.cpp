@@ -91,7 +91,14 @@ class DynaApp : public AppBasic, UserTracker::Listener
 		list< DynaStroke > mDynaStrokes;
 
 		static vector< gl::Texture > sBrushes;
+		static vector< gl::Texture > sPoseAnim;
 		float mBrushColor;
+
+		TimelineRef mPoseAnimTimeline;
+		void setPoseTimeline();
+
+		ci::Anim< float > mPoseAnimOpacity;
+		ci::Anim< int > mPoseAnimFrame;
 
 		float mK;
 		float mDamping;
@@ -110,8 +117,13 @@ class DynaApp : public AppBasic, UserTracker::Listener
 		static const int sFluidSizeX = 128;
 
 		static fs::path sScreenshotFolder;
+		static fs::path sWatermarkedFolder;
 		void saveScreenshot();
+		void threadedScreenshot( Surface snapshot );
+		thread mScreenshotThread;
+		Surface mWatermark;
 
+		void setIdleState() { mState = STATE_IDLE; }
 		void endGame();
 
 		void addToFluid(Vec2f pos, Vec2f vel, bool addParticles, bool addForce);
@@ -184,7 +196,13 @@ class DynaApp : public AppBasic, UserTracker::Listener
 			{
 				reset();
 				mRecognized = false;
-				mBrush = sBrushes[ Rand::randInt( 0, sBrushes.size() ) ];
+				setBrush( Rand::randInt( 0, sBrushes.size() ) );
+			}
+
+			void setBrush( int i )
+			{
+				mBrushIndex = i % sBrushes.size();
+				mBrush = sBrushes[ mBrushIndex ];
 			}
 
 			void reset()
@@ -203,6 +221,7 @@ class DynaApp : public AppBasic, UserTracker::Listener
 			Rectf mJointMovement[JOINTS];
 
 			gl::Texture mBrush;
+			int mBrushIndex;
 		};
 
 		map< unsigned, UserInit > mUserInitialized;
@@ -225,20 +244,26 @@ class DynaApp : public AppBasic, UserTracker::Listener
 
 		enum
 		{
-			STATE_POSE = 0,
+			STATE_IDLE = 0,
+			STATE_IDLE_POSE,
 			STATE_GAME,
-			STATE_IDLE
+			STATE_GAME_POSE
 		} States;
 		int mState;
 
 		shared_ptr< Gallery > mGallery;
 
-		//Gallery mGallery;
+		vector< fs::path > mNewImages;
+		std::recursive_mutex mMutex;
 };
 
 vector< gl::Texture > DynaApp::sBrushes;
+vector< gl::Texture > DynaApp::sPoseAnim;
+
 #define SCREENSHOT_FOLDER "screenshots/"
 fs::path DynaApp::sScreenshotFolder( "" );
+#define WATERMARKED_FOLDER "watermarked/"
+fs::path DynaApp::sWatermarkedFolder( "" );
 
 
 void DynaApp::prepareSettings(Settings *settings)
@@ -277,7 +302,8 @@ DynaApp::DynaApp() :
 	mHandPosCoeff( 500. ),
 	mHandTransparencyCoeff( 465. ),
 	mState( STATE_IDLE ),
-	mShowHands( true )
+	mShowHands( true ),
+	mPoseAnimTimeline( Timeline::create() )
 {
 }
 
@@ -403,8 +429,11 @@ void DynaApp::setup()
 	mDofShader.unbind();
 
 	sBrushes = loadTextures("brushes");
+	sPoseAnim = loadTextures("pose-anim");
 	//mBrush = sBrushes[0]; // TEST
 	//loadImage( loadResource( RES_BRUSH ) );
+
+	mWatermark = loadImage( loadResource( RES_WATERMARK ) );
 
 	// audio
 	mAudioShutter = audio::load( loadResource( RES_SHUTTER ) );
@@ -435,12 +464,6 @@ void DynaApp::setup()
 	mNIUserTracker = mNI.getUserTracker();
 	mNIUserTracker.addListener( this );
 
-#ifdef CINDER_MAC
-	fs::create_directory( "/../" SCREENSHOT_FOLDER );
-#else
-	fs::create_directory( SCREENSHOT_FOLDER );
-#endif
-
 	mPoseTimerDisplay = TimerDisplay( RES_TIMER_POSE_BOTTOM_LEFT,
 			RES_TIMER_POSE_BOTTOM_MIDDLE,
 			RES_TIMER_POSE_BOTTOM_RIGHT,
@@ -455,20 +478,43 @@ void DynaApp::setup()
 	Rand::randomize();
 
 	// gallery
-	fs::path sScreenshotFolder = getAppPath();
+	sScreenshotFolder = getAppPath();
 #ifdef CINDER_MAC
 	sScreenshotFolder /= "..";
 #endif
+	sWatermarkedFolder = sScreenshotFolder;
 	sScreenshotFolder /= SCREENSHOT_FOLDER;
+	sWatermarkedFolder /= WATERMARKED_FOLDER;
+
+	fs::create_directory( sScreenshotFolder );
+	fs::create_directory( sWatermarkedFolder );
 
 	mGallery = shared_ptr< Gallery >( new Gallery( sScreenshotFolder ) );
 
-	//
-	//setFullScreen( true );
-	//hideCursor();
+	setPoseTimeline();
+
+	setFullScreen( true );
+	hideCursor();
 
 	mParams.hide();
 	mGallery->paramsHide();
+}
+
+void DynaApp::setPoseTimeline()
+{
+	// pose anim
+	mPoseAnimTimeline->clear();
+	mPoseAnimTimeline->setDefaultAutoRemove( false );
+	mPoseAnimTimeline->apply( &mPoseAnimOpacity, 0.f, 0.f, 5.f );
+	mPoseAnimTimeline->appendTo( &mPoseAnimOpacity, 0.f, 1.f, .9f );
+
+	mPoseAnimTimeline->apply( &mPoseAnimFrame, 0, 0, 5.f );
+	mPoseAnimTimeline->appendTo( &mPoseAnimFrame, 0, (int)(sPoseAnim.size() - 1), .9f );
+
+	mPoseAnimTimeline->appendTo( &mPoseAnimOpacity, 1.f, 1.f, 2.f );
+	mPoseAnimTimeline->appendTo( &mPoseAnimOpacity, 1.f, 0.f, 1.f );
+	mPoseAnimTimeline->setLoop( true );
+	timeline().add( mPoseAnimTimeline );
 }
 
 void DynaApp::shutdown()
@@ -478,8 +524,6 @@ void DynaApp::shutdown()
 
 void DynaApp::saveScreenshot()
 {
-	fs::path pngPath( sScreenshotFolder / fs::path( timeStamp() ) / ".png" );
-
 	// flash
 	mFlash = 0;
 	timeline().apply( &mFlash, .9f, .2f, EaseOutQuad() );
@@ -487,11 +531,41 @@ void DynaApp::saveScreenshot()
 
 	audio::Output::play( mAudioShutter );
 
+	Surface snapshot( mOutputFbo.getTexture() );
+	mScreenshotThread = thread( &DynaApp::threadedScreenshot, this, snapshot );
+}
+
+void DynaApp::threadedScreenshot( Surface snapshot )
+{
+	string filename = "snap-" + timeStamp() + ".png";
+	fs::path pngPath( sScreenshotFolder / fs::path( filename ) );
+
 	try
 	{
 		if (!pngPath.empty())
 		{
-			writeImage( pngPath, mOutputFbo.getTexture() );
+			writeImage( pngPath, snapshot );
+
+			{
+				lock_guard<recursive_mutex> lock( mMutex );
+				mNewImages.push_back( pngPath );
+			}
+		}
+	}
+	catch ( ... )
+	{
+		console() << "unable to save image file " << pngPath << endl;
+	}
+
+	// watermarked
+	snapshot.copyFrom( mWatermark, mWatermark.getBounds(),
+				snapshot.getSize() - mWatermark.getSize() );
+	pngPath = sWatermarkedFolder / fs::path( "w" + filename );
+	try
+	{
+		if (!pngPath.empty())
+		{
+			writeImage( pngPath, snapshot );
 		}
 	}
 	catch ( ... )
@@ -548,7 +622,13 @@ void DynaApp::endGame()
 	saveScreenshot();
 	clearStrokes();
 
-	mState = STATE_IDLE;
+	// TODO: add last screenshot to gallery
+
+	// wait a bit then go back to idle state
+	// TODO:: bind with function parameter
+	timeline().add( std::bind( &DynaApp::setIdleState, this ), timeline().getCurrentTime() + 1.5 );
+	mPoseAnimOpacity = 0;
+	setPoseTimeline();
 }
 
 void DynaApp::keyDown(KeyEvent event)
@@ -741,6 +821,9 @@ void DynaApp::update()
 					// init gesture found clear screen and strokes
 					clearStrokes();
 
+					// new brush
+					ui->setBrush( ui->mBrushIndex + 1 );
+
 					mState = STATE_GAME;
 					// clear pose start
 					ui->reset();
@@ -763,12 +846,12 @@ void DynaApp::update()
 	// state change
 	if ( ( mState == STATE_IDLE ) && ( mPoseHoldDuration > .1 ) )
 	{
-		mState = STATE_POSE;
+		mState = STATE_IDLE_POSE;
 	}
 	else
 	if ( ( mState == STATE_GAME ) && ( mPoseHoldDuration > 1. ) )
 	{
-		mState = STATE_POSE;
+		mState = STATE_GAME_POSE;
 		// clear all user pose start times
 		double currentTime = getElapsedSeconds();
 		map< unsigned, UserInit >::iterator initIt;
@@ -783,12 +866,15 @@ void DynaApp::update()
 	}
 
 	// change state when pose is cancelled
-	if (mPoseHoldDuration <= 0)
+	if ( ( ( mState == STATE_GAME_POSE ) || ( mState == STATE_IDLE_POSE ) ) &&
+		 ( mPoseHoldDuration <= 0 ) )
 	{
 		if ( mGameTimer > .0 )
 			mState = STATE_GAME;
 		else
+		{
 			mState = STATE_IDLE;
+		}
 	}
 
 	// NI user hands
@@ -868,11 +954,23 @@ void DynaApp::update()
 	mParticles.setAging( 0.9 );
 	mParticles.update( getElapsedSeconds() );
 
+	// add new images saved from thread to gallery
+	{
+		lock_guard<recursive_mutex> lock( mMutex );
+		for ( vector< fs::path >::const_iterator it = mNewImages.begin();
+				it != mNewImages.end(); ++it )
+		{
+			mGallery->addImage( *it );
+		}
+		mNewImages.clear();
+	}
 	mGallery->update();
 }
 
 void DynaApp::drawGallery()
 {
+	static ci::Anim< float > poseOpacity;
+
 	gl::clear( Color::black() );
 
 	gl::setMatricesWindow( getWindowSize() );
@@ -883,6 +981,18 @@ void DynaApp::drawGallery()
 	mGallery->enableTvLines( mEnableTvLines );
 
 	mGallery->render( getWindowBounds() );
+
+	// pose anim
+	//console() << mPoseAnimOpacity << " " << endl;
+	gl::enableAlphaBlending();
+	gl::color( ColorA( 1., 1., 1., mPoseAnimOpacity ) );
+
+	Rectf animRect( sPoseAnim[ 0 ].getBounds() );
+	animRect = animRect.getCenteredFit( getWindowBounds(), true );
+	animRect.scaleCentered( .5 );
+	gl::draw( sPoseAnim[ mPoseAnimFrame ], animRect );
+	gl::color( Color::white() );
+	gl::disableAlphaBlending();
 }
 
 void DynaApp::drawGame()
@@ -992,6 +1102,7 @@ void DynaApp::drawGame()
 	mMixerShader.unbind();
 
 	// cursors
+	// TODO: cursors on screen instead of fbo
 	if ( mShowHands )
 	{
 		gl::enable( GL_TEXTURE_2D );
@@ -1027,11 +1138,30 @@ void DynaApp::drawGame()
 		outputRect.scaleCentered( screenRect.getHeight() / outputRect.getHeight() );
 
 	gl::draw( outputTexture, outputRect );
+}
+
+void DynaApp::draw()
+{
+	gl::clear( Color::black() );
+
+	switch ( mState )
+	{
+		case STATE_IDLE:
+		case STATE_IDLE_POSE:
+			drawGallery();
+			break;
+
+		case STATE_GAME:
+		case STATE_GAME_POSE:
+			drawGame();
+			break;
+	}
 
 	gl::enableAlphaBlending();
 	switch ( mState )
 	{
-		case STATE_POSE:
+		case STATE_IDLE_POSE:
+		case STATE_GAME_POSE:
 			mPoseTimerDisplay.draw( mPoseHoldDuration / mPoseDuration );
 			break;
 
@@ -1040,14 +1170,6 @@ void DynaApp::drawGame()
 			break;
 	}
 	gl::disableAlphaBlending();
-}
-
-void DynaApp::draw()
-{
-	gl::clear( Color::black() );
-
-	//drawGallery();
-	drawGame();
 
 	params::InterfaceGl::draw();
 }

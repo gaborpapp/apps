@@ -17,6 +17,8 @@ class Gallery
 		void resize( int rows, int columns);
 		void refreshList();
 
+		void addImage( ci::fs::path imagePath );
+
 		void update();
 		void render( const ci::Area &area );
 
@@ -64,6 +66,7 @@ class Gallery
 		std::vector< ci::fs::path > mFiles;
 		std::vector< ci::gl::Texture > mTextures;
 		int mRows, mLastRows;
+		int mMaxTextures;
 		int mColumns, mLastColumns;
 
 		float mHorizontalMargin;

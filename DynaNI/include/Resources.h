@@ -27,3 +27,5 @@
 #define RES_CURSOR_LEFT		CINDER_RESOURCE(../resources/, gfx/cursors/lefthand.png, 146, PNG)
 #define RES_CURSOR_RIGHT	CINDER_RESOURCE(../resources/, gfx/cursors/righthand.png, 147, PNG)
 
+#define RES_WATERMARK		CINDER_RESOURCE(../resources/, gfx/ilovetelekom.png, 149, PNG)
+
