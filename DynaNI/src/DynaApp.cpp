@@ -778,8 +778,6 @@ void DynaApp::update()
 						{
 							ui->mJointMovement[i].include( hand );
 						}
-
-
 					}
 					else
 					{
