@@ -39,7 +39,7 @@ void TimerDisplay::draw( float u )
 	float dotStep = barWidth / (float)dots;
 	float txtStep = 1. / (float)( dots + 1 );
 	Vec2f pos( mBottomLeft.getWidth() + ( dotStep - dotWidth ) / 2., height - barHeight );
-	float txtU = +txtStep;
+	float txtU = txtStep;
 	for ( int i = 0; i < dots; i++)
 	{
 		if ( txtU > u )

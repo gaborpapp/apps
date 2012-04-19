@@ -189,7 +189,7 @@ class DynaApp : public AppBasic, UserTracker::Listener
 		map< unsigned, UserStrokes > mUserStrokes;
 
 		// start gesture is recognized, the user can draw
-		// it the hands are active
+		// if the hands are active
 		struct UserInit
 		{
 			UserInit()
@@ -430,8 +430,6 @@ void DynaApp::setup()
 
 	sBrushes = loadTextures("brushes");
 	sPoseAnim = loadTextures("pose-anim");
-	//mBrush = sBrushes[0]; // TEST
-	//loadImage( loadResource( RES_BRUSH ) );
 
 	mWatermark = loadImage( loadResource( RES_WATERMARK ) );
 
@@ -582,12 +580,6 @@ void DynaApp::newUser(UserTracker::UserEvent event)
 void DynaApp::calibrationEnd(UserTracker::UserEvent event)
 {
 	console() << "app calib end " << event.id << endl;
-	/*
-	map< unsigned, UserStrokes >::iterator it;
-	it = mUserStrokes.find( event.id );
-	if ( it == mUserStrokes.end() )
-		mUserStrokes[ event.id ] = UserStrokes();
-	*/
 
 	map< unsigned, UserInit >::iterator it;
 	it = mUserInitialized.find( event.id );
@@ -621,8 +613,6 @@ void DynaApp::endGame()
 {
 	saveScreenshot();
 	clearStrokes();
-
-	// TODO: add last screenshot to gallery
 
 	// wait a bit then go back to idle state
 	// TODO:: bind with function parameter
@@ -983,7 +973,6 @@ void DynaApp::drawGallery()
 	mGallery->render( getWindowBounds() );
 
 	// pose anim
-	//console() << mPoseAnimOpacity << " " << endl;
 	gl::enableAlphaBlending();
 	gl::color( ColorA( 1., 1., 1., mPoseAnimOpacity ) );
 
@@ -1101,27 +1090,6 @@ void DynaApp::drawGame()
 	gl::disable( GL_TEXTURE_2D );
 	mMixerShader.unbind();
 
-	// cursors
-	// TODO: cursors on screen instead of fbo
-	if ( mShowHands )
-	{
-		gl::enable( GL_TEXTURE_2D );
-		gl::enableAlphaBlending();
-
-		HandCursor::setBounds( mOutputFbo.getBounds() );
-		HandCursor::setZClip( mZClip );
-		HandCursor::setPosCoeff( mHandPosCoeff );
-		HandCursor::setTransparencyCoeff( mHandTransparencyCoeff );
-		for ( vector< HandCursor >::iterator it = mHandCursors.begin();
-				it != mHandCursors.end(); ++it )
-		{
-			it->draw();
-		}
-
-		gl::disableAlphaBlending();
-		gl::disable( GL_TEXTURE_2D );
-	}
-
 	mOutputFbo.unbindFramebuffer();
 
 	// draw output to window
@@ -1138,6 +1106,26 @@ void DynaApp::drawGame()
 		outputRect.scaleCentered( screenRect.getHeight() / outputRect.getHeight() );
 
 	gl::draw( outputTexture, outputRect );
+
+	// cursors
+	if ( mShowHands )
+	{
+		gl::enable( GL_TEXTURE_2D );
+		gl::enableAlphaBlending();
+
+		HandCursor::setBounds( outputRect );
+		HandCursor::setZClip( mZClip );
+		HandCursor::setPosCoeff( mHandPosCoeff );
+		HandCursor::setTransparencyCoeff( mHandTransparencyCoeff );
+		for ( vector< HandCursor >::iterator it = mHandCursors.begin();
+				it != mHandCursors.end(); ++it )
+		{
+			it->draw();
+		}
+
+		gl::disableAlphaBlending();
+		gl::disable( GL_TEXTURE_2D );
+	}
 }
 
 void DynaApp::draw()
