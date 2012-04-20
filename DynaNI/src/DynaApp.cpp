@@ -286,7 +286,7 @@ DynaApp::DynaApp() :
 	mBloomIterations( 8 ),
 	mBloomStrength( .8 ),
 	mZClip( 1085 ),
-	mPoseHoldAreaThr( 300 ),
+	mPoseHoldAreaThr( 4000 ),
 	mVideoOpacity( .55 ),
 	mVideoNoise( .15 ),
 	mVideoNoiseFreq( 11. ),
@@ -644,6 +644,7 @@ void DynaApp::keyDown(KeyEvent event)
 				showCursor();
 		}
 	}
+
 	if (event.getCode() == KeyEvent::KEY_ESCAPE)
 		quit();
 	else
@@ -726,12 +727,16 @@ void DynaApp::mouseUp(MouseEvent event)
 
 void DynaApp::update()
 {
+	static double poseLostStart = 0;
+
 	mFps = getAverageFps();
 
 	if ( mLeftButton && !mDynaStrokes.empty() )
 		mDynaStrokes.back().update( Vec2f( mMousePos ) / getWindowSize() );
 
 	mNIUserTracker.setSmoothing( mSkeletonSmoothing );
+
+	double currentTime = getElapsedSeconds();
 
 	// detect start gesture
 	vector< unsigned > users = mNIUserTracker.getUsers();
@@ -754,7 +759,7 @@ void DynaApp::update()
 				XnSkeletonJoint limitIds[] = { XN_SKEL_LEFT_SHOULDER,
 					XN_SKEL_RIGHT_SHOULDER };
 
-				double currentTime = getElapsedSeconds();
+				bool initPoseAll = true;
 				for ( int i = 0; i < UserInit::JOINTS; i++ )
 				{
 					Vec2f hand = mNIUserTracker.getJoint2d( id, jointIds[i] );
@@ -765,6 +770,7 @@ void DynaApp::update()
 					//console() << i << " " << hand << " [" << handConf << "] " << limit << " [" << limitConf << "]" << endl;
 					bool initPose = (handConf > .5) && (limitConf > .5) &&
 						(hand.y < limit.y) && (ui->mJointMovement[i].calcArea() <= mPoseHoldAreaThr );
+					initPoseAll &= initPose;
 					if (initPose)
 					{
 						if (ui->mPoseTimeStart[i] < 0)
@@ -786,6 +792,9 @@ void DynaApp::update()
 					}
 					//console() << i << " " << initPose << " " << ui->mPoseTimeStart[i] << endl;
 				}
+
+				if ( initPoseAll )
+					poseLostStart = 0;
 
 				bool init = true;
 				float userPoseHoldDuration = 0;
@@ -857,11 +866,17 @@ void DynaApp::update()
 	if ( ( ( mState == STATE_GAME_POSE ) || ( mState == STATE_IDLE_POSE ) ) &&
 		 ( mPoseHoldDuration <= 0 ) )
 	{
-		if ( mGameTimer > .0 )
-			mState = STATE_GAME;
-		else
+		if ( poseLostStart == 0 )
 		{
-			mState = STATE_IDLE;
+			poseLostStart = currentTime;
+		}
+		else
+		if ( ( currentTime - poseLostStart ) > .5 )
+		{
+			if ( mGameTimer > .0 )
+				mState = STATE_GAME;
+			else
+				mState = STATE_IDLE;
 		}
 	}
 
