@@ -37,6 +37,8 @@ Gallery::Gallery( fs::path &folder, int rows /* = 3 */, int columns /* = 4 */ )
 
 	mParams.addPersistentParam("Flip duration", &Picture::sFlipDuration, 2.5, "min=.5 max=10. step=.5");
 	mParams.addPersistentParam("Flip frequency", &mFlipFrequency, 3, "min=.5 max=20. step=.5");
+
+	reset();
 }
 
 void Gallery::resize( int rows, int columns )
@@ -64,11 +66,24 @@ void Gallery::resize( int rows, int columns )
 	}
 }
 
-void Gallery::addImage( fs::path imagePath )
+void Gallery::addImage( fs::path imagePath, int pictureIndex /* = -1 */ )
 {
 	mTextures.push_back( gl::Texture( loadImage( imagePath ) ) );
 	if ( mTextures.size() > mMaxTextures )
 		mTextures.erase( mTextures.begin(), mTextures.begin() + mTextures.size() - mMaxTextures );
+
+	if ( ( pictureIndex >= 0 ) && ( pictureIndex < mPictures.size() ) )
+	{
+		mPictures[ pictureIndex ].setTexture( mTextures.back() );
+	}
+}
+
+void Gallery::zoomImage( int pictureIndex )
+{
+	if ( ( pictureIndex >= 0 ) && ( pictureIndex < mPictures.size() ) )
+	{
+		mPictures[ pictureIndex ].startZoom();
+	}
 }
 
 void Gallery::refreshList()
@@ -87,16 +102,25 @@ void Gallery::refreshList()
 	}
 }
 
+void Gallery::reset()
+{
+	for ( vector< Gallery::Picture >::iterator it = mPictures.begin();
+			it != mPictures.end(); ++it )
+	{
+		it->reset();
+	}
+	mLastFlip = app::getElapsedSeconds();
+}
+
 void Gallery::update()
 {
-	static double lastFlip = app::getElapsedSeconds();
 	double currentTime = app::getElapsedSeconds();
 
-	if ( ( currentTime - lastFlip ) >= mFlipFrequency )
+	if ( ( currentTime - mLastFlip ) >= mFlipFrequency )
 	{
 		int r = Rand::randInt( mPictures.size() );
 		mPictures[ r ].flip();
-		lastFlip = currentTime;
+		mLastFlip = currentTime;
 	}
 }
 
@@ -128,24 +152,52 @@ void Gallery::render( const Area &area )
 	float vStep = cvspacing + picSize.y;
 
 	gl::enable( GL_TEXTURE_2D );
+	int zoomedOne = -1;
+	Rectf zoomedRect;
 	for ( int y = 0; y < mRows; y++)
 	{
 		Vec2f p( hmargin, vmargin + y * vStep );
 		for ( int x = 0; x < mColumns; x++)
 		{
-			mPictures[ i ].render( Rectf( p, p + picSize ) );
+			if ( mPictures[i].isZooming() )
+			{
+				zoomedOne = i;
+				zoomedRect = Rectf( p, p + picSize );
+			}
+			else
+			{
+				mPictures[ i ].render( Rectf( p, p + picSize ) );
+			}
 			p += Vec2f( hStep, 0 );
 			i++;
 		}
+	}
+
+	// awful hack to draw the zooming picture last
+	if ( zoomedOne >= 0 )
+	{
+		mPictures[ zoomedOne ].render( zoomedRect );
 	}
 	gl::disable( GL_TEXTURE_2D );
 }
 
 Gallery::Picture::Picture( Gallery *g )
 	: mGallery( g ),
-	  flipping( false )
+	zooming( false )
 {
 	setRandomTexture();
+	reset();
+}
+
+void Gallery::Picture::reset()
+{
+	// FIXME: zoomImage is called before reset
+	if ( zooming )
+		return;
+
+	flipping = false;
+	zooming = false;
+	appearanceTime = app::getElapsedSeconds() + 1. + Rand::randFloat( 2. );
 }
 
 void Gallery::Picture::setRandomTexture()
@@ -161,7 +213,7 @@ float Gallery::Picture::sFlipDuration = 2.5;
 
 void Gallery::Picture::flip()
 {
-	if ( flipping )
+	if ( flipping || zooming )
 		return;
 
 	flipStart = app::getElapsedSeconds();
@@ -169,18 +221,71 @@ void Gallery::Picture::flip()
 	flipTextureChanged = false;
 }
 
+void Gallery::Picture::startZoom()
+{
+	zooming = true;
+	flipping = false;
+	mZoom = 0.;
+	app::timeline().apply( &mZoom, 0.f, 0.f, 1.f );
+	app::timeline().appendTo( &mZoom, 0.f, 1.f, 1.5f, EaseInQuad() );
+	appearanceTime = -1;
+}
+
 void Gallery::Picture::render( const Rectf &rect )
 {
 	Rectf txtRect;
+	Rectf outRect = rect;
 
 	gl::pushModelView();
 
 	Vec2f flipScale( 1, 1 );
 
+	double currentTime = app::getElapsedSeconds();
+
+	if ( zooming )
+	{
+		Rectf zoomRect;
+		if ( mTexture )
+			zoomRect = mTexture.getBounds();
+		else
+			zoomRect = Rectf( 0, 0, 1024, 768 );
+
+		Rectf screenRect( app::getWindowBounds() );
+		zoomRect = zoomRect.getCenteredFit( screenRect, true );
+		if ( screenRect.getAspectRatio() > zoomRect.getAspectRatio() )
+			zoomRect.scaleCentered( screenRect.getWidth() / zoomRect.getWidth() );
+		else
+			zoomRect.scaleCentered( screenRect.getHeight() / zoomRect.getHeight() );
+
+		Vec2f center = lerp< Vec2f >( zoomRect.getCenter(),
+				outRect.getCenter(), mZoom );
+		float scale = lerp< float >( zoomRect.getWidth(),
+				outRect.getWidth(), mZoom ) /
+			outRect.getWidth();
+
+		outRect.offsetCenterTo( center );
+		outRect.scaleCentered( scale );
+
+		if ( mZoom == 1. )
+			zooming = false;
+	}
+	else
+	if ( currentTime < appearanceTime )
+	{
+		flipScale = Vec2f( 0, 1 );
+	}
+	else
+	if ( currentTime < appearanceTime + sFlipDuration * .5 )
+	{
+		float flipU = easeOutQuart(
+				( currentTime - appearanceTime ) / ( sFlipDuration * .5 ) );
+		flipScale = Vec2f( flipU, 1 );
+	}
+	else
 	if ( flipping )
 	{
 		float flipU = easeInOutQuart( math<float>::clamp(
-				( app::getElapsedSeconds() - flipStart ) / sFlipDuration ) );
+				( currentTime - flipStart ) / sFlipDuration ) );
 
 		if ( ( flipU >= .5 ) && !flipTextureChanged )
 		{
@@ -192,6 +297,7 @@ void Gallery::Picture::render( const Rectf &rect )
 		if ( flipU >= 1 )
 			flipping = false;
 	}
+
 
 	if ( mTexture )
 	{
@@ -205,7 +311,7 @@ void Gallery::Picture::render( const Rectf &rect )
 		gl::color( Color::black() );
 	}
 
-	txtRect = txtRect.getCenteredFit( rect, false );
+	txtRect = txtRect.getCenteredFit( outRect, true );
 
 	gl::translate( txtRect.getCenter() );
 	gl::scale( flipScale );

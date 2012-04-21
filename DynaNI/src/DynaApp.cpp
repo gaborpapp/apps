@@ -123,7 +123,7 @@ class DynaApp : public AppBasic, UserTracker::Listener
 		thread mScreenshotThread;
 		Surface mWatermark;
 
-		void setIdleState() { mState = STATE_IDLE; }
+		void setIdleState();
 		void endGame();
 
 		void addToFluid(Vec2f pos, Vec2f vel, bool addParticles, bool addForce);
@@ -247,7 +247,8 @@ class DynaApp : public AppBasic, UserTracker::Listener
 			STATE_IDLE = 0,
 			STATE_IDLE_POSE,
 			STATE_GAME,
-			STATE_GAME_POSE
+			STATE_GAME_POSE,
+			STATE_GAME_SHOW_DRAWING
 		} States;
 		int mState;
 
@@ -609,8 +610,16 @@ void DynaApp::clearStrokes()
 	mDynaStrokes.clear();
 }
 
+void DynaApp::setIdleState()
+{
+	mGallery->reset();
+	mState = STATE_IDLE;
+}
+
 void DynaApp::endGame()
 {
+	mState = STATE_GAME_SHOW_DRAWING;
+
 	saveScreenshot();
 	clearStrokes();
 
@@ -963,7 +972,13 @@ void DynaApp::update()
 		for ( vector< fs::path >::const_iterator it = mNewImages.begin();
 				it != mNewImages.end(); ++it )
 		{
-			mGallery->addImage( *it );
+			int toPic = -1;
+			if ( it == mNewImages.end() - 1 )
+			{
+				toPic = Rand::randInt( 0, mGallery->getSize() );
+				mGallery->zoomImage( toPic );
+			}
+			mGallery->addImage( *it, toPic );
 		}
 		mNewImages.clear();
 	}
@@ -999,111 +1014,115 @@ void DynaApp::drawGallery()
 
 void DynaApp::drawGame()
 {
-	mFbo.bindFramebuffer();
-	gl::setMatricesWindow( mFbo.getSize(), false );
-	gl::setViewport( mFbo.getBounds() );
-
-	gl::clear( Color::black() );
-
-	gl::color( Color::gray( mBrushColor ) );
-
-	gl::enableAlphaBlending();
-	gl::enable( GL_TEXTURE_2D );
-	for (list< DynaStroke >::iterator i = mDynaStrokes.begin(); i != mDynaStrokes.end(); ++i)
+	if ( mState != STATE_GAME_SHOW_DRAWING )
 	{
-		i->draw();
-	}
-	gl::disableAlphaBlending();
-	gl::disable( GL_TEXTURE_2D );
-
-	mParticles.draw();
-
-	mFbo.unbindFramebuffer();
-
-	// bloom
-	mBloomFbo.bindFramebuffer();
-
-	gl::setMatricesWindow( mBloomFbo.getSize(), false );
-	gl::setViewport( mBloomFbo.getBounds() );
-
-	gl::color( Color::white() );
-	mFbo.getTexture().bind();
-
-	mBloomShader.bind();
-	for (int i = 0; i < mBloomIterations; i++)
-	{
-		glDrawBuffer( GL_COLOR_ATTACHMENT0_EXT + i );
-		mBloomShader.uniform( "iteration", i );
-		gl::drawSolidRect( mBloomFbo.getBounds() );
-		mBloomFbo.bindTexture( 0, i );
-	}
-	mBloomShader.unbind();
-
-	glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);
-	mBloomFbo.unbindFramebuffer();
-
-	// dof
-	if ( mDof )
-	{
-		mDofFbo.bindFramebuffer();
-		gl::setMatricesWindow( mDofFbo.getSize(), false );
-		gl::setViewport( mDofFbo.getBounds() );
+		mFbo.bindFramebuffer();
+		gl::setMatricesWindow( mFbo.getSize(), false );
+		gl::setViewport( mFbo.getBounds() );
 
 		gl::clear( Color::black() );
-		gl::color( Color::white() );
-		if ( mDepthTexture && mColorTexture )
+
+		gl::color( Color::gray( mBrushColor ) );
+
+		gl::enableAlphaBlending();
+		gl::enable( GL_TEXTURE_2D );
+		for (list< DynaStroke >::iterator i = mDynaStrokes.begin(); i != mDynaStrokes.end(); ++i)
 		{
-			mColorTexture.bind( 0 );
-			mDepthTexture.bind( 1 );
+			i->draw();
+		}
+		gl::disableAlphaBlending();
+		gl::disable( GL_TEXTURE_2D );
 
-			mDofShader.bind();
-			mDofShader.uniform( "amount", mDofAmount );
-			mDofShader.uniform( "aperture", mDofAperture );
-			mDofShader.uniform( "focus", mDofFocus );
-			gl::drawSolidRect( mDofFbo.getBounds() );
-			mDofShader.unbind();
+		mParticles.draw();
 
-			mColorTexture.unbind();
-			mDepthTexture.unbind();
+		mFbo.unbindFramebuffer();
+
+		// bloom
+		mBloomFbo.bindFramebuffer();
+
+		gl::setMatricesWindow( mBloomFbo.getSize(), false );
+		gl::setViewport( mBloomFbo.getBounds() );
+
+		gl::color( Color::white() );
+		mFbo.getTexture().bind();
+
+		mBloomShader.bind();
+		for (int i = 0; i < mBloomIterations; i++)
+		{
+			glDrawBuffer( GL_COLOR_ATTACHMENT0_EXT + i );
+			mBloomShader.uniform( "iteration", i );
+			gl::drawSolidRect( mBloomFbo.getBounds() );
+			mBloomFbo.bindTexture( 0, i );
+		}
+		mBloomShader.unbind();
+
+		glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);
+		mBloomFbo.unbindFramebuffer();
+
+		// dof
+		if ( mDof )
+		{
+			mDofFbo.bindFramebuffer();
+			gl::setMatricesWindow( mDofFbo.getSize(), false );
+			gl::setViewport( mDofFbo.getBounds() );
+
+			gl::clear( Color::black() );
+			gl::color( Color::white() );
+			if ( mDepthTexture && mColorTexture )
+			{
+				mColorTexture.bind( 0 );
+				mDepthTexture.bind( 1 );
+
+				mDofShader.bind();
+				mDofShader.uniform( "amount", mDofAmount );
+				mDofShader.uniform( "aperture", mDofAperture );
+				mDofShader.uniform( "focus", mDofFocus );
+				gl::drawSolidRect( mDofFbo.getBounds() );
+				mDofShader.unbind();
+
+				mColorTexture.unbind();
+				mDepthTexture.unbind();
+			}
+
+			mDofFbo.unbindFramebuffer();
 		}
 
-		mDofFbo.unbindFramebuffer();
+		// final
+		mOutputFbo.bindFramebuffer();
+		gl::setMatricesWindow( mOutputFbo.getSize(), false );
+		gl::setViewport( mOutputFbo.getBounds() );
+
+		gl::enableAlphaBlending();
+
+		mMixerShader.bind();
+		mMixerShader.uniform( "mixOpacity", mVideoOpacity );
+		mMixerShader.uniform( "flash", mFlash );
+		mMixerShader.uniform( "randSeed", static_cast< float >( getElapsedSeconds() ) );
+		mMixerShader.uniform( "randFreqMultiplier", exp( mVideoNoiseFreq ) );
+		mMixerShader.uniform( "noiseStrength", mVideoNoise );
+		mMixerShader.uniform( "enableVignetting", mEnableVignetting );
+		mMixerShader.uniform( "enableTvLines", mEnableTvLines );
+
+		gl::enable( GL_TEXTURE_2D );
+		if ( mDof )
+			mDofFbo.bindTexture( 0 );
+		else
+			if ( mColorTexture )
+				mColorTexture.bind( 0 );
+
+		mFbo.getTexture().bind( 1 );
+		for (int i = 1; i < mBloomIterations; i++)
+		{
+			mBloomFbo.getTexture( i ).bind( i + 1 );
+		}
+
+		gl::drawSolidRect( mOutputFbo.getBounds() );
+		gl::disable( GL_TEXTURE_2D );
+		mMixerShader.unbind();
+
+		mOutputFbo.unbindFramebuffer();
+
 	}
-
-	// final
-	mOutputFbo.bindFramebuffer();
-	gl::setMatricesWindow( mOutputFbo.getSize(), false );
-	gl::setViewport( mOutputFbo.getBounds() );
-
-	gl::enableAlphaBlending();
-
-	mMixerShader.bind();
-	mMixerShader.uniform( "mixOpacity", mVideoOpacity );
-	mMixerShader.uniform( "flash", mFlash );
-	mMixerShader.uniform( "randSeed", static_cast< float >( getElapsedSeconds() ) );
-	mMixerShader.uniform( "randFreqMultiplier", exp( mVideoNoiseFreq ) );
-	mMixerShader.uniform( "noiseStrength", mVideoNoise );
-	mMixerShader.uniform( "enableVignetting", mEnableVignetting );
-	mMixerShader.uniform( "enableTvLines", mEnableTvLines );
-
-	gl::enable( GL_TEXTURE_2D );
-	if ( mDof )
-		mDofFbo.bindTexture( 0 );
-	else
-	if ( mColorTexture )
-		mColorTexture.bind( 0 );
-
-	mFbo.getTexture().bind( 1 );
-	for (int i = 1; i < mBloomIterations; i++)
-	{
-		mBloomFbo.getTexture( i ).bind( i + 1 );
-	}
-
-	gl::drawSolidRect( mOutputFbo.getBounds() );
-	gl::disable( GL_TEXTURE_2D );
-	mMixerShader.unbind();
-
-	mOutputFbo.unbindFramebuffer();
 
 	// draw output to window
 	gl::setMatricesWindow( getWindowSize() );
@@ -1120,8 +1139,17 @@ void DynaApp::drawGame()
 
 	gl::draw( outputTexture, outputRect );
 
+	if ( mState == STATE_GAME_SHOW_DRAWING )
+	{
+		gl::enableAdditiveBlending();
+		gl::color( ColorA( 1, 1, 1, mFlash ) );
+		gl::drawSolidRect( getWindowBounds() );
+		gl::color( Color::white() );
+		gl::disableAlphaBlending();
+	}
+
 	// cursors
-	if ( mShowHands )
+	if ( mShowHands && ( mState != STATE_GAME_SHOW_DRAWING ) )
 	{
 		gl::enable( GL_TEXTURE_2D );
 		gl::enableAlphaBlending();
@@ -1154,6 +1182,7 @@ void DynaApp::draw()
 
 		case STATE_GAME:
 		case STATE_GAME_POSE:
+		case STATE_GAME_SHOW_DRAWING:
 			drawGame();
 			break;
 	}
