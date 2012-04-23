@@ -4,7 +4,8 @@ DEBUG = 1
 
 INCLUDES = []
 RESOURCES = ['kernel.png', 'Blur.frag', 'PassThrough.vert',
-		'Wave.vert', 'Wave.frag']
+		'Wave.vert', 'Wave.frag', 'KawaseBloom.vert', 'KawaseBloom.frag',
+		'Mixer.frag']
 LIBS = []
 LIBPATH = []
 

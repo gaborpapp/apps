@@ -57,7 +57,11 @@ class FolApp : public AppBasic
 		gl::Texture mDepthTexture;
 		gl::Texture mBlurKernelTexture;
 		gl::Fbo mDepthFbo;
+		gl::Fbo mBloomFbo;
+		gl::Fbo mOutputFbo;
+		gl::GlslProg mBloomShader;
 		gl::GlslProg mBlurShader;
+		gl::GlslProg mMixerShader;
 
 		static const int VBO_X_SIZE = 640 * 2.;
 		static const int VBO_Y_SIZE = 480 * 2.;
@@ -97,7 +101,7 @@ void FolApp::setup()
 	mParams.addButton( "Start recording", std::bind(&FolApp::toggleRecording, this ));
 
 	mBlurKernelTexture = loadImage( loadResource( RES_BLUR_KERNEL ) );
-	mBlurShader = gl::GlslProg( loadResource( RES_BLUR_VERT ),
+	mBlurShader = gl::GlslProg( loadResource( RES_PASSTHROUGH_VERT ),
 								loadResource( RES_BLUR_FRAG ) );
 	mWaveShader = gl::GlslProg( loadResource( RES_WAVE_VERT ),
 								loadResource( RES_WAVE_FRAG ) );
@@ -106,6 +110,30 @@ void FolApp::setup()
 	format.enableColorBuffer( true, 2 );
 	format.enableDepthBuffer( false );
 	mDepthFbo = gl::Fbo( 640, 480, format );
+
+	format.enableColorBuffer( true, 8 );
+	format.enableDepthBuffer( false );
+	format.setWrap( GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE );
+	mOutputFbo = gl::Fbo( mDepthFbo.getWidth(),
+			mDepthFbo.getHeight(), format );
+	mBloomFbo = gl::Fbo( mDepthFbo.getWidth() / 4,
+			mDepthFbo.getHeight() / 4, format );
+
+	mBloomShader = gl::GlslProg( loadResource( RES_KAWASE_BLOOM_VERT ),
+			loadResource( RES_KAWASE_BLOOM_FRAG ) );
+	mBloomShader.bind();
+	mBloomShader.uniform( "tex", 0 );
+	mBloomShader.uniform( "pixelSize", Vec2f( 1. / mBloomFbo.getWidth(), 1. / mBloomFbo.getHeight() ) );
+	mBloomShader.unbind();
+
+
+	mMixerShader = gl::GlslProg( loadResource( RES_PASSTHROUGH_VERT ),
+			loadResource( RES_MIXER_FRAG ) );
+	mMixerShader.bind();
+	int texUnits[] = { 0, 1, 2, 3, 4, 5, 6, 7, 8 };
+	mMixerShader.uniform("tex", texUnits, 9);
+	mMixerShader.unbind();
+
 	/*
 		 0 0, 0, 0
 		 1 0.00392157, 0, 0
@@ -280,15 +308,17 @@ void FolApp::draw()
 
 	mDepthFbo.unbindFramebuffer();
 
-	// final
-	gl::setMatricesWindow( getWindowSize() );
-	gl::setViewport( getWindowBounds() );
+	// wave output
+	mOutputFbo.bindFramebuffer();
+	gl::setMatricesWindow( mOutputFbo.getSize(), false );
+	gl::setViewport( mOutputFbo.getBounds() );
 
+	gl::clear( Color::black() );
 	gl::disableDepthRead();
 	gl::disableDepthWrite();
 
 	gl::enableAdditiveBlending();
-	gl::color( ColorA( 1, 1, 1, .025 ) );
+	gl::color( ColorA( 1, 1, 1, .0195 ) );
 
 	gl::pushMatrices();
 	gl::scale( Vec2f( getWindowWidth() / (float)VBO_X_SIZE,
@@ -306,7 +336,49 @@ void FolApp::draw()
 	gl::popMatrices();
 
 	gl::disableAlphaBlending();
+	mOutputFbo.unbindFramebuffer();
 
+	// bloom
+	mBloomFbo.bindFramebuffer();
+
+	gl::setMatricesWindow( mBloomFbo.getSize(), false );
+	gl::setViewport( mBloomFbo.getBounds() );
+
+	gl::color( Color::white() );
+	mOutputFbo.getTexture().bind();
+
+	mBloomShader.bind();
+	for (int i = 0; i < 8; i++)
+	{
+		glDrawBuffer( GL_COLOR_ATTACHMENT0_EXT + i );
+		mBloomShader.uniform( "iteration", i );
+		gl::drawSolidRect( mBloomFbo.getBounds() );
+		mBloomFbo.bindTexture( 0, i );
+	}
+	mBloomShader.unbind();
+
+	glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);
+	mBloomFbo.unbindFramebuffer();
+
+	// output mixer
+	gl::setMatricesWindow( getWindowSize() );
+	gl::setViewport( getWindowBounds() );
+
+	mMixerShader.bind();
+
+	gl::enable( GL_TEXTURE_2D );
+
+	mOutputFbo.getTexture().bind( 0 );
+	for (int i = 0; i < 8; i++)
+	{
+		mBloomFbo.getTexture( i ).bind( i + 1 );
+	}
+
+	gl::drawSolidRect( mOutputFbo.getBounds() );
+	gl::disable( GL_TEXTURE_2D );
+	mMixerShader.unbind();
+
+	//gl::draw( mOutputFbo.getTexture(), getWindowBounds() );
 	//gl::draw( mDepthFbo.getTexture( 1 ), getWindowBounds() );
 
 	params::InterfaceGl::draw();
