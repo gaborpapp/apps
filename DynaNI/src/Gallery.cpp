@@ -227,7 +227,7 @@ void Gallery::Picture::startZoom()
 	flipping = false;
 	mZoom = 0.;
 	app::timeline().apply( &mZoom, 0.f, 0.f, 1.f );
-	app::timeline().appendTo( &mZoom, 0.f, 1.f, 1.5f, EaseInQuad() );
+	app::timeline().appendTo( &mZoom, 0.f, 1.f, 1.5f, EaseOutCirc() );
 	appearanceTime = -1;
 }
 
