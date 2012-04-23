@@ -273,10 +273,10 @@ void DynaApp::prepareSettings(Settings *settings)
 }
 
 DynaApp::DynaApp() :
-	mBrushColor( .5 ),
+	mBrushColor( .3 ),
 	mK( .06 ),
 	mDamping( .7 ),
-	mStrokeMinWidth( 10 ),
+	mStrokeMinWidth( 6 ),
 	mStrokeMaxWidth( 16 ),
 	mMaxVelocity( 40 ),
 	mParticleMin( 0 ),
@@ -289,7 +289,7 @@ DynaApp::DynaApp() :
 	mZClip( 1085 ),
 	mPoseHoldAreaThr( 4000 ),
 	mVideoOpacity( .55 ),
-	mVideoNoise( .15 ),
+	mVideoNoise( .065 ),
 	mVideoNoiseFreq( 11. ),
 	mEnableVignetting( true ),
 	mEnableTvLines( true ),
@@ -504,7 +504,7 @@ void DynaApp::setPoseTimeline()
 	// pose anim
 	mPoseAnimTimeline->clear();
 	mPoseAnimTimeline->setDefaultAutoRemove( false );
-	mPoseAnimTimeline->apply( &mPoseAnimOpacity, 0.f, 0.f, 5.f );
+	mPoseAnimTimeline->apply( &mPoseAnimOpacity, 0.f, 0.f, 4.f );
 	mPoseAnimTimeline->appendTo( &mPoseAnimOpacity, 0.f, 1.f, .9f );
 
 	mPoseAnimTimeline->apply( &mPoseAnimFrame, 0, 0, 5.f );
@@ -512,6 +512,7 @@ void DynaApp::setPoseTimeline()
 
 	mPoseAnimTimeline->appendTo( &mPoseAnimOpacity, 1.f, 1.f, 2.f );
 	mPoseAnimTimeline->appendTo( &mPoseAnimOpacity, 1.f, 0.f, 1.f );
+	mPoseAnimTimeline->appendTo( &mPoseAnimOpacity, 0.f, 0.f, 1.f );
 	mPoseAnimTimeline->setLoop( true );
 	timeline().add( mPoseAnimTimeline );
 }
