@@ -6,6 +6,8 @@ SOURCES += ['NI.cpp', 'NIUserTracker.cpp']
 RESOURCES = ['shaders', 'audio', 'gfx']
 ASSETS = ['brushes', 'pose-anim']
 
+ICON = 'dynani.icns'
+
 DEBUG = 0
 
 INCLUDES = []
@@ -27,5 +29,5 @@ LIBPATH += ['/usr/lib/', '/opt/local/lib/']
 
 SConscript('../../../scons/SConscript',
 	exports = ['TARGET', 'SOURCES', 'INCLUDES', 'RESOURCES', 'ASSETS',
-		'LIBS', 'LIBPATH', 'DEBUG'])
+		'LIBS', 'LIBPATH', 'DEBUG', 'ICON'])
 
