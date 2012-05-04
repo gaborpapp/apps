@@ -97,5 +97,7 @@ class Gallery
 		std::vector< Picture > mPictures;
 
 		ci::gl::GlslProg mGalleryShader;
+
+		ci::TimelineRef mTimeline;
 };
 

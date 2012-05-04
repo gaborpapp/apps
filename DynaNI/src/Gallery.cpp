@@ -39,6 +39,8 @@ Gallery::Gallery( fs::path &folder, int rows /* = 3 */, int columns /* = 4 */ )
 	mParams.addPersistentParam("Flip frequency", &mFlipFrequency, 3, "min=.5 max=20. step=.5");
 
 	reset();
+	mTimeline = Timeline::create();
+	app::timeline().add( mTimeline );
 }
 
 void Gallery::resize( int rows, int columns )
@@ -226,8 +228,8 @@ void Gallery::Picture::startZoom()
 	zooming = true;
 	flipping = false;
 	mZoom = 0.;
-	app::timeline().apply( &mZoom, 0.f, 0.f, 1.f );
-	app::timeline().appendTo( &mZoom, 0.f, 1.f, 1.5f, EaseOutCirc() );
+	mGallery->mTimeline->apply( &mZoom, 0.f, 0.f, 1.f );
+	mGallery->mTimeline->appendTo( &mZoom, 0.f, 1.f, 1.5f, EaseOutCirc() );
 	appearanceTime = -1;
 }
 

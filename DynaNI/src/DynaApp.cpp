@@ -95,6 +95,7 @@ class DynaApp : public AppBasic, UserTracker::Listener
 		float mBrushColor;
 
 		TimelineRef mPoseAnimTimeline;
+		TimelineRef mGameTimeline;
 		void setPoseTimeline();
 
 		ci::Anim< float > mPoseAnimOpacity;
@@ -304,7 +305,8 @@ DynaApp::DynaApp() :
 	mHandTransparencyCoeff( 465. ),
 	mState( STATE_IDLE ),
 	mShowHands( true ),
-	mPoseAnimTimeline( Timeline::create() )
+	mPoseAnimTimeline( Timeline::create() ),
+	mGameTimeline( Timeline::create() )
 {
 }
 
@@ -490,6 +492,7 @@ void DynaApp::setup()
 
 	mGallery = shared_ptr< Gallery >( new Gallery( sScreenshotFolder ) );
 
+	timeline().add( mGameTimeline );
 	setPoseTimeline();
 
 	setFullScreen( true );
@@ -526,8 +529,8 @@ void DynaApp::saveScreenshot()
 {
 	// flash
 	mFlash = 0;
-	timeline().apply( &mFlash, .9f, .2f, EaseOutQuad() );
-	timeline().appendTo( &mFlash, .0f, .4f, EaseInQuad() );
+	mGameTimeline->apply( &mFlash, .9f, .2f, EaseOutQuad() );
+	mGameTimeline->appendTo( &mFlash, .0f, .4f, EaseInQuad() );
 
 	audio::Output::play( mAudioShutter );
 
@@ -626,9 +629,8 @@ void DynaApp::endGame()
 
 	// wait a bit then go back to idle state
 	// TODO:: bind with function parameter
-	timeline().add( std::bind( &DynaApp::setIdleState, this ), timeline().getCurrentTime() + 1.5 );
+	mGameTimeline->add( std::bind( &DynaApp::setIdleState, this ), timeline().getCurrentTime() + 1.5 );
 	mPoseAnimOpacity = 0;
-	setPoseTimeline();
 }
 
 void DynaApp::keyDown(KeyEvent event)
@@ -839,8 +841,8 @@ void DynaApp::update()
 					// add callback when game time ends
 					mGameTimer = mGameDuration;
 					mFlash = 0;
-					timeline().clear(); // clear old callbacks
-					timeline().apply( &mGameTimer, .0f, mGameDuration ).finishFn( std::bind( &DynaApp::endGame, this ) );
+					mGameTimeline->clear(); // clear old callbacks
+					mGameTimeline->apply( &mGameTimer, .0f, mGameDuration ).finishFn( std::bind( &DynaApp::endGame, this ) );
 				}
 			}
 		}
