@@ -1,0 +1,7 @@
+TARGET = 'PicPair'
+SOURCES  = ['PicPair.cpp']
+DEBUG = 0
+
+SConscript('../../../scons/SConscript',
+	exports = ['TARGET', 'SOURCES', 'DEBUG'])
+
