@@ -1,0 +1,6 @@
+TARGET = 'VoronoiGpuApp'
+SOURCES  = ['VoronoiGpu.cpp', 'VoronoiGpuApp.cpp']
+DEBUG = 0
+
+SConscript('../../../scons/SConscript',
+	exports = ['TARGET', 'SOURCES', 'DEBUG'])
