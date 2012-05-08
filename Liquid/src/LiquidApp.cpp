@@ -20,9 +20,11 @@
 #include "cinder/Cinder.h"
 #include "cinder/app/AppBasic.h"
 #include "cinder/gl/gl.h"
+#include "cinder/gl/Texture.h"
 #include "cinder/params/Params.h"
 #include "cinder/Rand.h"
 #include "cinder/CinderMath.h"
+#include "cinder/Surface.h"
 
 using namespace ci;
 using namespace ci::app;
@@ -36,6 +38,7 @@ class LiquidApp : public AppBasic
 		void prepareSettings(Settings *settings);
 		void setup();
 
+		void resize(ResizeEvent event);
 		void keyDown(KeyEvent event);
 		void mouseDown(MouseEvent event);
 		void mouseUp(MouseEvent event);
@@ -94,15 +97,17 @@ class LiquidApp : public AppBasic
 			}
 		};
 
-		static const int gsizeX = 129;
-		static const int gsizeY = 97;
-		static const int mul = 5;
+		static const int gsizeX = 128; //129;
+		static const int gsizeY = 64; //97;
+		//static const int mul = 5;
+		float mMulX;
+		float mMulY;
 
 		Node grid[gsizeX][gsizeY];
 
 		vector<Node *> active;
-		static const int nx = 100;
-		static const int ny = 200;
+		static const int nx = 100; //100;
+		static const int ny = 200; //200;
 		int xPoints[ny];
 		int yPoints[nx];
 
@@ -115,6 +120,9 @@ class LiquidApp : public AppBasic
 		float mGravity;
 		float mSmoothing;
 
+		float mParticleSize;
+		Color mParticleColor;
+
 		float mFps;
 
 		static const int pCount = 10000;
@@ -123,6 +131,9 @@ class LiquidApp : public AppBasic
 		Vec2i mMousePos;
 		Vec2i mMousePrevPos;
 		bool mMouseDrag;
+
+		void generateParticleTexture();
+		gl::Texture mParticleTexture;
 };
 
 
@@ -159,6 +170,13 @@ void LiquidApp::setup()
 	mParams.addParam("Smoothing", &mSmoothing, "min=0 max=1 step=0.05");
 
 	mParams.addSeparator();
+	mParticleSize = .021;
+	mParams.addParam("Particle size", &mParticleSize, "min=0.001 max=0.1 step=0.0005");
+
+	mParticleColor = Color::hex( 0x081117 );
+	mParams.addParam("Particle color", &mParticleColor);
+
+	mParams.addSeparator();
 	mParams.addParam("Fps", &mFps, "", true);
 
 	float mul2 = 1.0 / sqrt(mDensity);
@@ -177,7 +195,48 @@ void LiquidApp::setup()
 			n++;
 		}
 	}
+
+	generateParticleTexture();
+
+	setFrameRate( 60 );
 }
+
+void LiquidApp::generateParticleTexture()
+{
+	const int size = 64;
+	Surface psurf( size, size, false );
+	Vec2f mid( size / 2.0, size / 2.0 );
+
+	Surface::Iter iter( psurf.getIter() );
+
+	float maxd = size / 2.0;
+
+	while ( iter.line() )
+	{
+		while ( iter.pixel() )
+		{
+			float d = iter.getPos().distance( mid );
+			if ( d > maxd )
+				d = maxd;
+			int c = 64 * math< float >::pow(
+							math< float >::cos( M_PI / 2 * d / maxd ),
+							1.0 );
+
+			iter.r() = c;
+			iter.g() = c;
+			iter.b() = c;
+		}
+	}
+
+	mParticleTexture = gl::Texture( psurf );
+}
+
+void LiquidApp::resize(ResizeEvent event)
+{
+	mMulX = event.getWidth() / (float)gsizeX;
+	mMulY = event.getHeight() / (float)gsizeY;
+}
+
 
 void LiquidApp::keyDown(KeyEvent event)
 {
@@ -206,9 +265,9 @@ void LiquidApp::mouseUp(MouseEvent event)
 
 void LiquidApp::update()
 {
-	simulate();
-
 	mFps = getAverageFps();
+
+	simulate();
 }
 
 void LiquidApp::simulate()
@@ -217,8 +276,8 @@ void LiquidApp::simulate()
 	float mdy = 0.0;
 	if (mMouseDrag)
 	{
-		mdx = (mMousePos.x - mMousePrevPos.x) / mul;
-		mdy = (mMousePos.y - mMousePrevPos.y) / mul;
+		mdx = (mMousePos.x - mMousePrevPos.x) / mMulX;
+		mdy = (mMousePos.y - mMousePrevPos.y) / mMulY;
 	}
 
 	for (vector<Node *>::iterator i = active.begin(); i != active.end(); ++i)
@@ -420,8 +479,10 @@ void LiquidApp::simulate()
 		float T01 = mElasticity * p->T01 + mViscosity * D01;
 		float T11 = mElasticity * p->T11 + mViscosity * D11 + pressure + mBulkViscosity * trace;
 
-		for (int i = 0; i < 3; i++) {
-			for (int j = 0; j < 3; j++) {
+		for (int i = 0; i < 3; i++)
+		{
+			for (int j = 0; j < 3; j++)
+			{
 				Node *n = &grid[(p->cx + i)][(p->cy + j)];
 				float phi = p->px[i] * p->py[j];
 				float dx = p->gx[i] * p->py[j];
@@ -464,8 +525,8 @@ void LiquidApp::simulate()
 
 		if (mMouseDrag)
 		{
-			float vx = abs(p->x - mMousePos.x / mul);
-			float vy = abs(p->y - mMousePos.y / mul);
+			float vx = abs(p->x - mMousePos.x / mMulX);
+			float vy = abs(p->y - mMousePos.y / mMulY);
 			if ((vx < 10.0) && (vy < 10.0))
 			{
 				float weight = (1.0 - vx / 10.0) * (1.0 - vy / 10.0);
@@ -541,18 +602,29 @@ void LiquidApp::draw()
 {
 	gl::clear( Color::black() );
 
-	gl::color( Color::white() );
+	//gl::color( Color::white() );
+	gl::color( mParticleColor );
+	Vec2f mul( mMulX, mMulY );
+	gl::enableAdditiveBlending();
+	gl::disableDepthRead();
+	gl::disableDepthWrite();
+	mParticleTexture.enableAndBind();
+
+	Vec2f pSize = Vec2f( 1, 1 ) * getWindowWidth() * mParticleSize;
 	for (int i = 0; i < pCount; i++)
 	{
 		Particle *p = &particles[i];
 
+		/*
 		gl::drawLine( mul * Vec2f(p->x - 1.0, p->y),
 					  mul * Vec2f(p->x - 1.0 - p->gu, p->y - p->gv));
-		/*
-		gl::drawSolidCircle( mul * Vec2f(p->x - 1.0, p->y), 2 );
 		*/
-
+		Vec2f pos( p->x, p->y);
+		pos *= mul;
+		gl::drawSolidRect( Rectf( pos - pSize, pos + pSize ) );
 	}
+	mParticleTexture.unbind();
+	gl::disableAlphaBlending();
 
 	params::InterfaceGl::draw();
 }
