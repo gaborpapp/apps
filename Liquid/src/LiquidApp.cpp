@@ -21,10 +21,13 @@
 #include "cinder/app/AppBasic.h"
 #include "cinder/gl/gl.h"
 #include "cinder/gl/Texture.h"
+#include "cinder/gl/Fbo.h"
 #include "cinder/params/Params.h"
 #include "cinder/Rand.h"
 #include "cinder/CinderMath.h"
 #include "cinder/Surface.h"
+
+#include "Sharpen.h"
 
 using namespace ci;
 using namespace ci::app;
@@ -97,17 +100,16 @@ class LiquidApp : public AppBasic
 			}
 		};
 
-		static const int gsizeX = 128; //129;
-		static const int gsizeY = 64; //97;
-		//static const int mul = 5;
+		static const int gsizeX = 129; //129;
+		static const int gsizeY = 97; //97;
 		float mMulX;
 		float mMulY;
 
 		Node grid[gsizeX][gsizeY];
 
 		vector<Node *> active;
-		static const int nx = 100; //100;
-		static const int ny = 200; //200;
+		static const int nx = 100;
+		static const int ny = 200;
 		int xPoints[ny];
 		int yPoints[nx];
 
@@ -134,6 +136,10 @@ class LiquidApp : public AppBasic
 
 		void generateParticleTexture();
 		gl::Texture mParticleTexture;
+		gl::Fbo mFbo;
+
+		gl::ip::Sharpen mSharpenFilter;
+		float mSharpenStrength;
 };
 
 
@@ -176,6 +182,9 @@ void LiquidApp::setup()
 	mParticleColor = Color::hex( 0x081117 );
 	mParams.addParam("Particle color", &mParticleColor);
 
+	mSharpenStrength = 4.5;
+	mParams.addParam("Sharpen strength", &mSharpenStrength, "min=0 max=30 step=0.5");
+
 	mParams.addSeparator();
 	mParams.addParam("Fps", &mFps, "", true);
 
@@ -195,6 +204,15 @@ void LiquidApp::setup()
 			n++;
 		}
 	}
+
+	gl::Fbo::Format format;
+	format.enableDepthBuffer( false );
+
+	mFbo = gl::Fbo( 1024, 768, format );
+	mMulX = mFbo.getWidth() / (float)gsizeX;
+	mMulY = mFbo.getHeight() / (float)gsizeY;
+
+	mSharpenFilter = gl::ip::Sharpen( mFbo.getWidth(), mFbo.getHeight() );
 
 	generateParticleTexture();
 
@@ -233,8 +251,10 @@ void LiquidApp::generateParticleTexture()
 
 void LiquidApp::resize(ResizeEvent event)
 {
+	/*
 	mMulX = event.getWidth() / (float)gsizeX;
 	mMulY = event.getHeight() / (float)gsizeY;
+	*/
 }
 
 
@@ -248,13 +268,15 @@ void LiquidApp::keyDown(KeyEvent event)
 
 void LiquidApp::mouseDown(MouseEvent event)
 {
-	mMousePos = event.getPos();
+	RectMapping mapping( getWindowBounds(), mFbo.getBounds() );
+	mMousePos = mapping.map( event.getPos() );
 }
 
 void LiquidApp::mouseDrag(MouseEvent event)
 {
+	RectMapping mapping( getWindowBounds(), mFbo.getBounds() );
 	mMousePrevPos = mMousePos;
-	mMousePos = event.getPos();
+	mMousePos = mapping.map( event.getPos() );
 	mMouseDrag = true;
 }
 
@@ -600,6 +622,10 @@ void LiquidApp::simulate()
 
 void LiquidApp::draw()
 {
+	mFbo.bindFramebuffer();
+	gl::setMatricesWindow( mFbo.getSize(), false );
+	gl::setViewport( mFbo.getBounds() );
+
 	gl::clear( Color::black() );
 
 	//gl::color( Color::white() );
@@ -610,7 +636,7 @@ void LiquidApp::draw()
 	gl::disableDepthWrite();
 	mParticleTexture.enableAndBind();
 
-	Vec2f pSize = Vec2f( 1, 1 ) * getWindowWidth() * mParticleSize;
+	Vec2f pSize = Vec2f( 1, 1 ) * mFbo.getWidth() * mParticleSize;
 	for (int i = 0; i < pCount; i++)
 	{
 		Particle *p = &particles[i];
@@ -622,9 +648,37 @@ void LiquidApp::draw()
 		Vec2f pos( p->x, p->y);
 		pos *= mul;
 		gl::drawSolidRect( Rectf( pos - pSize, pos + pSize ) );
+
+		/*
+		float r = toDegrees( math< float >::atan2( p->gv, p->gu ) );
+		Vec2f pos( p->x, p->y);
+		Vec2f vel( p->gu, p->gv);
+		float s = vel.length();
+		Vec2f velScale( 1. + s, 1. / ( 1. + s ) );
+
+		pos *= mul;
+		velScale *= pSize;
+		gl::pushModelView();
+		gl::translate( pos );
+		gl::rotate( r );
+		gl::drawSolidRect( Rectf( - velScale, velScale ) );
+		gl::popModelView();
+		*/
 	}
 	mParticleTexture.unbind();
 	gl::disableAlphaBlending();
+
+	mFbo.unbindFramebuffer();
+
+	gl::Texture output = mSharpenFilter.process( mFbo.getTexture(), mSharpenStrength );
+
+	// draw output to window
+	gl::clear( Color::black() );
+
+	gl::setMatricesWindow( getWindowSize() );
+	gl::setViewport( getWindowBounds() );
+	gl::color( Color::white() );
+	gl::draw( output, getWindowBounds() );
 
 	params::InterfaceGl::draw();
 }

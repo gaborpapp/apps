@@ -1,5 +1,5 @@
 TARGET = 'LiquidApp'
-SOURCES  = ['LiquidApp.cpp']
+SOURCES  = ['LiquidApp.cpp', 'Sharpen.cpp']
 DEBUG = 0
 
 SConscript('../../../scons/SConscript',
