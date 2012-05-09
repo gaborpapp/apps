@@ -18,7 +18,6 @@
 
 #include "cinder/app/AppBasic.h"
 #include "cinder/Surface.h"
-#include "Resources.h"
 
 #include "Sharpen.h"
 
@@ -70,17 +69,17 @@ Sharpen::Obj::Obj(int w, int h)
 	float fh = 1.0 / (float)(fbo.getHeight());
 	Vec2f offset[9];
 
-	offset[0] = Vec2f( -fw, -fh);
-	offset[1] = Vec2f(0.0, -fh);
-	offset[2] = Vec2f(  fw, -fh);
+	offset[0] = Vec2f( -fw, -fh );
+	offset[1] = Vec2f(  .0, -fh );
+	offset[2] = Vec2f(  fw, -fh );
 
-	offset[3] = Vec2f( -fw, 0.0);
-	offset[4] = Vec2f(0.0, 0.0);
-	offset[5] = Vec2f(  fw, 0.0);
+	offset[3] = Vec2f( -fw, .0 );
+	offset[4] = Vec2f(  .0, .0 );
+	offset[5] = Vec2f(  fw, .0 );
 
-	offset[6] = Vec2f( -fw, fh);
-	offset[7] = Vec2f(0.0, fh);
-	offset[8] = Vec2f(  fw, fh);
+	offset[6] = Vec2f( -fw, fh );
+	offset[7] = Vec2f(  .0, fh );
+	offset[8] = Vec2f(  fw, fh );
 
 	float kernel[] = {	 0., -1, 0,
 						-1., 4., -1.,
