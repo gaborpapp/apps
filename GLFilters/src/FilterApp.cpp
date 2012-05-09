@@ -35,6 +35,7 @@ void FilterApp::setup()
 	blur = gl::ip::GaussianBlur(WIDTH, HEIGHT);
 	sobel = gl::ip::Sobel(WIDTH, HEIGHT);
 	frei_chen = gl::ip::FreiChen(WIDTH, HEIGHT);
+	sharpen = gl::ip::Sharpen(WIDTH, HEIGHT);
 
 	params = params::InterfaceGl("Parameters", Vec2i(200, 300));
 	boxblur_radius = 1.0;
@@ -55,6 +56,11 @@ void FilterApp::setup()
 
 	apply_frei_chen = false;
 	params.addParam("Frei-Chen", &apply_frei_chen);
+
+	apply_sharpen = false;
+	sharpen_strength = 1.;
+	params.addParam("Sharpen", &apply_sharpen);
+	params.addParam(" strength", &sharpen_strength, "min=0 max=10 step=.1");
 
 	// capture
 	try
@@ -119,6 +125,9 @@ void FilterApp::draw()
 
 	if (new_frame && apply_frei_chen)
 		source = frei_chen.process(source);
+
+	if (new_frame && apply_sharpen)
+		source = sharpen.process(source, sharpen_strength);
 
 	if (source)
 	{

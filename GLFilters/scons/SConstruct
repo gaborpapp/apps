@@ -14,7 +14,9 @@ RESOURCES += ['passthrough_vert.glsl', 'freichen_frag.glsl']
 SOURCES += ['BoxBlur.cpp']
 RESOURCES += ['boxblur_frag.glsl']
 
-DEBUG = 0
+SOURCES += ['Sharpen.cpp']
+
+DEBUG = 1
 
 SConscript('../../../scons/SConscript',
 	exports = ['TARGET', 'SOURCES', 'DEBUG', 'RESOURCES'])

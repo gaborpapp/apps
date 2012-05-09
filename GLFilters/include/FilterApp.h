@@ -28,6 +28,7 @@
 #include "Sobel.h"
 #include "FreiChen.h"
 #include "BoxBlur.h"
+#include "Sharpen.h"
 
 class FilterApp : public ci::app::AppBasic
 {
@@ -49,6 +50,7 @@ class FilterApp : public ci::app::AppBasic
 		ci::gl::ip::GaussianBlur blur;
 		ci::gl::ip::Sobel sobel;
 		ci::gl::ip::FreiChen frei_chen;
+		ci::gl::ip::Sharpen sharpen;
 
 		ci::params::InterfaceGl	params;
 		bool apply_boxblur;
@@ -57,6 +59,8 @@ class FilterApp : public ci::app::AppBasic
 		bool apply_blur;
 		bool apply_sobel;
 		bool apply_frei_chen;
+		bool apply_sharpen;
+		float sharpen_strength;
 
 		ci::Font font;
 
