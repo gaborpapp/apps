@@ -27,7 +27,6 @@
 #include "cinder/ip/Resize.h"
 
 #include "CinderOpenCV.h"
-#include "opencv2/gpu/gpu.hpp"
 
 using namespace ci;
 using namespace ci::app;
@@ -55,13 +54,16 @@ class OptFlowApp : public AppBasic
 
 		bool mFlip;
 		bool mDrawFlow;
-		bool mGpu;
 
 		cv::Mat mPrevFrame;
 		cv::Mat mFlow;
 
+		int mOptFlowLevels;
+		int mOptFlowWinSize;
+		int mOptFlowIterations;
+
 		static const int OPTFLOW_WIDTH = 80;
-		static const int OPTFLOW_HEIGHT = 30;
+		static const int OPTFLOW_HEIGHT = 60;
 };
 
 void OptFlowApp::prepareSettings( Settings *settings )
@@ -78,8 +80,14 @@ void OptFlowApp::setup()
 	mParams.addParam( "Flip", &mFlip);
 	mDrawFlow = true;
 	mParams.addParam( "Draw flow", &mDrawFlow);
-	mGpu = false;
-	mParams.addParam( "Use gpu", &mGpu);
+	mParams.addSeparator();
+	mOptFlowLevels = 5;
+	mParams.addParam( "Levels", &mOptFlowLevels, "min=1 max=20");
+	mOptFlowWinSize = 13;
+	mParams.addParam( "Window size", &mOptFlowWinSize, "min=1 max=20");
+	mOptFlowIterations = 5;
+	mParams.addParam( "Iterations", &mOptFlowIterations, "min=1 max=20");
+	mParams.addSeparator();
 
 	// capture
 	try
@@ -122,24 +130,12 @@ void OptFlowApp::update()
         if ( mPrevFrame.data )
 		{
 			cv::calcOpticalFlowFarneback( mPrevFrame, currentFrame,
-					mFlow, .5, 3, 13, 3, 5, 1.1, 0 );
-
-			/*
-			pyrScale = 0.5;
-			numLevels = 5;
-			winSize = 13;
-			fastPyramids = false;
-			numIters = 10;
-			polyN = 5;
-			polySigma = 1.1;
-			flags = 0;
-			*/
-
-			/*
-			   calcOpticalFlowFarneback(prevgray, gray, flow, 0.5, 3, 15, 3, 5, 1.2, 0);
-			   calcOpticalFlowFarneback(const Mat& prevImg, const Mat& nextImg, Mat& flow, double pyrScale, int levels, int winsize, int iterations, int polyN, double polySigma, int flags)
-			*/
-
+					mFlow,
+					.5,
+					mOptFlowLevels,
+					mOptFlowWinSize,
+					mOptFlowIterations,
+					5, 1.1, 0 );
 		}
         mPrevFrame = currentFrame;
 	}
