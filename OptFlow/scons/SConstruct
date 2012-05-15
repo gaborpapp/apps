@@ -1,0 +1,20 @@
+TARGET = 'OptFlowApp'
+SOURCES  = ['OptFlowApp.cpp']
+INCLUDES = []
+
+DEBUG = 1
+
+# OpenCV
+CINDER_OPENCV_PATH = '../../../blocks/Cinder-OpenCV/scons/'
+
+import sys
+sys.path.append(CINDER_OPENCV_PATH)
+import CinderOpenCV
+SOURCES += CinderOpenCV.getSources(CINDER_OPENCV_PATH)
+INCLUDES += CinderOpenCV.getIncludes(CINDER_OPENCV_PATH)
+LIBS = CinderOpenCV.getLibs(CINDER_OPENCV_PATH)
+LIBS = [File(s) for s in LIBS]
+
+SConscript('../../../scons/SConscript',
+	exports = ['TARGET', 'SOURCES', 'DEBUG', 'INCLUDES', 'LIBS'])
+
