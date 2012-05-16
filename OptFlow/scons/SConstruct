@@ -2,7 +2,7 @@ TARGET = 'OptFlowApp'
 SOURCES  = ['OptFlowApp.cpp']
 INCLUDES = []
 
-DEBUG = 1
+DEBUG = 0
 
 # OpenCV
 CINDER_OPENCV_PATH = '../../../blocks/Cinder-OpenCV/scons/'

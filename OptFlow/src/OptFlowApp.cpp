@@ -58,9 +58,13 @@ class OptFlowApp : public AppBasic
 		cv::Mat mPrevFrame;
 		cv::Mat mFlow;
 
+		float mPyrScale;
 		int mOptFlowLevels;
 		int mOptFlowWinSize;
 		int mOptFlowIterations;
+		float mFlowMultiplier;
+		int mOptFlowPolyN;
+		float mOptFlowPolySigma;
 
 		static const int OPTFLOW_WIDTH = 80;
 		static const int OPTFLOW_HEIGHT = 60;
@@ -77,22 +81,32 @@ void OptFlowApp::setup()
 
 	mParams.addParam( "Fps", &mFps, "", false );
 	mFlip = true;
-	mParams.addParam( "Flip", &mFlip);
+	mParams.addParam( "Flip", &mFlip );
 	mDrawFlow = true;
-	mParams.addParam( "Draw flow", &mDrawFlow);
+	mParams.addParam( "Draw flow", &mDrawFlow );
+	mFlowMultiplier = .3;
+	mParams.addParam( "Flow multiplier", &mFlowMultiplier, "min=.05 max=2 step=.05" );
+
 	mParams.addSeparator();
+	mPyrScale = .5;
+	mParams.addParam( "Pyramid scale", &mPyrScale, "min=.01 max=.99 step=.01" );
 	mOptFlowLevels = 5;
-	mParams.addParam( "Levels", &mOptFlowLevels, "min=1 max=20");
+	mParams.addParam( "Levels", &mOptFlowLevels, "min=1 max=20" );
 	mOptFlowWinSize = 13;
-	mParams.addParam( "Window size", &mOptFlowWinSize, "min=1 max=20");
+	mParams.addParam( "Window size", &mOptFlowWinSize, "min=1 max=20" );
 	mOptFlowIterations = 5;
-	mParams.addParam( "Iterations", &mOptFlowIterations, "min=1 max=20");
+	mParams.addParam( "Iterations", &mOptFlowIterations, "min=1 max=20" );
+	mOptFlowPolyN = 5;
+	mParams.addParam( "PolyN", &mOptFlowPolyN, "min=1 max=20" );
+	mOptFlowPolySigma = 1.1;
+	mParams.addParam( "Poly sigma", &mOptFlowPolySigma, "min=.1 max=5 step=.1" );
 	mParams.addSeparator();
 
 	// capture
 	try
 	{
 		mCapture = Capture( 640, 480 );
+		//mCapture = Capture( 80, 60 );
 		mCapture.start();
 	}
 	catch (...)
@@ -119,8 +133,16 @@ void OptFlowApp::update()
 	{
 		Surface8u captSurf( Channel8u( mCapture.getSurface() ) );
 
-		Surface smallSurface( OPTFLOW_WIDTH, OPTFLOW_HEIGHT, false );
-		ip::resize( captSurf, &smallSurface );
+		Surface8u smallSurface( OPTFLOW_WIDTH, OPTFLOW_HEIGHT, false );
+		if ( ( captSurf.getWidth() != OPTFLOW_WIDTH ) ||
+			 ( captSurf.getHeight() != OPTFLOW_HEIGHT ) )
+		{
+			ip::resize( captSurf, &smallSurface );
+		}
+		else
+		{
+			smallSurface = captSurf;
+		}
 
 		mCaptTexture = gl::Texture( captSurf );
 
@@ -129,17 +151,19 @@ void OptFlowApp::update()
 			cv::flip( currentFrame, currentFrame, 1 );
         if ( mPrevFrame.data )
 		{
-			cv::calcOpticalFlowFarneback( mPrevFrame, currentFrame,
+			cv::calcOpticalFlowFarneback(
+					mPrevFrame, currentFrame,
 					mFlow,
-					.5,
+					mPyrScale,
 					mOptFlowLevels,
 					mOptFlowWinSize,
 					mOptFlowIterations,
-					5, 1.1, 0 );
+					mOptFlowPolyN,
+					mOptFlowPolySigma,
+					0 );
 		}
         mPrevFrame = currentFrame;
 	}
-
 }
 
 void OptFlowApp::draw()
@@ -166,7 +190,7 @@ void OptFlowApp::draw()
 		{
 			RectMapping ofToWin( Area( 0, 0, mFlow.cols, mFlow.rows ),
 				mappedArea );
-			float ofScale = .2 * mappedArea.getWidth() / (float)OPTFLOW_WIDTH;
+			float ofScale = mFlowMultiplier * mappedArea.getWidth() / (float)OPTFLOW_WIDTH;
 
 			gl::color( Color::white() );
 			for ( int y = 0; y < mFlow.rows; y++ )
