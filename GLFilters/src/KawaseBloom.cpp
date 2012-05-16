@@ -129,16 +129,12 @@ KawaseBloom::Obj::Obj( int w, int h )
 
 	mBloomFbo = gl::Fbo( w / 4, h / 4, format );
 
-	app::console() << sBloomFragmentShader << std::endl;
-
 	mBloomShader = gl::GlslProg( sBloomVertexShader, sBloomFragmentShader );
 	mBloomShader.bind();
 	mBloomShader.uniform( "tex", 0 );
 	mBloomShader.uniform( "pixelSize", Vec2f( 1. / mBloomFbo.getWidth(), 1. / mBloomFbo.getHeight() ) );
 	mBloomShader.unbind();
 
-
-	app::console() << sMixerFragmentShader << std::endl;
 	mMixerShader = gl::GlslProg( sMixerVertexShader, sMixerFragmentShader );
 	mMixerShader.bind();
 	int texUnits[] = { 0, 1, 2, 3, 4, 5, 6, 7, 8 };

@@ -33,6 +33,7 @@
 #include "CinderOpenCV.h"
 
 #include "Sharpen.h"
+#include "KawaseBloom.h"
 
 using namespace ci;
 using namespace ci::app;
@@ -147,6 +148,9 @@ class LiquidApp : public AppBasic
 		gl::ip::Sharpen mSharpenFilter;
 		float mSharpenStrength;
 
+		gl::ip::KawaseBloom mKawaseBloom;
+		float mBloomStrength;
+
 		// capture
 		ci::Capture mCapture;
 		gl::Texture mCaptTexture;
@@ -162,6 +166,8 @@ class LiquidApp : public AppBasic
 
 		static const int OPTFLOW_WIDTH = 120;
 		static const int OPTFLOW_HEIGHT = 90;
+
+
 };
 
 
@@ -217,6 +223,8 @@ void LiquidApp::setup()
 
 	mSharpenStrength = 0;
 	mParams.addParam("Sharpen strength", &mSharpenStrength, "min=0 max=30 step=0.5");
+	mBloomStrength = 0.2;
+	mParams.addParam("Bloom strength", &mBloomStrength, "min=0 max=1 step=0.05");
 
 	mParams.addSeparator();
 	mParams.addParam("Fps", &mFps, "", true);
@@ -246,6 +254,8 @@ void LiquidApp::setup()
 	mMulY = mFbo.getHeight() / (float)gsizeY;
 
 	mSharpenFilter = gl::ip::Sharpen( mFbo.getWidth(), mFbo.getHeight() );
+
+	mKawaseBloom = gl::ip::KawaseBloom( mFbo.getWidth(), mFbo.getHeight() );
 
 	generateParticleTexture();
 
@@ -766,7 +776,9 @@ void LiquidApp::draw()
 
 	mFbo.unbindFramebuffer();
 
-	gl::Texture output = mSharpenFilter.process( mFbo.getTexture(), mSharpenStrength );
+	//gl::Texture output = mSharpenFilter.process( mFbo.getTexture(), mSharpenStrength );
+
+	gl::Texture output = mKawaseBloom.process( mFbo.getTexture(), 8, mBloomStrength );
 
 	// draw output to window
 	gl::clear( Color::black() );
@@ -790,10 +802,11 @@ void LiquidApp::draw()
 		gl::drawSolidRect( getWindowBounds() );
 		gl::popModelView();
 		mCaptTexture.unbind();
-		gl::color( ColorA( 1, 1, 1, .5 ) );
+		gl::color( Color::white() );
 	}
 
 	gl::draw( output, getWindowBounds() );
+	//gl::draw( mFbo.getTexture(), getWindowBounds() );
 
 
 	// flow vectors
