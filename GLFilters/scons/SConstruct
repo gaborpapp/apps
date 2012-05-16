@@ -16,6 +16,8 @@ RESOURCES += ['boxblur_frag.glsl']
 
 SOURCES += ['Sharpen.cpp']
 
+SOURCES += ['KawaseBloom.cpp']
+
 DEBUG = 1
 
 SConscript('../../../scons/SConscript',

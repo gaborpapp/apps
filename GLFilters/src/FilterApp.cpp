@@ -36,6 +36,7 @@ void FilterApp::setup()
 	sobel = gl::ip::Sobel(WIDTH, HEIGHT);
 	frei_chen = gl::ip::FreiChen(WIDTH, HEIGHT);
 	sharpen = gl::ip::Sharpen(WIDTH, HEIGHT);
+	bloom = gl::ip::KawaseBloom(WIDTH, HEIGHT);
 
 	params = params::InterfaceGl("Parameters", Vec2i(200, 300));
 	boxblur_radius = 1.0;
@@ -61,6 +62,13 @@ void FilterApp::setup()
 	sharpen_strength = 1.;
 	params.addParam("Sharpen", &apply_sharpen);
 	params.addParam(" strength", &sharpen_strength, "min=0 max=10 step=.1");
+
+	apply_bloom = false;
+	bloom_iterations = 8;
+	bloom_strength = .1;
+	params.addParam("Bloom", &apply_bloom);
+	params.addParam(" biterations", &bloom_iterations, "min=0 max=8");
+	params.addParam(" bstrength", &bloom_strength, "min=0 max=1 step=.05");
 
 	// capture
 	try
@@ -128,6 +136,9 @@ void FilterApp::draw()
 
 	if (new_frame && apply_sharpen)
 		source = sharpen.process(source, sharpen_strength);
+
+	if (new_frame && apply_bloom)
+		source = bloom.process(source, bloom_iterations, bloom_strength);
 
 	if (source)
 	{

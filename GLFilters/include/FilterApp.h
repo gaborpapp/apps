@@ -29,6 +29,7 @@
 #include "FreiChen.h"
 #include "BoxBlur.h"
 #include "Sharpen.h"
+#include "KawaseBloom.h"
 
 class FilterApp : public ci::app::AppBasic
 {
@@ -51,16 +52,23 @@ class FilterApp : public ci::app::AppBasic
 		ci::gl::ip::Sobel sobel;
 		ci::gl::ip::FreiChen frei_chen;
 		ci::gl::ip::Sharpen sharpen;
+		ci::gl::ip::KawaseBloom bloom;
 
 		ci::params::InterfaceGl	params;
 		bool apply_boxblur;
 		float boxblur_radius;
 		int blur_n;
 		bool apply_blur;
+
 		bool apply_sobel;
 		bool apply_frei_chen;
+
 		bool apply_sharpen;
 		float sharpen_strength;
+
+		bool apply_bloom;
+		int bloom_iterations;
+		float bloom_strength;
 
 		ci::Font font;
 
