@@ -166,8 +166,6 @@ class LiquidApp : public AppBasic
 
 		static const int OPTFLOW_WIDTH = 120;
 		static const int OPTFLOW_HEIGHT = 90;
-
-
 };
 
 
@@ -808,8 +806,8 @@ void LiquidApp::draw()
 	gl::draw( output, getWindowBounds() );
 	//gl::draw( mFbo.getTexture(), getWindowBounds() );
 
-
 	// flow vectors
+	gl::disable( GL_TEXTURE_2D );
 	if ( mDrawFlow && mFlow.data )
 	{
 		RectMapping ofToWin( Area( 0, 0, mFlow.cols, mFlow.rows ),
