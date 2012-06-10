@@ -32,6 +32,7 @@
 #include "cinder/Capture.h"
 #include "cinder/ip/Resize.h"
 #include "cinder/ImageIo.h"
+#include "AntTweakBar.h"
 
 #include "CinderOpenCV.h"
 
@@ -200,8 +201,8 @@ void LiquidApp::setup()
 	mParams.addParam( "Draw flow", &mDrawFlow );
 	mDrawCapture = true;
 	mParams.addParam( "Draw capture", &mDrawCapture );
-	mFlowMultiplier = .1;
-	mParams.addParam( "Flow multiplier", &mFlowMultiplier, "min=.01 max=2 step=.01" );
+	mFlowMultiplier = .01;
+	mParams.addParam( "Flow multiplier", &mFlowMultiplier, "min=.005 max=2 step=.005" );
 	mParams.addSeparator();
 
 	mDensity = 2.0;
@@ -282,6 +283,11 @@ void LiquidApp::setup()
 	}
 
 	setFrameRate( 60 );
+
+	setFullScreen( true );
+	mParams.hide();
+	// mParams.setOptions(" TW_HELP ", " visible=false "); // FIXME: not working
+	TwDefine(" TW_HELP visible=false ");
 }
 
 void LiquidApp::generateParticleTexture()
@@ -334,7 +340,26 @@ void LiquidApp::shutdown()
 void LiquidApp::keyDown(KeyEvent event)
 {
 	if (event.getChar() == 'f')
+	{
 		setFullScreen(!isFullScreen());
+		if (isFullScreen())
+			hideCursor();
+		else
+			showCursor();
+	}
+	else
+	if (event.getChar() == 's')
+	{
+		mParams.show( !mParams.isVisible() );
+		if ( isFullScreen() )
+		{
+			if ( !mParams.isVisible() )
+				hideCursor();
+			else
+				showCursor();
+		}
+	}
+
 	if (event.getCode() == KeyEvent::KEY_ESCAPE)
 		quit();
 }

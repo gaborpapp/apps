@@ -1,5 +1,6 @@
 TARGET = 'LiquidApp'
-SOURCES  = ['LiquidApp.cpp', 'Sharpen.cpp', 'KawaseBloom.cpp']
+SOURCES  = ['LiquidApp.cpp', 'Sharpen.cpp', 'KawaseBloom.cpp',
+		'PParams.cpp']
 RESOURCES = ['kibu_logo_png_1024x768.png', 'PassThrough.vert',
 		'PhotoshopMath.frag']
 
