@@ -80,9 +80,11 @@ void MovieAlpha::setup()
 	mParams.addButton( "Make movie",
 			std::bind( &MovieAlpha::startMovieThread, this ) );
 
+	/*
 	sMoviePath = getSaveFilePath();
     if ( !qtime::MovieWriter::getUserCompressionSettings( &sMovieFormat ) )
 		quit();
+	*/
 
 }
 
@@ -106,15 +108,15 @@ void MovieAlpha::makeMovie( MovieAlpha *ptr, const fs::path &imagePath )
 	if ( imagePath.empty() )
 		return;
 
+	/*
 	if ( sMoviePath.empty() )
 		return; // user cancelled save
+	*/
 
-	fs::path outDir = app::getAppPath();
-#ifdef CINDER_MAC
-    outDir /= "..";
-#endif
+	fs::path outDir = imagePath.parent_path();
 	outDir /= imagePath.filename().string() + "-alpha";
-    //fs::create_directory( outDir );
+	app::console() << outDir.string() << endl;
+	fs::create_directory( outDir );
 
 	app::console() << imagePath.string() << ":\n------\n" << endl;
 	int imageCount = 0;
@@ -142,22 +144,24 @@ void MovieAlpha::makeMovie( MovieAlpha *ptr, const fs::path &imagePath )
 
 			Surface alphaSurface = makeAlphaImage( s );
 
+			/*
 			if ( !initMovie )
 			{
 				sMovieWriter = qtime::MovieWriter( sMoviePath, alphaSurface.getWidth(),
 						alphaSurface.getHeight(), sMovieFormat );
 				initMovie = true;
 			}
+			*/
 
 			fs::path outName = outDir / ( it->path().stem().string() + "-alpha.png" );
-			//writeImage( outName, alphaSurface );
+			writeImage( outName, alphaSurface );
 
-			sMovieWriter.addFrame( alphaSurface );
+			//sMovieWriter.addFrame( alphaSurface );
 
 			sProgress += step;
 		}
 	}
-	sMovieWriter.finish();
+	//sMovieWriter.finish();
 }
 
 Surface MovieAlpha::makeAlphaImage( const Surface &image )
