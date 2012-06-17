@@ -1,0 +1,28 @@
+TARGET = 'LiquidKoln'
+APP_SOURCES  = ['LiquidKoln.cpp', 'KawaseBloom.cpp',
+		'PParams.cpp']
+RESOURCES = []
+DEBUG = 0
+
+env = Environment()
+env.Append(APP_SOURCES = APP_SOURCES)
+
+# OpenCV
+env = SConscript('../../../blocks/Cinder-OpenCV/scons/SConscript',
+		exports = ['env'])
+
+# Syphon
+env = SConscript('../../../blocks/Cinder-Syphon/scons/SConscript',
+		exports = ['env'])
+
+SConscript('../../../scons/SConscript',
+	exports = ['env', 'TARGET', 'RESOURCES', 'DEBUG'])
+
+'''
+# TODO - copy syphon framework
+
+fdir = TARGET + '.app/Contents/Frameworks/Syphon.framework'
+env.AddPostAction( fdir,
+		Copy(fdir, '../../../blocks/Cinder-Syphon/lib/Syphon.framework'))
+'''
+
