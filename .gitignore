@@ -1,4 +1,5 @@
 # scons
-.sconsign.dblite
+scons
+!scons/SConscript
+!scons/.gitignore
 *.o
-
