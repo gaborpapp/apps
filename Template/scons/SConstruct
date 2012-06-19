@@ -1,7 +1,8 @@
-TARGET = 'TemplateApp'
-SOURCES  = ['TemplateApp.cpp']
-DEBUG = 1
+env = Environment()
 
-SConscript('../../../scons/SConscript',
-	exports = ['TARGET', 'SOURCES', 'DEBUG'])
+env['APP_TARGET'] = 'TemplateApp'
+env['APP_SOURCES'] = ['TemplateApp.cpp']
+env['DEBUG'] = 1
+
+SConscript('../../../scons/SConscript', exports = 'env')
 
