@@ -35,7 +35,9 @@
 #include "AntTweakBar.h"
 
 #include "CinderOpenCV.h"
+#ifdef CINDER_MAC
 #include "cinderSyphon.h"
+#endif
 
 #include "Resources.h"
 
@@ -174,8 +176,10 @@ class LiquidApp : public AppBasic
 		static const int OPTFLOW_WIDTH = 120;
 		static const int OPTFLOW_HEIGHT = 90;
 
+#ifdef CINDER_MAC
 		// syphon
 		syphonServer mSyphonServer;
+#endif
 };
 
 
@@ -302,8 +306,10 @@ void LiquidApp::setup()
 
 	setFrameRate( 60 );
 
+#ifdef CINDER_MAC
 	// syphon
-    mSyphonServer.setName( "Liquid" );
+	mSyphonServer.setName( "Liquid" );
+#endif
 
 	mParams.show();
 	// mParams.setOptions(" TW_HELP ", " visible=false "); // FIXME: not working
@@ -821,7 +827,9 @@ void LiquidApp::draw()
 	gl::drawSolidRect( getWindowBounds() );
 	output.unbind();
 
+#ifdef CINDER_MAC
 	mSyphonServer.publishTexture( &output );
+#endif
 
 	// flow vectors
 	gl::disable( GL_TEXTURE_2D );
