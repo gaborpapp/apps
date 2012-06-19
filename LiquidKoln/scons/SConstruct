@@ -1,6 +1,6 @@
 env = Environment()
 
-env['APP_TARGET'] = 'LiquidKoln'
+env['APP_TARGET'] = 'LiquidIR'
 env['APP_SOURCES'] = ['LiquidKoln.cpp', 'KawaseBloom.cpp', 'PParams.cpp']
 env['RESOURCES'] = []
 env['DEBUG'] = 0

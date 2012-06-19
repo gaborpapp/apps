@@ -155,6 +155,13 @@ class LiquidApp : public AppBasic
 		ci::Capture mCapture;
 		gl::Texture mCaptTexture;
 
+		vector< ci::Capture > mCaptures;
+
+		static const int CAPTURE_WIDTH = 640;
+		static const int CAPTURE_HEIGHT = 480;
+
+		int mCurrentCapture;
+
 		// optflow
 		bool mFlip;
 		bool mDrawFlow;
@@ -186,6 +193,45 @@ void LiquidApp::setup()
 {
 	gl::disableVerticalSync();
 
+	// capture
+
+	// list out the capture devices
+	vector< Capture::DeviceRef > devices( Capture::getDevices() );
+	vector< string > deviceNames;
+
+    for ( vector< Capture::DeviceRef >::const_iterator deviceIt = devices.begin();
+			deviceIt != devices.end(); ++deviceIt )
+	{
+        Capture::DeviceRef device = *deviceIt;
+		string deviceName = device->getName() + " " + device->getUniqueId();
+
+        try
+		{
+            if ( device->checkAvailable() )
+			{
+                mCaptures.push_back( Capture( CAPTURE_WIDTH, CAPTURE_HEIGHT,
+							device ) );
+				deviceNames.push_back( deviceName );
+            }
+            else
+			{
+                mCaptures.push_back( Capture() );
+				deviceNames.push_back( deviceName + " not available" );
+			}
+        }
+        catch ( CaptureExc & )
+		{
+            console() << "Unable to initialize device: " << device->getName() <<
+ endl;
+        }
+	}
+
+	if ( deviceNames.empty() )
+	{
+		deviceNames.push_back( "Camera not available" );
+		mCaptures.push_back( Capture() );
+	}
+
 	mParams = params::InterfaceGl("Parameters", Vec2i( 300, 400 ));
 
 	mFlip = true;
@@ -194,7 +240,7 @@ void LiquidApp::setup()
 	mParams.addParam( "Draw flow", &mDrawFlow );
 	mDrawCapture = true;
 	mParams.addParam( "Draw capture", &mDrawCapture );
-	mFlowMultiplier = .05;
+	mFlowMultiplier = .01;
 	mParams.addParam( "Flow multiplier", &mFlowMultiplier, "min=.005 max=2 step=.005" );
 	mParams.addSeparator();
 
@@ -223,7 +269,10 @@ void LiquidApp::setup()
 	mParams.addParam("Bloom strength", &mBloomStrength, "min=0 max=1 step=0.05");
 
 	mParams.addSeparator();
-	mParams.addParam("Fps", &mFps, "", true);
+
+	mCurrentCapture = 0;
+	mParams.addParam( "Capture", deviceNames, &mCurrentCapture );
+	mParams.addParam( "Fps", &mFps, "", true );
 
 	float mul2 = 1.0 / sqrt(mDensity);
 	if (mul2 > 0.72)
@@ -250,17 +299,6 @@ void LiquidApp::setup()
 	mMulY = mFbo.getHeight() / (float)gsizeY;
 
 	mKawaseBloom = gl::ip::KawaseBloom( mFbo.getWidth(), mFbo.getHeight() );
-
-	// capture
-	try
-	{
-		mCapture = Capture( 640, 480 );
-		mCapture.start();
-	}
-	catch (...)
-	{
-		console() << "Failed to initialize capture" << endl;
-	}
 
 	setFrameRate( 60 );
 
@@ -336,7 +374,21 @@ void LiquidApp::mouseUp(MouseEvent event)
 
 void LiquidApp::update()
 {
+	static int lastCapture = -1;
+
 	mFps = getAverageFps();
+
+	if ( lastCapture != mCurrentCapture )
+	{
+		if ( ( lastCapture >= 0 ) && ( mCaptures[ lastCapture ] ) )
+			mCaptures[ lastCapture ].stop();
+
+		if ( mCaptures[ mCurrentCapture ] )
+			mCaptures[ mCurrentCapture ].start();
+
+		mCapture = mCaptures[ mCurrentCapture ];
+		lastCapture = mCurrentCapture;
+	}
 
 	// optical flow
 	if ( mCapture && mCapture.checkNewFrame() )
