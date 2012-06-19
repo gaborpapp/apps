@@ -27,10 +27,10 @@ using namespace std;
 class TemplateApp : public AppBasic
 {
 	public:
-		void prepareSettings(Settings *settings);
+		void prepareSettings( Settings *settings );
 		void setup();
 
-		void keyDown(KeyEvent event);
+		void keyDown( KeyEvent event );
 
 		void update();
 		void draw();
@@ -39,24 +39,57 @@ class TemplateApp : public AppBasic
 		params::InterfaceGl mParams;
 };
 
-void TemplateApp::prepareSettings(Settings *settings)
+void TemplateApp::prepareSettings( Settings *settings )
 {
-	settings->setWindowSize(640, 480);
+	settings->setWindowSize( 640, 480 );
 }
 
 void TemplateApp::setup()
 {
 	gl::disableVerticalSync();
 
-	mParams = params::InterfaceGl("Parameters", Vec2i(200, 300));
+	mParams = params::InterfaceGl( "Parameters", Vec2i( 200, 300 ) );
 }
 
-void TemplateApp::keyDown(KeyEvent event)
+void TemplateApp::keyDown( KeyEvent event )
 {
-	if (event.getChar() == 'f')
-		setFullScreen(!isFullScreen());
-	if (event.getCode() == KeyEvent::KEY_ESCAPE)
-		quit();
+	switch ( event.getCode() )
+	{
+		case KeyEvent::KEY_f:
+			if ( !isFullScreen() )
+			{
+				setFullScreen( true );
+				if ( mParams.isVisible() )
+					showCursor();
+				else
+					hideCursor();
+			}
+			else
+			{
+				setFullScreen( false );
+				showCursor();
+			}
+			break;
+
+		case KeyEvent::KEY_s:
+			mParams.show( !mParams.isVisible() );
+			if ( isFullScreen() )
+			{
+				if ( mParams.isVisible() )
+					showCursor();
+				else
+					hideCursor();
+			}
+			break;
+
+		case KeyEvent::KEY_ESCAPE:
+			quit();
+			break;
+
+		default:
+			break;
+	}
+
 }
 
 void TemplateApp::update()
@@ -70,5 +103,5 @@ void TemplateApp::draw()
 	params::InterfaceGl::draw();
 }
 
-CINDER_APP_BASIC(TemplateApp, RendererGl( RendererGl::AA_NONE ))
+CINDER_APP_BASIC( TemplateApp, RendererGl( RendererGl::AA_NONE ) )
 
