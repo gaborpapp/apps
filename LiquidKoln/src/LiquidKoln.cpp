@@ -180,6 +180,11 @@ class LiquidApp : public AppBasic
 		// syphon
 		syphonServer mSyphonServer;
 #endif
+
+		// boundary
+		Surface mBoundarySurface;
+		gl::Texture  mBoundaryTexture;
+		bool mDrawBounds;
 };
 
 
@@ -242,9 +247,11 @@ void LiquidApp::setup()
 	mParams.addParam( "Flip", &mFlip );
 	mDrawFlow = false;
 	mParams.addParam( "Draw flow", &mDrawFlow );
+	mDrawBounds = false;
+	mParams.addParam( "Draw bounds", &mDrawBounds );
 	mDrawCapture = true;
 	mParams.addParam( "Draw capture", &mDrawCapture );
-	mFlowMultiplier = .01;
+	mFlowMultiplier = .04;
 	mParams.addParam( "Flow multiplier", &mFlowMultiplier, "min=.005 max=2 step=.005" );
 	mParams.addSeparator();
 
@@ -310,6 +317,10 @@ void LiquidApp::setup()
 	// syphon
 	mSyphonServer.setName( "Liquid" );
 #endif
+
+	// bounds
+	mBoundarySurface = loadImage( getAssetPath( "mask.png" ) );
+	mBoundaryTexture = gl::Texture( mBoundarySurface );
 
 	mParams.show();
 	// mParams.setOptions(" TW_HELP ", " visible=false "); // FIXME: not working
@@ -821,6 +832,15 @@ void LiquidApp::draw()
 	else
 	{
 		gl::enableAlphaBlending();
+	}
+
+	if ( mDrawBounds )
+	{
+		gl::color( ColorA( 1, 1, 1, .4 ) );
+
+		gl::draw( mBoundaryTexture, getWindowBounds() );
+
+		gl::color( Color::white() );
 	}
 
 	output.bind();
