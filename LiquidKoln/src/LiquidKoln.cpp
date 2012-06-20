@@ -141,7 +141,7 @@ class LiquidApp : public AppBasic
 
 		float mFps;
 
-		static const int pCount = 10000;
+		static const int pCount = 5000;
 		Particle particles[pCount];
 
 		Vec2i mMousePos;
@@ -185,6 +185,14 @@ class LiquidApp : public AppBasic
 		Surface mBoundarySurface;
 		gl::Texture  mBoundaryTexture;
 		bool mDrawBounds;
+		bool mDrawBoundNormals;
+		Vec2f mBounds[gsizeX][gsizeY];
+		float mBoundaryNormals[ gsizeX * gsizeY * 4 ];
+
+		float getField( Surface::ConstIter &iter, int32_t xOff, int32_t yOff );
+		void precalcBounds();
+		void spreadBounds();
+		void precalcNormals( const Vec2i &windowSize );
 };
 
 
@@ -247,8 +255,10 @@ void LiquidApp::setup()
 	mParams.addParam( "Flip", &mFlip );
 	mDrawFlow = false;
 	mParams.addParam( "Draw flow", &mDrawFlow );
-	mDrawBounds = false;
+	mDrawBounds = true;
 	mParams.addParam( "Draw bounds", &mDrawBounds );
+	mDrawBoundNormals = false;
+	mParams.addParam( "Draw bound normals", &mDrawBoundNormals );
 	mDrawCapture = true;
 	mParams.addParam( "Draw capture", &mDrawCapture );
 	mFlowMultiplier = .04;
@@ -321,18 +331,145 @@ void LiquidApp::setup()
 	// bounds
 	mBoundarySurface = loadImage( getAssetPath( "mask.png" ) );
 	mBoundaryTexture = gl::Texture( mBoundarySurface );
+	precalcBounds();
 
 	mParams.show();
 	// mParams.setOptions(" TW_HELP ", " visible=false "); // FIXME: not working
 	TwDefine(" TW_HELP visible=false ");
 }
 
+float LiquidApp::getField( Surface::ConstIter &iter, int32_t xOff, int32_t yOff )
+{
+	return iter.r( xOff, yOff) * iter.a( xOff, yOff ) / 255.;
+}
+
+void LiquidApp::precalcBounds()
+{
+	Area area = mBoundarySurface.getBounds();
+	area.expand( -1, -1 );
+	Surface::ConstIter it = mBoundarySurface.getIter( area );
+	float xStep = gsizeX / (float)mBoundarySurface.getWidth();
+	float yStep = gsizeY / (float)mBoundarySurface.getHeight();
+
+	for ( int i = 0; i < gsizeY; i++)
+	{
+		for ( int j = 0; j < gsizeX; j++ )
+		{
+			mBounds[ j ][ i ] = Vec2f();
+		}
+	}
+
+	float y = yStep;
+	while ( it.line() )
+	{
+		float x = xStep;
+		while ( it.pixel() )
+		{
+			float dx = getField( it, -1, 0 ) - getField( it, 1, 0 );
+			float dy = getField( it, 0, -1 ) - getField( it, 0, 1 );
+
+			mBounds[ (int)x ][ (int)y ] += Vec2f( dx, dy );
+			x += xStep;
+		}
+		y += yStep;
+	}
+
+	for ( int i = 0; i < 50; i++ )
+	{
+		spreadBounds();
+	}
+
+	for ( int i = 0; i < gsizeY; i++ )
+	{
+		for ( int j = 0; j < gsizeX; j++ )
+		{
+			mBounds[ j ][ i ].normalize();
+		}
+	}
+	precalcNormals( getWindowSize() );
+}
+
+void LiquidApp::spreadBounds()
+{
+	Vec2f sc( mBoundarySurface.getWidth() / (float)gsizeX,
+			  mBoundarySurface.getHeight() / (float)gsizeY );
+
+	Vec2f newBounds[ gsizeX ][ gsizeY ];
+
+	for ( int y = 0; y < gsizeY; y++ )
+	{
+		for ( int x = 0; x < gsizeX; x++ )
+		{
+			Vec2f n = mBounds[ x ][ y ];
+			if ( ( n.lengthSquared() < .1 ) &&
+				 ( mBoundarySurface.getPixel( static_cast< Vec2i >( sc * Vec2f( x, y ) ) ).a < .1 ) )
+			{
+				int i = 0;
+				if ( x > 0 )
+				{
+					n += mBounds[ x - 1 ][ y ];
+					i++;
+				}
+				if ( x < gsizeX - 1 )
+				{
+					n += mBounds[ x + 1 ][ y ];
+					i++;
+				}
+				if ( y > 0 )
+				{
+					n += mBounds[ x ][ y - 1 ];
+					i++;
+				}
+				if ( y < gsizeY - 1 )
+				{
+					n += mBounds[ x ][ y + 1 ];
+					i++;
+				}
+
+				n /= i;
+			}
+			newBounds[ x ][ y ] = n;
+		}
+	}
+
+	for ( int y = 0; y < gsizeY; y++ )
+	{
+		for ( int x = 0; x < gsizeX; x++ )
+		{
+			mBounds[ x ][ y ] = newBounds[ x ][ y ];
+		}
+	}
+}
+
+void LiquidApp::precalcNormals( const Vec2i &windowSize )
+{
+	int i = 0;
+
+	Vec2f mul( windowSize.x / (float)gsizeX,
+			windowSize.y / (float)gsizeY );
+
+	float sc = 2 * mul.x;
+
+	for ( int y = 0; y < gsizeY; y++ )
+	{
+		for ( int x = 0; x < gsizeX; x++ )
+		{
+			Vec2f p0 = mul * Vec2f( x, y );
+			Vec2f p1 = p0 + sc * mBounds[ x ][ y ];
+
+			mBoundaryNormals[ i ] = p0.x;
+			mBoundaryNormals[ i + 1 ] = p0.y;
+			mBoundaryNormals[ i + 2 ] = p1.x;
+			mBoundaryNormals[ i + 3 ] = p1.y;
+
+			i += 4;
+		}
+	}
+}
+
 void LiquidApp::resize(ResizeEvent event)
 {
-	/*
-	mMulX = event.getWidth() / (float)gsizeX;
-	mMulY = event.getHeight() / (float)gsizeY;
-	*/
+	precalcNormals( event.getSize() );
 }
 
 void LiquidApp::shutdown()
@@ -345,29 +482,42 @@ void LiquidApp::shutdown()
 
 void LiquidApp::keyDown(KeyEvent event)
 {
-	if (event.getChar() == 'f')
+	switch ( event.getCode() )
 	{
-		setFullScreen(!isFullScreen());
-		if (isFullScreen())
-			hideCursor();
-		else
-			showCursor();
-	}
-	else
-	if (event.getChar() == 's')
-	{
-		mParams.show( !mParams.isVisible() );
-		if ( isFullScreen() )
-		{
-			if ( !mParams.isVisible() )
-				hideCursor();
+		case KeyEvent::KEY_f:
+			if ( !isFullScreen() )
+			{
+				setFullScreen( true );
+				if ( mParams.isVisible() )
+					showCursor();
+				else
+					hideCursor();
+			}
 			else
+			{
+				setFullScreen( false );
 				showCursor();
-		}
-	}
+			}
+			break;
 
-	if (event.getCode() == KeyEvent::KEY_ESCAPE)
-		quit();
+		case KeyEvent::KEY_s:
+			mParams.show( !mParams.isVisible() );
+			if ( isFullScreen() )
+			{
+				if ( mParams.isVisible() )
+					showCursor();
+				else
+					hideCursor();
+			}
+			break;
+
+		case KeyEvent::KEY_ESCAPE:
+			quit();
+			break;
+
+		default:
+			break;
+	}
 }
 
 void LiquidApp::mouseDown(MouseEvent event)
@@ -715,6 +865,23 @@ void LiquidApp::simulate()
 			p->v += mFlowMultiplier * v.y;
 		}
 
+		int xi = (int)(p->x + p->u);
+		int yi = (int)(p->y + p->v);
+		if ( ( xi >= 0 ) && ( xi < gsizeX ) &&
+			 ( yi >= 0 ) && ( yi < gsizeY ) &&
+			 mBounds[ xi ][ yi ].lengthSquared() > 0 )
+		{
+			Vec2f v( p->u, p->v );
+			Vec2f n = mBounds[ xi ][ yi ];
+			Vec2f v2 = -2 * ( v.dot( n ) ) * n + v;
+			/*
+			p->u = v2.x;
+			p->v = v2.y;
+			*/
+			p->u -= n.x;
+			p->v -= n.y;
+		}
+
 		float x = p->x + p->u;
 		float y = p->y + p->v;
 		if (x < 2.0)
@@ -728,6 +895,7 @@ void LiquidApp::simulate()
 		else
 		if (y > gsizeY - 3)
 			p->v += gsizeY - 3 - y - Rand::randFloat() * 0.01;
+
 
 		for (int i = 0; i < 3; i++)
 		{
@@ -839,6 +1007,17 @@ void LiquidApp::draw()
 		gl::color( ColorA( 1, 1, 1, .4 ) );
 
 		gl::draw( mBoundaryTexture, getWindowBounds() );
+
+		gl::color( Color::white() );
+	}
+
+	if ( mDrawBoundNormals )
+	{
+		gl::color( ColorA( 1, 0, 0, .9 ) );
+		glEnableClientState( GL_VERTEX_ARRAY );
+		glVertexPointer( 2, GL_FLOAT, 0, mBoundaryNormals );
+		glDrawArrays( GL_LINES, 0, gsizeX * gsizeY * 2 );
+		glDisableClientState( GL_VERTEX_ARRAY );
 
 		gl::color( Color::white() );
 	}
