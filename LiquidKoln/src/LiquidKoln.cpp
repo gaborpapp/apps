@@ -63,6 +63,8 @@ class LiquidApp : public AppBasic
 		void mouseUp(MouseEvent event);
 		void mouseDrag(MouseEvent event);
 
+		void resetParticles();
+
 		void simulate();
 
 		void update();
@@ -116,8 +118,9 @@ class LiquidApp : public AppBasic
 			}
 		};
 
-		static const int gsizeX = 120; //129;
-		static const int gsizeY = 90; //97;
+		static const int PMULT = 2;
+		static const int gsizeX = 120 * 2; //129;
+		static const int gsizeY = 90 * 2; //97;
 		float mMulX;
 		float mMulY;
 
@@ -142,7 +145,7 @@ class LiquidApp : public AppBasic
 
 		float mFps;
 
-		static const int pCount = 5000;
+		static const int pCount = 7000 * PMULT;
 		Particle particles[pCount];
 
 		Vec2i mMousePos;
@@ -174,8 +177,8 @@ class LiquidApp : public AppBasic
 		cv::Mat mPrevFrame;
 		cv::Mat mFlow;
 
-		static const int OPTFLOW_WIDTH = 120;
-		static const int OPTFLOW_HEIGHT = 90;
+		static const int OPTFLOW_WIDTH = gsizeX;
+		static const int OPTFLOW_HEIGHT = gsizeY;
 
 #ifdef CINDER_MAC
 		// syphon
@@ -184,7 +187,7 @@ class LiquidApp : public AppBasic
 
 		// boundary
 		Surface mBoundarySurface;
-		gl::Texture  mBoundaryTexture;
+		gl::Texture mBoundaryTexture;
 		bool mDrawBounds;
 		bool mDrawBoundNormals;
 		Vec2f mBounds[gsizeX][gsizeY];
@@ -221,7 +224,7 @@ void LiquidApp::setup()
 			deviceIt != devices.end(); ++deviceIt )
 	{
         Capture::DeviceRef device = *deviceIt;
-		string deviceName = device->getName() + " " + device->getUniqueId();
+		string deviceName = device->getName(); // + " " + device->getUniqueId();
 
         try
 		{
@@ -288,33 +291,28 @@ void LiquidApp::setup()
 	mParams.addPersistentParam( "Particle color", &mParticleColor, ColorA::hex( 0xffffff ) );
 
 	mParams.addPersistentParam( "Bloom strength", &mBloomStrength, .2, "min=0 max=1 step=0.05" );
-	mParams.addSeparator();
+	mParams.addButton( "Particle reset", std::bind( &LiquidApp::resetParticles, this));
 
+	mParams.addSeparator();
 	mParams.addPersistentParam( "Capture", deviceNames, &mCurrentCapture, 0 );
+	if ( mCurrentCapture >= mCaptures.size() )
+		mCurrentCapture = 0;
+
 	mParams.addParam( "Fps", &mFps, "", true );
 
-	// fluid particles
-	float mul2 = 1.0 / sqrt(mDensity);
-	if (mul2 > 0.72)
-		mul2 = 0.72;
+	static int sPCount = pCount;
+	static int sSizeX = gsizeX;
+	static int sSizeY = gsizeY;
+	mParams.addParam( "Particle count", &sPCount, "", true );
+	mParams.addParam( "Particle grid width", &sSizeX, "", true );
+	mParams.addParam( "Particle grid heigth", &sSizeY, "", true );
 
-	int n = 0;
-	int pc = (int)sqrt(pCount) + 1;
-	for (int j = 0; j < pc; j++)
-	{
-		for (int i = 0; i < pc; i++)
-		{
-			if (n < pCount)
-				particles[n] = Particle(((i + Rand::randFloat()) * mul2) + 4.0,
-										((j + Rand::randFloat()) * mul2) + 4.0, 0.0, 0.0);
-			n++;
-		}
-	}
+	resetParticles();
 
 	gl::Fbo::Format format;
 	format.enableDepthBuffer( false );
 
-	mFbo = gl::Fbo( 1024, 768, format );
+	mFbo = gl::Fbo( 1400, 1050, format );
 	mMulX = mFbo.getWidth() / (float)gsizeX;
 	mMulY = mFbo.getHeight() / (float)gsizeY;
 
@@ -329,11 +327,42 @@ void LiquidApp::setup()
 
 	// bounds
 	mBoundarySurface = loadImage( getAssetPath( "mask.png" ) );
+	/*
+	Surface maskSurf = loadImage( getAssetPath( "mask.png" ) );
+	mBoundarySurface = Surface( OPTFLOW_WIDTH, OPTFLOW_HEIGHT, true );
+	ip::resize( maskSurf, &mBoundarySurface );
+	*/
 	mBoundaryTexture = gl::Texture( mBoundarySurface );
 	precalcBounds();
 
 	mParams.show();
 	TwDefine(" TW_HELP visible=false ");
+}
+
+void LiquidApp::resetParticles()
+{
+	// fluid particles
+	float mul2 = 1.0 / sqrt( mDensity );
+	if (mul2 > 0.72)
+		mul2 = 0.72;
+
+	int n = 0;
+	int pc = (int)sqrt(pCount) + 1;
+	int pc2 = pc / 2;
+	float cx = gsizeX / 2;
+	float cy = gsizeY * .4;
+
+	for ( int j = -pc2; j < pc2; j++ )
+	{
+		for ( int i = -pc2; i < pc2; i++ )
+		{
+			if ( n < pCount )
+				particles[n] = Particle( ( cx + ( i + Rand::randFloat() ) * mul2 ),
+										 ( cy + ( j + Rand::randFloat() ) * mul2 ),
+										 .0, .0);
+			n++;
+		}
+	}
 }
 
 float LiquidApp::getField( Surface::ConstIter &iter, int32_t xOff, int32_t yOff )
@@ -372,7 +401,7 @@ void LiquidApp::precalcBounds()
 		y += yStep;
 	}
 
-	for ( int i = 0; i < 50; i++ )
+	for ( int i = 0; i < gsizeX / 2; i++ )
 	{
 		spreadBounds();
 	}
@@ -869,15 +898,10 @@ void LiquidApp::simulate()
 		int yi = (int)(p->y + p->v);
 		if ( ( xi >= 0 ) && ( xi < gsizeX ) &&
 			 ( yi >= 0 ) && ( yi < gsizeY ) &&
+			 // TODO: why is this condition required?
 			 mBounds[ xi ][ yi ].lengthSquared() > 0 )
 		{
-			Vec2f v( p->u, p->v );
 			Vec2f n = mBounds[ xi ][ yi ];
-			Vec2f v2 = -2 * ( v.dot( n ) ) * n + v;
-			/*
-			p->u = v2.x;
-			p->v = v2.y;
-			*/
 			p->u -= n.x;
 			p->v -= n.y;
 		}
