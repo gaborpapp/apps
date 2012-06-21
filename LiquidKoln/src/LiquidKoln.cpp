@@ -971,7 +971,11 @@ void LiquidApp::draw()
 
 	mFbo.unbindFramebuffer();
 
-	gl::Texture output = mKawaseBloom.process( mFbo.getTexture(), 8, mBloomStrength );
+	gl::Texture output;
+	if ( mBloomStrength > .0 )
+		output = mKawaseBloom.process( mFbo.getTexture(), 8, mBloomStrength );
+	else
+		output = mFbo.getTexture();
 
 	// draw output to window
 	gl::clear( Color::black() );
