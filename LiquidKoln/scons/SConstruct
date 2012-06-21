@@ -2,7 +2,7 @@ env = Environment()
 
 env['APP_TARGET'] = 'LiquidIR'
 env['APP_SOURCES'] = ['LiquidKoln.cpp', 'KawaseBloom.cpp', 'PParams.cpp']
-env['RESOURCES'] = []
+env['ASSETS'] = [ 'mask.png' ]
 env['DEBUG'] = 0
 
 # OpenCV

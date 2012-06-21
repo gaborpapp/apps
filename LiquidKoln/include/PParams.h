@@ -62,24 +62,19 @@ class PInterfaceGl : public InterfaceGl {
 				boost::bind( &PInterfaceGl::persistParam<T>, this, var, id ) );
 	}
 
+	//! Adds persistent ColorA parameter.
+	void addPersistentParam(const std::string& name, ci::ColorA *var, const ci::ColorA &defVal,
+			const std::string& optionsStr="", bool readOnly=false);
+
 	//! Adds enumerated persistent parameter. The value corresponds to the indices of \a enumNames.
 	void addPersistentParam(const std::string& name, std::vector<std::string> &enumNames, int* var, int defVal,
-			const std::string& optionsStr="", bool readOnly=false)
-	{
-		addParam(name, enumNames, var, optionsStr, readOnly);
-		std::string id = name2id(name);
-		*var = getXml().hasChild(id)
-			? getXml().getChild(id).getValue(defVal)
-			: defVal;
-		persistCallbacks().push_back(
-				boost::bind( &PInterfaceGl::persistParam<int>, this, var, id ) );
-	}
+			const std::string& optionsStr="", bool readOnly=false);
 
-	/** Load persistent params from file. At the moment this only works when
+	/** Loads persistent params from file. At the moment this only works when
 	 * called at application start up, before creating persistent parameteres.
 	 * Will remember the filename for saving later.
 	 */
-	static void load(const std::string& path);
+	static void load(const fs::path& path);
 
 	/** Save persistent params (to the path passed to load before). */
 	static void save();
@@ -91,7 +86,7 @@ protected:
 	struct Manager {
 		std::vector< boost::function< void() > > persistCallbacks;
 		XmlTree root;
-		std::string filename;
+		fs::path filename;
 
 		Manager() {
 			root = XmlTree::createDoc();
@@ -111,7 +106,7 @@ protected:
 	{
 		return manager().root;
 	}
-	static std::string& filename()
+	static fs::path& filename()
 	{
 		return manager().filename;
 	}
@@ -128,6 +123,11 @@ protected:
 		getXml().getChild(paramId).setValue(*var);
 	}
 
+	std::string colorToHex(const ci::ColorA &color);
+	ci::ColorA hexToColor(const std::string &hex);
+
+	void persistColor(ci::ColorA * var, const std::string& paramId);
+
 	XmlTree& getXml() {
 		if (!root().hasChild(m_id))
 			root().push_back(XmlTree(m_id,""));
@@ -140,3 +140,4 @@ protected:
 };
 
 } } // namespace cinder::params
+

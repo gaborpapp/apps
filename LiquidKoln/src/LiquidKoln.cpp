@@ -42,6 +42,7 @@
 #include "Resources.h"
 
 #include "KawaseBloom.h"
+#include "PParams.h"
 
 using namespace ci;
 using namespace ci::app;
@@ -68,7 +69,7 @@ class LiquidApp : public AppBasic
 		void draw();
 
 	private:
-		params::InterfaceGl mParams;
+		params::PInterfaceGl mParams;
 
 		struct Particle
 		{
@@ -137,7 +138,7 @@ class LiquidApp : public AppBasic
 		float mGravity;
 		float mSmoothing;
 
-		Color mParticleColor;
+		ColorA mParticleColor;
 
 		float mFps;
 
@@ -249,52 +250,50 @@ void LiquidApp::setup()
 		mCaptures.push_back( Capture() );
 	}
 
-	mParams = params::InterfaceGl("Parameters", Vec2i( 300, 400 ));
+	// params
+	fs::path paramsXml( getAssetPath( "params.xml" ));
+	if ( paramsXml.empty() )
+	{
+#if defined( CINDER_MAC )
+		fs::path assetPath( getResourcePath() / "assets" );
+#else
+		fs::path assetPath( getAppPath() / "assets" );
+#endif
+		createDirectories( assetPath );
+		paramsXml = assetPath / "params.xml" ;
+	}
+	params::PInterfaceGl::load( paramsXml );
 
-	mFlip = true;
-	mParams.addParam( "Flip", &mFlip );
-	mDrawFlow = false;
-	mParams.addParam( "Draw flow", &mDrawFlow );
-	mDrawBounds = true;
-	mParams.addParam( "Draw bounds", &mDrawBounds );
-	mDrawBoundNormals = false;
-	mParams.addParam( "Draw bound normals", &mDrawBoundNormals );
-	mDrawCapture = true;
-	mParams.addParam( "Draw capture", &mDrawCapture );
-	mFlowMultiplier = .04;
-	mParams.addParam( "Flow multiplier", &mFlowMultiplier, "min=.005 max=2 step=.005" );
+	mParams = params::PInterfaceGl( "Parameters", Vec2i( 300, 400 ) );
+	mParams.addPersistentSizeAndPosition();
+
+	mParams.addPersistentParam( "Flip", &mFlip, true );
+	mParams.addPersistentParam( "Draw flow", &mDrawFlow, false );
+	mParams.addPersistentParam( "Draw bounds", &mDrawBounds, true );
+	mParams.addPersistentParam( "Draw bound normals", &mDrawBoundNormals, false );
+	mParams.addPersistentParam( "Draw capture", &mDrawCapture, true );
+	mParams.addPersistentParam( "Flow multiplier", &mFlowMultiplier, .04, "min=.001 max=2 step=.001" );
 	mParams.addSeparator();
 
-	mDensity = 2.0;
-	mParams.addParam("Density", &mDensity, "min=0 max=10 step=0.05");
-	mStiffness = 1.0;
-	mParams.addParam("Stiffness", &mStiffness, "min=0 max=1 step=0.05");
-	mBulkViscosity = 1.0;
-	mParams.addParam("Bulk Viscosity", &mBulkViscosity, "min=0 max=1 step=0.05");
-	mElasticity = .0;
-	mParams.addParam("Elasticity", &mElasticity, "min=0 max=1 step=0.05");
-	mViscosity = 0.1;
-	mParams.addParam("Viscosity", &mViscosity, "min=0 max=1 step=0.05");
-	mYieldRate = .0;
-	mParams.addParam("Yield Rate", &mYieldRate, "min=0 max=1 step=0.05");
-	mGravity = .0;
-	mParams.addParam("Gravity", &mGravity, "min=0 max=0.05 step=0.005");
-	mSmoothing = .0;
-	mParams.addParam("Smoothing", &mSmoothing, "min=0 max=1 step=0.05");
+	mParams.addPersistentParam( "Density", &mDensity, 2.0, "min=0 max=10 step=0.05" );
+	mParams.addPersistentParam( "Stiffness", &mStiffness, 1.0, "min=0 max=1 step=0.05");
+	mParams.addPersistentParam( "Bulk Viscosity", &mBulkViscosity, 1.0, "min=0 max=1 step=0.05" );
+	mParams.addPersistentParam( "Elasticity", &mElasticity, .0, "min=0 max=1 step=0.05" );
+	mParams.addPersistentParam( "Viscosity", &mViscosity, .1, "min=0 max=1 step=0.05" );
+	mParams.addPersistentParam( "Yield Rate", &mYieldRate, .0, "min=0 max=1 step=0.05" );
+	mParams.addPersistentParam( "Gravity", &mGravity, .0, "min=0 max=0.05 step=0.005" );
+	mParams.addPersistentParam( "Smoothing", &mSmoothing, .0, "min=0 max=1 step=0.05" );
 
 	mParams.addSeparator();
-	mParticleColor = Color::hex( 0xffffff );
-	mParams.addParam("Particle color", &mParticleColor);
+	mParams.addPersistentParam( "Particle color", &mParticleColor, ColorA::hex( 0xffffff ) );
 
-	mBloomStrength = 0.2;
-	mParams.addParam("Bloom strength", &mBloomStrength, "min=0 max=1 step=0.05");
-
+	mParams.addPersistentParam( "Bloom strength", &mBloomStrength, .2, "min=0 max=1 step=0.05" );
 	mParams.addSeparator();
 
-	mCurrentCapture = 0;
-	mParams.addParam( "Capture", deviceNames, &mCurrentCapture );
+	mParams.addPersistentParam( "Capture", deviceNames, &mCurrentCapture, 0 );
 	mParams.addParam( "Fps", &mFps, "", true );
 
+	// fluid particles
 	float mul2 = 1.0 / sqrt(mDensity);
 	if (mul2 > 0.72)
 		mul2 = 0.72;
@@ -334,7 +333,6 @@ void LiquidApp::setup()
 	precalcBounds();
 
 	mParams.show();
-	// mParams.setOptions(" TW_HELP ", " visible=false "); // FIXME: not working
 	TwDefine(" TW_HELP visible=false ");
 }
 
@@ -474,6 +472,8 @@ void LiquidApp::resize(ResizeEvent event)
 
 void LiquidApp::shutdown()
 {
+	params::PInterfaceGl::save();
+
 	if ( mCapture )
 	{
 		mCapture.stop();
@@ -1054,7 +1054,7 @@ void LiquidApp::draw()
 		}
 	}
 
-	params::InterfaceGl::draw();
+	params::PInterfaceGl::draw();
 }
 
 CINDER_APP_BASIC(LiquidApp, RendererGl( RendererGl::AA_NONE ))
