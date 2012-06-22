@@ -32,6 +32,8 @@
 #include "cinder/Capture.h"
 #include "cinder/ip/Resize.h"
 #include "cinder/ImageIo.h"
+#include "cinder/Timeline.h"
+
 #include "AntTweakBar.h"
 
 #include "CinderOpenCV.h"
@@ -62,8 +64,6 @@ class LiquidApp : public AppBasic
 		void mouseDown(MouseEvent event);
 		void mouseUp(MouseEvent event);
 		void mouseDrag(MouseEvent event);
-
-		void resetParticles();
 
 		void simulate();
 
@@ -118,9 +118,8 @@ class LiquidApp : public AppBasic
 			}
 		};
 
-		static const int PMULT = 2;
-		static const int gsizeX = 120 * 2; //129;
-		static const int gsizeY = 90 * 2; //97;
+		static const int gsizeX = 120 * 2;
+		static const int gsizeY = 90 * 2;
 		float mMulX;
 		float mMulY;
 
@@ -145,8 +144,11 @@ class LiquidApp : public AppBasic
 
 		float mFps;
 
-		static const int pCount = 7000 * PMULT;
+		static const int pCount = 14000;
+		Anim<int> pActiveCount;
 		Particle particles[pCount];
+
+		void resetParticles();
 
 		Vec2i mMousePos;
 		Vec2i mMousePrevPos;
@@ -190,13 +192,29 @@ class LiquidApp : public AppBasic
 		gl::Texture mBoundaryTexture;
 		bool mDrawBounds;
 		bool mDrawBoundNormals;
-		Vec2f mBounds[gsizeX][gsizeY];
+		Vec2f mBounds[ gsizeX ][ gsizeY ];
 		float mBoundaryNormals[ gsizeX * gsizeY * 4 ];
 
 		float getField( Surface::ConstIter &iter, int32_t xOff, int32_t yOff );
 		void precalcBounds();
 		void spreadBounds();
 		void precalcNormals( const Vec2i &windowSize );
+
+		void precalcWhirlpool();
+		void startWhirlpool();
+
+		Vec2f mWhirlpool[ gsizeX ][ gsizeY ];
+		float mWhirlpoolNormals[ gsizeX * gsizeY * 4 ];
+		bool mDrawWhirlpoolNormals;
+		Anim<float> mWhirlpoolDegree;
+		float mWhirlpoolDegreeStart;
+		float mWhirlpoolDegreeEnd;
+		float mWhirlpoolDuration;
+		Vec2f mWhirlpoolCenter;
+
+		enum { STATE_NORMAL = 0, STATE_WHIRLPOOL };
+
+		int mState;
 };
 
 
@@ -267,7 +285,7 @@ void LiquidApp::setup()
 	}
 	params::PInterfaceGl::load( paramsXml );
 
-	mParams = params::PInterfaceGl( "Parameters", Vec2i( 300, 400 ) );
+	mParams = params::PInterfaceGl( "Parameters", Vec2i( 350, 550 ) );
 	mParams.addPersistentSizeAndPosition();
 
 	mParams.addPersistentParam( "Flip", &mFlip, true );
@@ -276,6 +294,18 @@ void LiquidApp::setup()
 	mParams.addPersistentParam( "Draw bound normals", &mDrawBoundNormals, false );
 	mParams.addPersistentParam( "Draw capture", &mDrawCapture, true );
 	mParams.addPersistentParam( "Flow multiplier", &mFlowMultiplier, .04, "min=.001 max=2 step=.001" );
+
+	mParams.addSeparator();
+
+	mParams.addPersistentParam( "Draw whirlpool normals", &mDrawWhirlpoolNormals, false );
+	mParams.addPersistentParam( "Whirlpool degree start", &mWhirlpoolDegreeStart, 1.74, "min=-3.15 max=3.15 step=.01" );
+	mParams.addPersistentParam( "Whirlpool degree end", &mWhirlpoolDegreeEnd, 1.5, "min=-3.15 max=3.15 step=.01" );
+	mWhirlpoolDegree = mWhirlpoolDegreeStart;
+	mParams.addParam( "Whirlpool degree", mWhirlpoolDegree.ptr(), "", false );
+	mParams.addPersistentParam( "Whirlpool center X", &mWhirlpoolCenter.x, .5, "min=0 max=1 step=.01" );
+	mParams.addPersistentParam( "Whirlpool center Y", &mWhirlpoolCenter.y, .5, "min=0 max=1 step=.01" );
+	mParams.addPersistentParam( "Whirlpool duration", &mWhirlpoolDuration, 5., "min=1 max=20 step=.5" );
+
 	mParams.addSeparator();
 
 	mParams.addPersistentParam( "Density", &mDensity, 2.0, "min=0 max=10 step=0.05" );
@@ -292,6 +322,7 @@ void LiquidApp::setup()
 
 	mParams.addPersistentParam( "Bloom strength", &mBloomStrength, .2, "min=0 max=1 step=0.05" );
 	mParams.addButton( "Particle reset", std::bind( &LiquidApp::resetParticles, this));
+	mParams.addButton( "Particle whirlpool", std::bind( &LiquidApp::startWhirlpool, this));
 
 	mParams.addSeparator();
 	mParams.addPersistentParam( "Capture", deviceNames, &mCurrentCapture, 0 );
@@ -300,10 +331,11 @@ void LiquidApp::setup()
 
 	mParams.addParam( "Fps", &mFps, "", true );
 
-	static int sPCount = pCount;
 	static int sSizeX = gsizeX;
 	static int sSizeY = gsizeY;
-	mParams.addParam( "Particle count", &sPCount, "", true );
+
+	mParams.addParam( "Particle count", pActiveCount.ptr(), "", true );
+
 	mParams.addParam( "Particle grid width", &sSizeX, "", true );
 	mParams.addParam( "Particle grid heigth", &sSizeY, "", true );
 
@@ -334,6 +366,7 @@ void LiquidApp::setup()
 	*/
 	mBoundaryTexture = gl::Texture( mBoundarySurface );
 	precalcBounds();
+	precalcWhirlpool();
 
 	mParams.show();
 	TwDefine(" TW_HELP visible=false ");
@@ -341,7 +374,11 @@ void LiquidApp::setup()
 
 void LiquidApp::resetParticles()
 {
-	// fluid particles
+	timeline().clear();
+
+	mState = STATE_NORMAL;
+	pActiveCount = pCount;
+
 	float mul2 = 1.0 / sqrt( mDensity );
 	if (mul2 > 0.72)
 		mul2 = 0.72;
@@ -476,6 +513,7 @@ void LiquidApp::precalcNormals( const Vec2i &windowSize )
 			windowSize.y / (float)gsizeY );
 
 	float sc = 2 * mul.x;
+	float scw = sc * mWhirlpoolDuration;
 
 	for ( int y = 0; y < gsizeY; y++ )
 	{
@@ -489,9 +527,46 @@ void LiquidApp::precalcNormals( const Vec2i &windowSize )
 			mBoundaryNormals[ i + 2 ] = p1.x;
 			mBoundaryNormals[ i + 3 ] = p1.y;
 
+			Vec2f p2 = p0 + scw * mWhirlpool[ x ][ y ];
+			mWhirlpoolNormals[ i ] = p0.x;
+			mWhirlpoolNormals[ i + 1 ] = p0.y;
+			mWhirlpoolNormals[ i + 2 ] = p2.x;
+			mWhirlpoolNormals[ i + 3 ] = p2.y;
+
 			i += 4;
 		}
 	}
+}
+
+void LiquidApp::precalcWhirlpool()
+{
+	Vec2f center( gsizeX, gsizeY );
+	center *= mWhirlpoolCenter;
+
+	for ( int y = 0; y < gsizeY; y++ )
+	{
+		for ( int x = 0; x < gsizeX; x++ )
+		{
+			Vec2f p0 = Vec2f( x, y );
+			Vec2f d = p0 - center;
+
+			Vec2f n( -d.y, d.x );
+			n.rotate( mWhirlpoolDegree );
+			n.safeNormalize();
+			n /= mWhirlpoolDuration;
+
+			mWhirlpool[ x ][ y ] = n;
+		}
+	}
+}
+
+void LiquidApp::startWhirlpool()
+{
+	mState = STATE_WHIRLPOOL;
+	pActiveCount = pCount;
+	timeline().apply( &pActiveCount, 0, mWhirlpoolDuration, EaseOutCubic() );
+	mWhirlpoolDegree = mWhirlpoolDegreeStart;
+	timeline().apply( &mWhirlpoolDegree, mWhirlpoolDegreeEnd, mWhirlpoolDuration, EaseOutQuad() );
 }
 
 void LiquidApp::resize(ResizeEvent event)
@@ -617,6 +692,17 @@ void LiquidApp::update()
         mPrevFrame = currentFrame;
 	}
 
+	static float lastWhirlpoolDegree = mWhirlpoolDegree;
+	static float lastWhirlpoolDuration = mWhirlpoolDuration;
+	static Vec2f lastWhirlpoolCenter = mWhirlpoolCenter;
+	if ( ( math< float >::abs( lastWhirlpoolDegree - mWhirlpoolDegree ) > EPSILON ) ||
+		 ( lastWhirlpoolCenter != mWhirlpoolCenter ) ||
+		 ( lastWhirlpoolDuration != mWhirlpoolDuration ) )
+	{
+		precalcWhirlpool();
+		precalcNormals( getWindowSize() );
+	}
+
 	simulate();
 }
 
@@ -636,7 +722,7 @@ void LiquidApp::simulate()
 	}
 	active.clear();
 
-	for (int k = 0; k < pCount; k++)
+	for (int k = 0; k < pActiveCount; k++)
 	{
 		Particle *p = &particles[k];
 		p->cx = (int)(p->x - 0.5);
@@ -708,7 +794,7 @@ void LiquidApp::simulate()
 
 	}
 
-	for (int k = 0; k < pCount; k++)
+	for (int k = 0; k < pActiveCount; k++)
 	{
 		Particle *p = &particles[k];
 
@@ -858,7 +944,7 @@ void LiquidApp::simulate()
 	}
 
 
-	for (int k = 0; k < pCount; k++)
+	for (int k = 0; k < pActiveCount; k++)
 	{
 		Particle *p = &particles[k];
 		for (int i = 0; i < 3; i++)
@@ -897,13 +983,23 @@ void LiquidApp::simulate()
 		int xi = (int)(p->x + p->u);
 		int yi = (int)(p->y + p->v);
 		if ( ( xi >= 0 ) && ( xi < gsizeX ) &&
-			 ( yi >= 0 ) && ( yi < gsizeY ) &&
-			 // TODO: why is this condition required?
-			 mBounds[ xi ][ yi ].lengthSquared() > 0 )
+			 ( yi >= 0 ) && ( yi < gsizeY ) )
 		{
-			Vec2f n = mBounds[ xi ][ yi ];
-			p->u -= n.x;
-			p->v -= n.y;
+			// boundary repels
+			// TODO: why is this condition required?
+			if ( mBounds[ xi ][ yi ].lengthSquared() > 0 )
+			{
+				Vec2f n = mBounds[ xi ][ yi ];
+				p->u -= n.x;
+				p->v -= n.y;
+			}
+			// whirlpool attracts
+			if ( mState == STATE_WHIRLPOOL )
+			{
+				Vec2f n = mWhirlpool[ xi ][ yi ];
+				p->u += n.x;
+				p->v += n.y;
+			}
 		}
 
 		float x = p->x + p->u;
@@ -944,7 +1040,7 @@ void LiquidApp::simulate()
 
 	}
 
-	for (int k = 0; k < pCount; k++)
+	for (int k = 0; k < pActiveCount; k++)
 	{
 		Particle *p = &particles[k];
 		float gu = 0.0;
@@ -984,7 +1080,7 @@ void LiquidApp::draw()
 	gl::disableDepthRead();
 	gl::disableDepthWrite();
 
-	for (int i = 0; i < pCount; i++)
+	for (int i = 0; i < pActiveCount; i++)
 	{
 		Particle *p = &particles[i];
 
@@ -1044,6 +1140,17 @@ void LiquidApp::draw()
 		gl::color( ColorA( 1, 0, 0, .9 ) );
 		glEnableClientState( GL_VERTEX_ARRAY );
 		glVertexPointer( 2, GL_FLOAT, 0, mBoundaryNormals );
+		glDrawArrays( GL_LINES, 0, gsizeX * gsizeY * 2 );
+		glDisableClientState( GL_VERTEX_ARRAY );
+
+		gl::color( Color::white() );
+	}
+
+	if ( mDrawWhirlpoolNormals )
+	{
+		gl::color( ColorA( 1, 0, 0, .9 ) );
+		glEnableClientState( GL_VERTEX_ARRAY );
+		glVertexPointer( 2, GL_FLOAT, 0, mWhirlpoolNormals );
 		glDrawArrays( GL_LINES, 0, gsizeX * gsizeY * 2 );
 		glDisableClientState( GL_VERTEX_ARRAY );
 
