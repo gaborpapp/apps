@@ -293,8 +293,7 @@ void LiquidApp::setup()
 	mParams.addPersistentParam( "Draw bounds", &mDrawBounds, true );
 	mParams.addPersistentParam( "Draw bound normals", &mDrawBoundNormals, false );
 	mParams.addPersistentParam( "Draw capture", &mDrawCapture, true );
-	mParams.addPersistentParam( "Flow multiplier", &mFlowMultiplier, .04, "min=.001 max=2 step=.001" );
-
+	mParams.addPersistentParam( "Flow multiplier", &mFlowMultiplier, .02, "min=.001 max=2 step=.001" );
 	mParams.addSeparator();
 
 	mParams.addPersistentParam( "Draw whirlpool normals", &mDrawWhirlpoolNormals, false );
@@ -303,10 +302,11 @@ void LiquidApp::setup()
 	mWhirlpoolDegree = mWhirlpoolDegreeStart;
 	mParams.addParam( "Whirlpool degree", mWhirlpoolDegree.ptr(), "", false );
 	mParams.addPersistentParam( "Whirlpool center X", &mWhirlpoolCenter.x, .5, "min=0 max=1 step=.01" );
-	mParams.addPersistentParam( "Whirlpool center Y", &mWhirlpoolCenter.y, .5, "min=0 max=1 step=.01" );
-	mParams.addPersistentParam( "Whirlpool duration", &mWhirlpoolDuration, 5., "min=1 max=20 step=.5" );
-
+	mParams.addPersistentParam( "Whirlpool center Y", &mWhirlpoolCenter.y, .4, "min=0 max=1 step=.01" );
+	mParams.addPersistentParam( "Whirlpool duration", &mWhirlpoolDuration, 7., "min=1 max=20 step=.5" );
+	mParams.addButton( "Particle whirlpool", std::bind( &LiquidApp::startWhirlpool, this));
 	mParams.addSeparator();
+
 
 	mParams.addPersistentParam( "Density", &mDensity, 2.0, "min=0 max=10 step=0.05" );
 	mParams.addPersistentParam( "Stiffness", &mStiffness, 1.0, "min=0 max=1 step=0.05");
@@ -316,15 +316,14 @@ void LiquidApp::setup()
 	mParams.addPersistentParam( "Yield Rate", &mYieldRate, .0, "min=0 max=1 step=0.05" );
 	mParams.addPersistentParam( "Gravity", &mGravity, .0, "min=0 max=0.05 step=0.005" );
 	mParams.addPersistentParam( "Smoothing", &mSmoothing, .0, "min=0 max=1 step=0.05" );
-
 	mParams.addSeparator();
+
 	mParams.addPersistentParam( "Particle color", &mParticleColor, ColorA::hex( 0xffffff ) );
 
 	mParams.addPersistentParam( "Bloom strength", &mBloomStrength, .2, "min=0 max=1 step=0.05" );
 	mParams.addButton( "Particle reset", std::bind( &LiquidApp::resetParticles, this));
-	mParams.addButton( "Particle whirlpool", std::bind( &LiquidApp::startWhirlpool, this));
-
 	mParams.addSeparator();
+
 	mParams.addPersistentParam( "Capture", deviceNames, &mCurrentCapture, 0 );
 	if ( mCurrentCapture >= mCaptures.size() )
 		mCurrentCapture = 0;
@@ -335,7 +334,6 @@ void LiquidApp::setup()
 	static int sSizeY = gsizeY;
 
 	mParams.addParam( "Particle count", pActiveCount.ptr(), "", true );
-
 	mParams.addParam( "Particle grid width", &sSizeX, "", true );
 	mParams.addParam( "Particle grid heigth", &sSizeY, "", true );
 
