@@ -15,43 +15,117 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
 */
 
+#include <sstream>
+
 #include "cinder/Cinder.h"
 #include "cinder/app/AppBasic.h"
+#include "cinder/Capture.h"
 #include "cinder/gl/gl.h"
+#include "cinder/gl/Texture.h"
 #include "cinder/params/Params.h"
+
+#include "LumaOffset.h"
 
 using namespace ci;
 using namespace ci::app;
 using namespace std;
 
-class TemplateApp : public AppBasic
+class FXApp : public ci::app::AppBasic
 {
 	public:
 		void prepareSettings( Settings *settings );
 		void setup();
-
-		void keyDown( KeyEvent event );
+		void shutdown();
 
 		void update();
 		void draw();
 
+		void keyDown( KeyEvent event );
+
 	private:
-		params::InterfaceGl mParams;
+		Capture mCapture;
+
+		mndl::fx::LumaOffset mLumaOffsetFx;
+
+		params::InterfaceGl	mParams;
+
+		float mFps;
 };
 
-void TemplateApp::prepareSettings( Settings *settings )
+void FXApp::prepareSettings( Settings *settings )
 {
-	settings->setWindowSize( 640, 480 );
+	settings->setWindowSize( 800, 600 );
 }
 
-void TemplateApp::setup()
+void FXApp::setup()
 {
 	gl::disableVerticalSync();
 
+	mLumaOffsetFx = mndl::fx::LumaOffset( 640, 480 );
+
 	mParams = params::InterfaceGl( "Parameters", Vec2i( 200, 300 ) );
+
+	mParams.addText( "LumaOffset" );
+	mLumaOffsetFx.addToParams( mParams );
+
+	mParams.addSeparator();
+	mParams.addParam( "Fps", &mFps, "", true );
+
+	// capture
+	try
+	{
+		mCapture = Capture( 640, 480 );
+		mCapture.start();
+	}
+	catch (...)
+	{
+		console() << "Failed to initialize capture" << std::endl;
+	}
 }
 
-void TemplateApp::keyDown( KeyEvent event )
+void FXApp::shutdown()
+{
+	if ( mCapture )
+	{
+		mCapture.stop();
+	}
+}
+
+void FXApp::update()
+{
+	mFps = getAverageFps();
+}
+
+void FXApp::draw()
+{
+	static gl::Texture source;
+
+	gl::clear( Color::black() );
+
+	bool isNewFrame = mCapture && mCapture.checkNewFrame();
+
+	if ( isNewFrame )
+	{
+		source = gl::Texture( mCapture.getSurface() );
+	}
+
+	gl::setMatricesWindow( getWindowSize() );
+	gl::setViewport( getWindowBounds() );
+
+	if ( isNewFrame )
+		source = mLumaOffsetFx.process( source );
+
+	if ( source )
+	{
+		gl::draw( source,
+				Area::proportionalFit( source.getBounds(), getWindowBounds(),
+									   true, true ) );
+	}
+
+	params::InterfaceGl::draw();
+}
+
+void FXApp::keyDown( KeyEvent event )
 {
 	switch ( event.getCode() )
 	{
@@ -91,16 +165,5 @@ void TemplateApp::keyDown( KeyEvent event )
 	}
 }
 
-void TemplateApp::update()
-{
-}
-
-void TemplateApp::draw()
-{
-	gl::clear( Color::black() );
-
-	params::InterfaceGl::draw();
-}
-
-CINDER_APP_BASIC( TemplateApp, RendererGl( RendererGl::AA_NONE ) )
+CINDER_APP_BASIC( FXApp, RendererGl( RendererGl::AA_NONE ) )
 

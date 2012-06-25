@@ -1,25 +1,26 @@
-TARGET = 'FilterApp'
-SOURCES  = ['FilterApp.cpp']
+env = Environment()
 
-SOURCES += ['GaussianBlur.cpp']
-RESOURCES = ['blurh11_vert.glsl', 'blurv11_vert.glsl', 
+env['APP_TARGET'] = 'FilterApp'
+env['APP_SOURCES']  = ['FilterApp.cpp']
+
+env['APP_SOURCES'] += ['GaussianBlur.cpp']
+env['RESOURCES'] = ['blurh11_vert.glsl', 'blurv11_vert.glsl', 
 		'blurh11_frag.glsl', 'blurv11_frag.glsl']
 
-SOURCES += ['Sobel.cpp']
-RESOURCES += ['sobel_frag.glsl']
+env['APP_SOURCES'] += ['Sobel.cpp']
+env['RESOURCES'] += ['sobel_frag.glsl']
 
-SOURCES += ['FreiChen.cpp']
-RESOURCES += ['passthrough_vert.glsl', 'freichen_frag.glsl']
+env['APP_SOURCES'] += ['FreiChen.cpp']
+env['RESOURCES'] += ['passthrough_vert.glsl', 'freichen_frag.glsl']
 
-SOURCES += ['BoxBlur.cpp']
-RESOURCES += ['boxblur_frag.glsl']
+env['APP_SOURCES'] += ['BoxBlur.cpp']
+env['RESOURCES'] += ['boxblur_frag.glsl']
 
-SOURCES += ['Sharpen.cpp']
+env['APP_SOURCES'] += ['Sharpen.cpp']
 
-SOURCES += ['KawaseBloom.cpp']
+env['APP_SOURCES'] += ['KawaseBloom.cpp']
 
-DEBUG = 1
+env['DEBUG'] = 1
 
-SConscript('../../../scons/SConscript',
-	exports = ['TARGET', 'SOURCES', 'DEBUG', 'RESOURCES'])
+SConscript('../../../scons/SConscript', exports = 'env')
 
