@@ -29,12 +29,13 @@ namespace mndl { namespace fx {
 
 #define STRINGIFY(x) #x
 
-class ParameterBase
+// Parameter interface class
+class IParameter
 {
 	public:
-		ParameterBase() {}
+		IParameter() {}
 
-		ParameterBase( const std::string &name ) :
+		IParameter( const std::string &name ) :
 			mName( name )
 		{}
 
@@ -45,137 +46,100 @@ class ParameterBase
 };
 
 template< typename T >
-class ParameterNumber : public ParameterBase
+class Parameter : public IParameter
+{
+	public:
+		Parameter() {}
+
+		Parameter( const std::string &name, T def ) :
+			mValue( def ), mDef( def ),
+			IParameter( name )
+		{}
+
+		Parameter( const std::string &name, T value, T def ) :
+			mValue( value ), mDef( def ),
+			IParameter( name )
+		{}
+
+		Parameter( const Parameter< T > &rhs ) // normal copy constructor
+			: mValue( rhs.mValue ),
+			mDef( rhs.mDef ),
+			IParameter( rhs.mName )
+		{}
+
+		Parameter< T >& operator=( const Parameter< T > &rhs ) // copy assignment
+		{
+			if ( this != &rhs )
+			{
+				IParameter::mName = rhs.mName;
+				mValue = rhs.mValue;
+				mDef = rhs.mDef;
+			}
+			return *this;
+		}
+
+		operator const T&() const { return mValue; }
+
+		virtual void addToParams( ci::params::InterfaceGl &params )
+		{
+			params.addParam( mName, &mValue );
+		}
+
+	protected:
+		T mValue;
+		T mDef;
+};
+
+template< typename T >
+class ParameterNumber : public Parameter< T >
 {
 	public:
 		ParameterNumber()
 		{}
 
-		ParameterNumber( const std::string &name, T def, T min, T max ) :
-			mValue( def ), mDef( def ),
-			mMin( min ), mMax( max ),
-			ParameterBase( name )
+		ParameterNumber( const std::string &name, T def, T min, T max )
+			: mMin( min ), mMax( max ),
+			  Parameter< T >( name, def )
 		{}
 
-		ParameterNumber( const ParameterNumber< T > &rhs ) // normal copy constructor
-			: mValue( rhs.mValue ),
-			mDef( rhs.mDef ), mMin( rhs.mMin ), mMax( rhs.mMax ),
-			ParameterBase( rhs.mName )
+		ParameterNumber( const ParameterNumber &rhs ) // normal copy constructor
+			: mMin( rhs.mMin ), mMax( rhs.mMax ),
+			  Parameter< T >( rhs.mName, rhs.mValue, rhs.mDef )
 		{}
 
-		operator const T&() const { return mValue; }
-
-		ParameterNumber< T >& operator=( const ParameterNumber< T > &rhs ) // copy assignment
+		ParameterNumber& operator=( const ParameterNumber &rhs ) // copy assignment
 		{
 			if ( this != &rhs )
 			{
-				mName = rhs.mName;
-				mValue = rhs.mValue;
-				mDef = rhs.mDef;
+				Parameter< T >::mName = rhs.mName;
+				Parameter< T >::mValue = rhs.mValue;
+				Parameter< T >::mDef = rhs.mDef;
 				mMin = rhs.mMin;
 				mMax = rhs.mMax;
 			}
 			return *this;
 		}
 
-		void addToParams( ci::params::InterfaceGl &params ) {
+		void addToParams( ci::params::InterfaceGl &params )
+		{
 			std::stringstream ss;
 			T step = ( mMax - mMin ) / 256.;
 			if ( step == 0 )
 				step = 1;
 			ss << "min=" << mMin << " max=" << mMax << " step=" << step;
-			params.addParam( mName, &mValue, ss.str() );
+			params.addParam( Parameter< T >::mName, &this->mValue, ss.str() );
 		}
 
 	private:
-		T mValue;
-		T mDef;
 		T mMin;
 		T mMax;
 };
 
+typedef Parameter< bool > ParameterBool;
+typedef Parameter< ci::Color > ParameterColor;
+typedef Parameter< ci::ColorA > ParameterColorA;
 typedef ParameterNumber< float > ParameterFloat;
 typedef ParameterNumber< int > ParameterInt;
-
-class ParameterBool : public ParameterBase
-{
-	public:
-		ParameterBool()
-		{}
-
-		ParameterBool( const std::string &name, bool def ) :
-			mValue( def ), mDef( def ),
-			ParameterBase( name )
-		{}
-
-		ParameterBool( const ParameterBool &rhs ) // normal copy constructor
-			: mValue( rhs.mValue ),
-			mDef( rhs.mDef ),
-			ParameterBase( rhs.mName )
-		{}
-
-		operator const bool&() const { return mValue; }
-
-		ParameterBool& operator=( const ParameterBool &rhs ) // copy assignment
-		{
-			if ( this != &rhs )
-			{
-				mName = rhs.mName;
-				mValue = rhs.mValue;
-				mDef = rhs.mDef;
-			}
-			return *this;
-		}
-
-		void addToParams( ci::params::InterfaceGl &params )
-		{
-			params.addParam( mName, &mValue );
-		}
-
-	private:
-		bool mValue;
-		bool mDef;
-};
-
-class ParameterColorA : public ParameterBase
-{
-	public:
-		ParameterColorA()
-		{}
-
-		ParameterColorA( const std::string &name, ci::ColorA def ) :
-			mValue( def ), mDef( def ),
-			ParameterBase( name )
-		{}
-
-		ParameterColorA( const ParameterColorA &rhs ) // normal copy constructor
-			: mValue( rhs.mValue ),
-			mDef( rhs.mDef ),
-			ParameterBase( rhs.mName )
-		{}
-
-		operator const ci::ColorA&() const { return mValue; }
-
-		ParameterColorA& operator=( const ParameterColorA &rhs ) // copy assignment
-		{
-			if ( this != &rhs )
-			{
-				mName = rhs.mName;
-				mValue = rhs.mValue;
-				mDef = rhs.mDef;
-			}
-			return *this;
-		}
-
-		void addToParams( ci::params::InterfaceGl &params )
-		{
-			params.addParam( mName, &mValue );
-		}
-
-	private:
-		ci::ColorA mValue;
-		ci::ColorA mDef;
-};
 
 class Effect
 {
@@ -208,12 +172,12 @@ class Effect
 
 		struct Params
 		{
-			void addParameter( ParameterBase *prm )
+			void addParameter( IParameter *prm )
 			{
 				mParameters.push_back( prm );
 			}
 
-			std::vector< ParameterBase * > mParameters;
+			std::vector< IParameter * > mParameters;
 		};
 		std::shared_ptr< Params > mParams;
 
