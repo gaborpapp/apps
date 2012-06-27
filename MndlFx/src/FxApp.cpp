@@ -26,10 +26,12 @@
 
 #include "PassThrough.h"
 #include "LumaOffset.h"
+#include "Posterize.h"
 
 using namespace ci;
 using namespace ci::app;
 using namespace std;
+using namespace mndl;
 
 class FxApp : public ci::app::AppBasic
 {
@@ -52,7 +54,7 @@ class FxApp : public ci::app::AppBasic
 		int mCurrentEffect;
 		vector< std::string > mEffectNames;
 
-		vector< mndl::fx::EffectRef > mEffects;
+		vector< fx::EffectRef > mEffects;
 
 		float mFps;
 };
@@ -68,10 +70,11 @@ void FxApp::setup()
 
 	int w = 640;
 	int h = 480;
-	mEffects.push_back( mndl::fx::EffectRef( new mndl::fx::PassThrough( w, h ) ) );
-	mEffects.push_back( mndl::fx::EffectRef( new mndl::fx::LumaOffset( w, h ) ) );
+	mEffects.push_back( fx::EffectRef( new fx::PassThrough( w, h ) ) );
+	mEffects.push_back( fx::EffectRef( new fx::LumaOffset( w, h ) ) );
+	mEffects.push_back( fx::EffectRef( new fx::Posterize( w, h ) ) );
 
-	mParams = params::InterfaceGl( "Parameters", Vec2i( 200, 300 ) );
+	mParams = params::InterfaceGl( "Parameters", Vec2i( 300, 300 ) );
 
 	for ( vector< mndl::fx::EffectRef >::iterator it = mEffects.begin(); it != mEffects.end(); ++it )
 	{

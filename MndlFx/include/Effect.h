@@ -137,6 +137,46 @@ class ParameterBool : public ParameterBase
 		bool mDef;
 };
 
+class ParameterColorA : public ParameterBase
+{
+	public:
+		ParameterColorA()
+		{}
+
+		ParameterColorA( const std::string &name, ci::ColorA def ) :
+			mValue( def ), mDef( def ),
+			ParameterBase( name )
+		{}
+
+		ParameterColorA( const ParameterColorA &rhs ) // normal copy constructor
+			: mValue( rhs.mValue ),
+			mDef( rhs.mDef ),
+			ParameterBase( rhs.mName )
+		{}
+
+		operator const ci::ColorA&() const { return mValue; }
+
+		ParameterColorA& operator=( const ParameterColorA &rhs ) // copy assignment
+		{
+			if ( this != &rhs )
+			{
+				mName = rhs.mName;
+				mValue = rhs.mValue;
+				mDef = rhs.mDef;
+			}
+			return *this;
+		}
+
+		void addToParams( ci::params::InterfaceGl &params )
+		{
+			params.addParam( mName, &mValue );
+		}
+
+	private:
+		ci::ColorA mValue;
+		ci::ColorA mDef;
+};
+
 class Effect
 {
 	public:
