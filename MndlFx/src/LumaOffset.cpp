@@ -59,7 +59,8 @@ const char *LumaOffset::sFragmentShader =
 	);
 
 LumaOffset::LumaOffset( int w, int h ) :
-	mObj( new Obj( w, h, Effect::mParams ) )
+	mObj( new Obj( w, h, Effect::mParams ) ),
+	Effect( "LumaOffset" )
 {
 }
 

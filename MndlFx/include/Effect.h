@@ -25,8 +25,6 @@
 #include "cinder/app/App.h"
 #include "cinder/params/Params.h"
 
-#include "boost/variant.hpp"
-
 namespace mndl { namespace fx {
 
 #define STRINGIFY(x) #x
@@ -142,12 +140,14 @@ class ParameterBool : public ParameterBase
 class Effect
 {
 	public:
-		Effect() : mParams( new Params )
-		{}
-
-		size_t getParameterCount()
+		size_t getParameterCount() const
 		{
 			return mParams->mParameters.size();
+		}
+
+		const std::string &getName() const
+		{
+			return mName;
 		}
 
 		void addToParams( ci::params::InterfaceGl &params )
@@ -156,7 +156,16 @@ class Effect
 				mParams->mParameters[ i ]->addToParams( params );
 		}
 
+		virtual ci::gl::Texture &process( const ci::gl::Texture &source ) = 0;
+
 	protected:
+		Effect() {}
+
+		Effect( const std::string &name ) :
+			mName( name ),
+			mParams( new Params )
+		{}
+
 		struct Params
 		{
 			void addParameter( ParameterBase *prm )
@@ -167,7 +176,11 @@ class Effect
 			std::vector< ParameterBase * > mParameters;
 		};
 		std::shared_ptr< Params > mParams;
+
+		std::string mName;
 };
+
+typedef std::shared_ptr< class Effect > EffectRef;
 
 } }; // namespace mndl::fx
 

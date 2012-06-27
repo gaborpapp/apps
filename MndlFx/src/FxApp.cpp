@@ -24,13 +24,14 @@
 #include "cinder/gl/Texture.h"
 #include "cinder/params/Params.h"
 
+#include "PassThrough.h"
 #include "LumaOffset.h"
 
 using namespace ci;
 using namespace ci::app;
 using namespace std;
 
-class FXApp : public ci::app::AppBasic
+class FxApp : public ci::app::AppBasic
 {
 	public:
 		void prepareSettings( Settings *settings );
@@ -45,31 +46,39 @@ class FXApp : public ci::app::AppBasic
 	private:
 		Capture mCapture;
 
-		mndl::fx::LumaOffset mLumaOffsetFx;
-
+		void setupParams();
 		params::InterfaceGl	mParams;
+
+		int mCurrentEffect;
+		vector< std::string > mEffectNames;
+
+		vector< mndl::fx::EffectRef > mEffects;
 
 		float mFps;
 };
 
-void FXApp::prepareSettings( Settings *settings )
+void FxApp::prepareSettings( Settings *settings )
 {
 	settings->setWindowSize( 800, 600 );
 }
 
-void FXApp::setup()
+void FxApp::setup()
 {
 	gl::disableVerticalSync();
 
-	mLumaOffsetFx = mndl::fx::LumaOffset( 640, 480 );
+	int w = 640;
+	int h = 480;
+	mEffects.push_back( mndl::fx::EffectRef( new mndl::fx::PassThrough( w, h ) ) );
+	mEffects.push_back( mndl::fx::EffectRef( new mndl::fx::LumaOffset( w, h ) ) );
 
 	mParams = params::InterfaceGl( "Parameters", Vec2i( 200, 300 ) );
 
-	mParams.addText( "LumaOffset" );
-	mLumaOffsetFx.addToParams( mParams );
+	for ( vector< mndl::fx::EffectRef >::iterator it = mEffects.begin(); it != mEffects.end(); ++it )
+	{
+		mEffectNames.push_back( (*it)->getName() );
+	}
 
-	mParams.addSeparator();
-	mParams.addParam( "Fps", &mFps, "", true );
+	mCurrentEffect = 0;
 
 	// capture
 	try
@@ -83,7 +92,7 @@ void FXApp::setup()
 	}
 }
 
-void FXApp::shutdown()
+void FxApp::shutdown()
 {
 	if ( mCapture )
 	{
@@ -91,12 +100,35 @@ void FXApp::shutdown()
 	}
 }
 
-void FXApp::update()
+void FxApp::setupParams()
 {
+	mParams.clear();
+
+	mParams.addParam( "Effect", mEffectNames, &mCurrentEffect );
+
+	mParams.addSeparator();
+
+	mParams.addText( mEffects[ mCurrentEffect ]->getName() );
+	mEffects[ mCurrentEffect ]->addToParams( mParams );
+
+	mParams.addSeparator();
+	mParams.addParam( "Fps", &mFps, "", true );
+}
+
+void FxApp::update()
+{
+	static int lastEffect = -1;
+
+	if ( lastEffect != mCurrentEffect )
+	{
+		setupParams();
+		lastEffect = mCurrentEffect;
+	}
+
 	mFps = getAverageFps();
 }
 
-void FXApp::draw()
+void FxApp::draw()
 {
 	static gl::Texture source;
 
@@ -113,7 +145,7 @@ void FXApp::draw()
 	gl::setViewport( getWindowBounds() );
 
 	if ( isNewFrame )
-		source = mLumaOffsetFx.process( source );
+		source = mEffects[ mCurrentEffect ]->process( source );
 
 	if ( source )
 	{
@@ -125,7 +157,7 @@ void FXApp::draw()
 	params::InterfaceGl::draw();
 }
 
-void FXApp::keyDown( KeyEvent event )
+void FxApp::keyDown( KeyEvent event )
 {
 	switch ( event.getCode() )
 	{
@@ -165,5 +197,5 @@ void FXApp::keyDown( KeyEvent event )
 	}
 }
 
-CINDER_APP_BASIC( FXApp, RendererGl( RendererGl::AA_NONE ) )
+CINDER_APP_BASIC( FxApp, RendererGl( RendererGl::AA_NONE ) )
 
