@@ -59,24 +59,22 @@ const char *Posterize::sFragmentShader =
 	);
 
 Posterize::Posterize( int w, int h ) :
-	mObj( new Obj( w, h, Effect::mParams ) ),
+	mObj( new Obj( w, h ) ),
 	Effect( "Posterize" )
 {
+	mObj->mLevels = ParamColorA( "Levels", ColorA::hexA( 0x04040404 ) );
+	mObj->mDither = Paramb( "Dither", false );
+	mObj->mAlpha = Paramb( "Process alpha", false );
+	addParam( &mObj->mLevels );
+	addParam( &mObj->mDither );
+	addParam( &mObj->mAlpha );
 }
 
 
-Posterize::Obj::Obj( int w, int h, shared_ptr< Effect::Params > params ) :
-	mParams( params ),
+Posterize::Obj::Obj( int w, int h ) :
 	mWidth( w ),
 	mHeight( h )
 {
-	mLevels = ParameterColorA( "Levels", ColorA::hexA( 0x04040404 ) );
-	mDither = ParameterBool( "Dither", false );
-	mAlpha = ParameterBool( "Process alpha", false );
-	mParams->addParameter( &mLevels );
-	mParams->addParameter( &mDither );
-	mParams->addParameter( &mAlpha );
-
 	mFbo = gl::Fbo( mWidth, mHeight );
 	try
 	{

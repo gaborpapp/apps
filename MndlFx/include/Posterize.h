@@ -41,7 +41,7 @@ class Posterize : public Effect
 	protected:
 		struct Obj
 		{
-			Obj( int w, int h, std::shared_ptr< Effect::Params > params );
+			Obj( int w, int h );
 
 			ci::gl::Texture &process( const ci::gl::Texture &source );
 
@@ -51,11 +51,9 @@ class Posterize : public Effect
 			ci::gl::Fbo mFbo;
 			ci::gl::GlslProg mShader;
 
-			ParameterColorA mLevels;
-			ParameterBool mDither;
-			ParameterBool mAlpha;
-
-			std::shared_ptr< Effect::Params > mParams;
+			ParamColorA mLevels;
+			Paramb mDither;
+			Paramb mAlpha;
 		};
 		std::shared_ptr< Obj > mObj;
 

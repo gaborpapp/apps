@@ -41,7 +41,7 @@ class LumaOffset : public Effect
 	protected:
 		struct Obj
 		{
-			Obj( int w, int h, std::shared_ptr< Effect::Params > params );
+			Obj( int w, int h );
 
 			ci::gl::Texture &process( const ci::gl::Texture &source );
 
@@ -54,13 +54,11 @@ class LumaOffset : public Effect
 			ci::gl::VboMesh mVboMesh;
 			ci::gl::GlslProg mShader;
 
-			ParameterFloat mOffsetScale;
-			ParameterInt mLineGap;
-			ParameterFloat mPointSize;
-			ParameterBool mFilled;
-			ParameterBool mSmooth;
-
-			std::shared_ptr< Effect::Params > mParams;
+			Paramf mOffsetScale;
+			Parami mLineGap;
+			Paramf mPointSize;
+			Paramb mFilled;
+			Paramb mSmooth;
 		};
 		std::shared_ptr< Obj > mObj;
 

@@ -41,7 +41,7 @@ class PassThrough : public Effect
 	protected:
 		struct Obj
 		{
-			Obj( int w, int h, std::shared_ptr< Effect::Params > params );
+			Obj( int w, int h );
 
 			ci::gl::Texture &process( const ci::gl::Texture &source );
 
@@ -51,9 +51,8 @@ class PassThrough : public Effect
 			ci::gl::Fbo mFbo;
 			ci::gl::GlslProg mShader;
 
-			ParameterFloat mFadeValue;
-
-			std::shared_ptr< Effect::Params > mParams;
+			Paramf mFadeValue;
+			Effect *mParent;
 		};
 		std::shared_ptr< Obj > mObj;
 

@@ -48,20 +48,18 @@ const char *PassThrough::sFragmentShader =
 	);
 
 PassThrough::PassThrough( int w, int h ) :
-	mObj( new Obj( w, h, Effect::mParams ) ),
+	mObj( new Obj( w, h ) ),
 	Effect( "PassThrough" )
 {
+	mObj->mFadeValue = Paramf( "Fade", 1.f, 0.f, 1.f );
+	addParam( &mObj->mFadeValue );
 }
 
 
-PassThrough::Obj::Obj( int w, int h, shared_ptr< Effect::Params > params ) :
-	mParams( params ),
+PassThrough::Obj::Obj( int w, int h ) :
 	mWidth( w ),
 	mHeight( h )
 {
-	mFadeValue = ParameterFloat( "Fade", 1, 0, 1 );
-	mParams->addParameter( &mFadeValue );
-
 	mFbo = gl::Fbo( mWidth, mHeight );
 	try
 	{

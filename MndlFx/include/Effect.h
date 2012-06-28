@@ -29,13 +29,13 @@ namespace mndl { namespace fx {
 
 #define STRINGIFY(x) #x
 
-// Parameter interface class
-class IParameter
+// Param interface class
+class IParam
 {
 	public:
-		IParameter() {}
+		IParam() {}
 
-		IParameter( const std::string &name ) :
+		IParam( const std::string &name ) :
 			mName( name )
 		{}
 
@@ -46,32 +46,32 @@ class IParameter
 };
 
 template< typename T >
-class Parameter : public IParameter
+class Param : public IParam
 {
 	public:
-		Parameter() {}
+		Param() {}
 
-		Parameter( const std::string &name, T def ) :
+		Param( const std::string &name, T def ) :
 			mValue( def ), mDef( def ),
-			IParameter( name )
+			IParam( name )
 		{}
 
-		Parameter( const std::string &name, T value, T def ) :
+		Param( const std::string &name, T value, T def ) :
 			mValue( value ), mDef( def ),
-			IParameter( name )
+			IParam( name )
 		{}
 
-		Parameter( const Parameter< T > &rhs ) // normal copy constructor
+		Param( const Param< T > &rhs ) // normal copy constructor
 			: mValue( rhs.mValue ),
 			mDef( rhs.mDef ),
-			IParameter( rhs.mName )
+			IParam( rhs.mName )
 		{}
 
-		Parameter< T >& operator=( const Parameter< T > &rhs ) // copy assignment
+		Param< T >& operator=( const Param< T > &rhs ) // copy assignment
 		{
 			if ( this != &rhs )
 			{
-				IParameter::mName = rhs.mName;
+				IParam::mName = rhs.mName;
 				mValue = rhs.mValue;
 				mDef = rhs.mDef;
 			}
@@ -91,29 +91,29 @@ class Parameter : public IParameter
 };
 
 template< typename T >
-class ParameterNumber : public Parameter< T >
+class ParamNumber : public Param< T >
 {
 	public:
-		ParameterNumber()
+		ParamNumber()
 		{}
 
-		ParameterNumber( const std::string &name, T def, T min, T max )
+		ParamNumber( const std::string &name, T def, T min, T max )
 			: mMin( min ), mMax( max ),
-			  Parameter< T >( name, def )
+			  Param< T >( name, def )
 		{}
 
-		ParameterNumber( const ParameterNumber &rhs ) // normal copy constructor
+		ParamNumber( const ParamNumber &rhs ) // normal copy constructor
 			: mMin( rhs.mMin ), mMax( rhs.mMax ),
-			  Parameter< T >( rhs.mName, rhs.mValue, rhs.mDef )
+			  Param< T >( rhs.mName, rhs.mValue, rhs.mDef )
 		{}
 
-		ParameterNumber& operator=( const ParameterNumber &rhs ) // copy assignment
+		ParamNumber& operator=( const ParamNumber &rhs ) // copy assignment
 		{
 			if ( this != &rhs )
 			{
-				Parameter< T >::mName = rhs.mName;
-				Parameter< T >::mValue = rhs.mValue;
-				Parameter< T >::mDef = rhs.mDef;
+				Param< T >::mName = rhs.mName;
+				Param< T >::mValue = rhs.mValue;
+				Param< T >::mDef = rhs.mDef;
 				mMin = rhs.mMin;
 				mMax = rhs.mMax;
 			}
@@ -127,7 +127,7 @@ class ParameterNumber : public Parameter< T >
 			if ( step == 0 )
 				step = 1;
 			ss << "min=" << mMin << " max=" << mMax << " step=" << step;
-			params.addParam( Parameter< T >::mName, &this->mValue, ss.str() );
+			params.addParam( Param< T >::mName, &this->mValue, ss.str() );
 		}
 
 	private:
@@ -135,18 +135,18 @@ class ParameterNumber : public Parameter< T >
 		T mMax;
 };
 
-typedef Parameter< bool > ParameterBool;
-typedef Parameter< ci::Color > ParameterColor;
-typedef Parameter< ci::ColorA > ParameterColorA;
-typedef ParameterNumber< float > ParameterFloat;
-typedef ParameterNumber< int > ParameterInt;
+typedef Param< bool > Paramb;
+typedef Param< ci::Color > ParamColor;
+typedef Param< ci::ColorA > ParamColorA;
+typedef ParamNumber< float > Paramf;
+typedef ParamNumber< int > Parami;
 
 class Effect
 {
 	public:
-		size_t getParameterCount() const
+		size_t getParamCount() const
 		{
-			return mParams->mParameters.size();
+			return mParams.size();
 		}
 
 		const std::string &getName() const
@@ -156,32 +156,27 @@ class Effect
 
 		void addToParams( ci::params::InterfaceGl &params )
 		{
-			for ( size_t i = 0; i < mParams->mParameters.size(); ++i )
-				mParams->mParameters[ i ]->addToParams( params );
+			for ( size_t i = 0; i < mParams.size(); ++i )
+				mParams[ i ]->addToParams( params );
 		}
 
 		virtual ci::gl::Texture &process( const ci::gl::Texture &source ) = 0;
+
+		///! Adds parameter to the effect
+		void addParam( IParam *prm )
+		{
+			mParams.push_back( prm );
+		}
 
 	protected:
 		Effect() {}
 
 		Effect( const std::string &name ) :
-			mName( name ),
-			mParams( new Params )
+			mName( name )
 		{}
 
-		struct Params
-		{
-			void addParameter( IParameter *prm )
-			{
-				mParameters.push_back( prm );
-			}
-
-			std::vector< IParameter * > mParameters;
-		};
-		std::shared_ptr< Params > mParams;
-
 		std::string mName;
+		std::vector< IParam * > mParams;
 };
 
 typedef std::shared_ptr< class Effect > EffectRef;

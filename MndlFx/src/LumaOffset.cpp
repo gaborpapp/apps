@@ -59,36 +59,29 @@ const char *LumaOffset::sFragmentShader =
 	);
 
 LumaOffset::LumaOffset( int w, int h ) :
-	mObj( new Obj( w, h, Effect::mParams ) ),
+	mObj( new Obj( w, h ) ),
 	Effect( "LumaOffset" )
 {
+	mObj->mOffsetScale = Paramf( "Offset scale", -64.f, float(-w), float(w) );
+	addParam( &mObj->mOffsetScale );
+	mObj->mLineGap = Parami( "Line gap", 2, 1, h );
+	addParam( &mObj->mLineGap );
+	mObj->mPointSize = Paramf( "Point size", 1.f, .5f, 100.f );
+	addParam( &mObj->mPointSize );
+	mObj->mFilled = Paramb( "Filled", false );
+	addParam( &mObj->mFilled );
+	mObj->mSmooth = Paramb( "Smooth", false );
+	addParam( &mObj->mSmooth );
 }
 
 
-LumaOffset::Obj::Obj( int w, int h, shared_ptr< Effect::Params > params ) :
-	mParams( params ),
+LumaOffset::Obj::Obj( int w, int h ) :
 	mWidth( w ),
 	mHeight( h )
 {
-	mOffsetScale = ParameterFloat( "Offset scale", -64.f, -w, w );
-	mLineGap = ParameterInt( "Line gap", 2, 1, h );
-	mPointSize = ParameterFloat( "Poiunt size", 1, .5, 100 );
-	mFilled = ParameterBool( "Filled", false );
-	mSmooth = ParameterBool( "Smooth", false );
-
-	mParams->addParameter( &mOffsetScale );
-	mParams->addParameter( &mLineGap );
-	mParams->addParameter( &mPointSize );
-	mParams->addParameter( &mFilled );
-	mParams->addParameter( &mSmooth );
-
 	mFbo = gl::Fbo( mWidth, mHeight );
 	try
 	{
-		/*
-		mShader = gl::GlslProg( app::loadResource( RES_LUMAOFFSET_VERT ),
-				app::loadResource( RES_LUMAOFFSET_FRAG ) );
-				*/
 		mShader = gl::GlslProg( sVertexShader, sFragmentShader );
 	}
 	catch( gl::GlslProgCompileExc &exc )
@@ -118,7 +111,7 @@ void LumaOffset::Obj::createMesh()
 	float uStep = 1. / static_cast< float >( mWidth );
 	float vStep = mLineGap / static_cast< float >( mHeight );
 
-	if ( !mSmooth && mFilled )
+	if ( mFilled && !mSmooth )
 	{
 		float u = 0;
 		for ( int x = 0; x < mWidth; x++ )
