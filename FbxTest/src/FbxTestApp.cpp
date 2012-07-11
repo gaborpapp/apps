@@ -15,6 +15,8 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
 */
 
+#include "algorithm"
+
 #include "cinder/Cinder.h"
 #include "cinder/app/AppBasic.h"
 #include "cinder/gl/gl.h"
@@ -41,6 +43,7 @@ class FbxTestApp : public AppBasic
 
 	private:
 		params::InterfaceGl mParams;
+		void setupParams();
 
 		// Fbx
 		S9::S9FbxLoader mFBXLoader;
@@ -48,8 +51,18 @@ class FbxTestApp : public AppBasic
 
 		shared_ptr< S9::FbxDrawable > mDrawable;
 		int mBoneIndex;
+		bool mNoBones;
+
+		vector< string > mBoneNames;
+		struct Bone
+		{
+			Quatf rot;
+			int id;
+		};
+		vector< Bone > mBones;
 
 		CameraPersp mCam;
+		float mFps;
 };
 
 void FbxTestApp::prepareSettings( Settings *settings )
@@ -66,26 +79,71 @@ void FbxTestApp::setup()
 	mDrawable = mFBXLoader.load( getAssetPath("seymour.fbx").string() );
 
 	// list all names
-	vector< string > boneNames;
 	for ( map< string, int >::iterator it = mDrawable->meshes[0]->boneNameToIndex.begin();
 			it != mDrawable->meshes[0]->boneNameToIndex.end(); ++it )
 	{
-		boneNames.push_back( it->first );
+		mBoneNames.push_back( it->first );
 		console() << it->first << " " << it->second << endl;
 	}
-	if ( boneNames.empty() )
-		boneNames.push_back( "NO BONES!" );
+	sort( mBoneNames.begin(), mBoneNames.end() );
+
+	if ( mBoneNames.empty() )
+	{
+		mBoneNames.push_back( "NO BONES!" );
+		mNoBones = true;
+	}
+	else
+	{
+		for ( vector< string >::const_iterator it = mBoneNames.begin(); it < mBoneNames.end(); ++it )
+		{
+			Bone b;
+			b.id = mDrawable->meshes[0]->boneNameToIndex[ *it ];
+			mBones.push_back( b );
+		}
+		mNoBones = false;
+	}
 
 	mBoneIndex = 0;
-	mParams.addParam( "bones", boneNames, &mBoneIndex );
 
 	gl::enableDepthRead();
 	gl::enableDepthWrite();
 }
 
+void FbxTestApp::setupParams()
+{
+	mParams.clear();
+
+	mParams.addParam( "Bones", mBoneNames, &mBoneIndex, "", mNoBones );
+
+	mParams.addSeparator();
+
+	if ( mNoBones )
+		return;
+
+	mParams.addParam( "Rotation", &mBones[ mBoneIndex ].rot, "opened=true" );
+	mParams.addParam( "Id", &mBones[ mBoneIndex ].id, "", true );
+
+	mParams.addSeparator();
+	mParams.addParam( "Fps", &mFps, "", true );
+}
 
 void FbxTestApp::update()
 {
+	static int lastBoneIndex = -1;
+
+	if ( mBoneIndex != lastBoneIndex )
+	{
+		setupParams();
+		lastBoneIndex = mBoneIndex;
+	}
+
+	if ( !mNoBones )
+	{
+		Matrix44d m = mBones[ mBoneIndex ].rot.toMatrix44();
+		mFBXDrawer.rotateBone( mDrawable->meshes[0], mBones[ mBoneIndex ].id, m );
+	}
+
+	mFps = getAverageFps();
 }
 
 void FbxTestApp::draw()
