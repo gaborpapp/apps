@@ -49,6 +49,8 @@ class FbxTestApp : public AppBasic
 		S9::S9FbxLoader mFBXLoader;
 		S9::S9FbxDrawer mFBXDrawer;
 
+		void resetRotations();
+
 		shared_ptr< S9::FbxDrawable > mDrawable;
 		int mBoneIndex;
 		bool mNoBones;
@@ -94,7 +96,7 @@ void FbxTestApp::setup()
 	}
 	else
 	{
-		for ( vector< string >::const_iterator it = mBoneNames.begin(); it < mBoneNames.end(); ++it )
+		for ( vector< string >::const_iterator it = mBoneNames.begin(); it != mBoneNames.end(); ++it )
 		{
 			Bone b;
 			b.id = mDrawable->meshes[0]->boneNameToIndex[ *it ];
@@ -122,9 +124,21 @@ void FbxTestApp::setupParams()
 
 	mParams.addParam( "Rotation", &mBones[ mBoneIndex ].rot, "opened=true" );
 	mParams.addParam( "Id", &mBones[ mBoneIndex ].id, "", true );
+	mParams.addButton( "Reset", bind( &FbxTestApp::resetRotations, this ) );
 
 	mParams.addSeparator();
 	mParams.addParam( "Fps", &mFps, "", true );
+}
+
+void FbxTestApp::resetRotations()
+{
+	//mFBXDrawer.resetRotations( mDrawable->meshes[0] );
+	for ( vector< Bone >::iterator it = mBones.begin(); it != mBones.end(); ++it )
+	{
+		it->rot.set( 1, 0, 0, 0 );
+		Matrix44d m = it->rot.toMatrix44();
+		mFBXDrawer.rotateBone( mDrawable->meshes[0], it->id, m );
+	}
 }
 
 void FbxTestApp::update()
