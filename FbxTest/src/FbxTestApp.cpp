@@ -22,6 +22,8 @@
 #include "cinder/gl/gl.h"
 #include "cinder/params/Params.h"
 #include "cinder/Camera.h"
+#include "cinder/MayaCamUI.h"
+#include "cinder/Xml.h"
 
 #include "S9FbxLoader.h"
 #include "S9FbxDrawer.h"
@@ -36,7 +38,10 @@ class FbxTestApp : public AppBasic
 		void prepareSettings( Settings *settings );
 		void setup();
 
+		void resize( ResizeEvent event );
 		void keyDown( KeyEvent event );
+		void mouseDown( MouseEvent event );
+		void mouseDrag( MouseEvent event );
 
 		void update();
 		void draw();
@@ -48,6 +53,8 @@ class FbxTestApp : public AppBasic
 		// Fbx
 		S9::S9FbxLoader mFBXLoader;
 		S9::S9FbxDrawer mFBXDrawer;
+
+		MayaCamUI mMayaCam;
 
 		void resetRotations();
 
@@ -63,7 +70,6 @@ class FbxTestApp : public AppBasic
 		};
 		vector< Bone > mBones;
 
-		CameraPersp mCam;
 		float mFps;
 };
 
@@ -78,9 +84,12 @@ void FbxTestApp::setup()
 
 	mParams = params::InterfaceGl( "Parameters", Vec2i( 200, 300 ) );
 
-	mDrawable = mFBXLoader.load( getAssetPath("seymour.fbx").string() );
+	// load model
+	XmlTree doc( loadFile( getAssetPath( "config.xml" ) ) );
+	string fbxPath = doc.getChild( "model" ).getValue();
+	mDrawable = mFBXLoader.load( getAssetPath( fbxPath ).string() );
 
-	// list all names
+	// list all bone names
 	for ( map< string, int >::iterator it = mDrawable->meshes[0]->boneNameToIndex.begin();
 			it != mDrawable->meshes[0]->boneNameToIndex.end(); ++it )
 	{
@@ -109,6 +118,13 @@ void FbxTestApp::setup()
 
 	gl::enableDepthRead();
 	gl::enableDepthWrite();
+
+	CameraPersp cam;
+	cam.setEyePoint( Vec3f( 0, 15, -5 ) );
+	cam.setCenterOfInterestPoint( Vec3f( 1, 1, -5 ) );
+	cam.setPerspective( 60.0, getWindowAspectRatio(), 1.0, 1000.0 );
+	cam.setWorldUp( Vec3f( 1, 1, -1 ) );
+	mMayaCam.setCurrentCam( cam );
 }
 
 void FbxTestApp::setupParams()
@@ -162,11 +178,15 @@ void FbxTestApp::update()
 
 void FbxTestApp::draw()
 {
-	gl::pushModelView();
+	gl::pushMatrices();
 
-	mCam.lookAt( Vec3f( 0, 15, -5 ), Vec3f( 0, 0, -5 ) );
-	mCam.setPerspective( 60, getWindowAspectRatio(), 0.01, 500 );
-	gl::setMatrices( mCam );
+	/*
+	CameraPersp cam;
+	cam.lookAt( Vec3f( 0, 15, -5 ), Vec3f( 0, 0, -5 ) );
+	cam.setPerspective( 60, getWindowAspectRatio(), 0.01, 500 );
+	gl::setMatrices( cam );
+	*/
+	gl::setMatrices( mMayaCam.getCamera() );
 
 	gl::clear( Color::black() );
 
@@ -174,7 +194,7 @@ void FbxTestApp::draw()
 	mFBXDrawer.draw( mDrawable );
 	gl::disable( GL_TEXTURE_2D );
 
-	gl::popModelView();
+	gl::popMatrices();
 
 	params::InterfaceGl::draw();
 }
@@ -217,6 +237,23 @@ void FbxTestApp::keyDown( KeyEvent event )
 		default:
 			break;
 	}
+}
+
+void FbxTestApp::resize( ResizeEvent event )
+{
+	CameraPersp cam = mMayaCam.getCamera();
+	cam.setAspectRatio( getWindowAspectRatio() );
+	mMayaCam.setCurrentCam( cam );
+}
+
+void FbxTestApp::mouseDown( MouseEvent event )
+{
+	mMayaCam.mouseDown( event.getPos() );
+}
+
+void FbxTestApp::mouseDrag( MouseEvent event )
+{
+	mMayaCam.mouseDrag( event.getPos(), event.isLeftDown(), event.isMiddleDown(), event.isRightDown() );
 }
 
 CINDER_APP_BASIC( FbxTestApp, RendererGl( RendererGl::AA_NONE ) )
