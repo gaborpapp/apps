@@ -71,7 +71,6 @@ class TerrainApp : public AppBasic
 		Vec3f mLightDirection;
 
 		MayaCamUI mMayaCam;
-		CameraPersp mCam;
 
 		float mFps;
 };
