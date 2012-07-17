@@ -40,7 +40,9 @@ private:
 	void setupShadowMap();
 	void renderShadowMap();
 
+	void setupMesh( uint32_t model = 3 );
 	void generateNormals();
+
 private:
 	bool			mDrawWireframe;
 	bool			mDrawFlatShaded;
@@ -65,54 +67,8 @@ void SmoothMeshApp::setup()
 	mDrawFlatShaded = false;
 	mDrawShadowMap = false;
 
-	// perlin noise generator (see below)
-	Perlin	perlin( 8, clock() & 65535 );
-
-	// clear the mesh
-	mTriMesh.clear();
-
-	// create the vertices and texture coords
-	size_t width = 100;
-	size_t depth = 100;
-
-	for(size_t z=0;z<=depth;++z) {
-		for(size_t x=0;x<=width;++x) {
-			// try one of the following:
-
-			//	1. random bumps
-			//float y = 2.5f * Rand::randFloat();
-			//	2. smooth bumps (egg container)
-			//float y = 5.0f * sinf( (float) M_PI * 0.05f * x ) * cosf( (float) M_PI * 0.05f * z );
-			//	3. perlin noise
-			float y = 20.0f * perlin.fBm( Vec3f( static_cast<float>(x), static_cast<float>(z), 0.0f ) * 0.02f );
-
-			mTriMesh.appendVertex( Vec3f( static_cast<float>(x), y, static_cast<float>(z) ) );
-			mTriMesh.appendTexCoord( Vec2f( static_cast<float>(x) / width, static_cast<float>(z) / depth ) );
-		}
-	}
-
-	// next, create the index buffer
-	std::vector<uint32_t>	indices;
-
-	for(size_t z=0;z<depth;++z) {
-		size_t base = z * (width + 1);
-
-		for(size_t x=0;x<width;++x) {
-			indices.push_back( base + x );
-			indices.push_back( base + x + width + 1 );
-			indices.push_back( base + x + 1 );
-
-			indices.push_back( base + x + 1 );
-			indices.push_back( base + x + width + 1 );
-			indices.push_back( base + x + width + 2 );
-		}
-	}
-
-	mTriMesh.appendIndices( &indices.front(), indices.size() );
-
-	// use this custom function to create the normal buffer
-	//mTriMesh.generateNormals();
-	generateNormals();
+	// create the mesh
+	setupMesh();
 
 	// initialize shadow map
 	setupShadowMap();
@@ -129,6 +85,8 @@ void SmoothMeshApp::setup()
 	CameraPersp cam;
 	cam.setEyePoint( Vec3f(150.0f, 100.0f, 150.0f) );
 	cam.setCenterOfInterestPoint( Vec3f(50.0f, 0.0f, 50.0f) );
+	cam.setNearClip(5.0f);
+	cam.setFarClip(1000.0f);
 	mMayaCam.setCurrentCam( cam );
 }
 
@@ -290,6 +248,15 @@ void SmoothMeshApp::keyDown( KeyEvent event )
 	case KeyEvent::KEY_w:
 		mDrawWireframe = !mDrawWireframe;
 		break;
+	case KeyEvent::KEY_1:
+		setupMesh(1);
+		break;
+	case KeyEvent::KEY_2:
+		setupMesh(2);
+		break;
+	case KeyEvent::KEY_3:
+		setupMesh(3);
+		break;
 	}
 }
 
@@ -307,10 +274,10 @@ void SmoothMeshApp::enableLights()
 	gl::Light light(gl::Light::POINT, 0);
 
 	light.lookAt( mLightPosition, Vec3f( 50.0f, 0.0f, 50.0f ) );
-	light.setAmbient( Color( 0.3f, 0.3f, 0.3f ) );
+	light.setAmbient( Color( 0.02f, 0.02f, 0.02f ) );
 	light.setDiffuse( Color( 1.0f, 1.0f, 1.0f ) );
 	light.setSpecular( Color( 1.0f, 1.0f, 1.0f ) );
-	light.setShadowParams( 75.0f, 1.0f, 500.0f );
+	light.setShadowParams( 75.0f, 10.0f, 500.0f );
 	light.enable();
 
 	// enable lighting
@@ -330,7 +297,7 @@ void SmoothMeshApp::disableLights()
 
 void SmoothMeshApp::setupShadowMap()
 {
-	static const int size = 1024;
+	static const int size = 2048;
 
 	// create a frame buffer object (FBO) containing only a depth buffer
 	mDepthFbo = gl::Fbo( size, size, false, false, true );
@@ -355,7 +322,7 @@ void SmoothMeshApp::renderShadowMap()
 	glClear( GL_DEPTH_BUFFER_BIT );
 
 	// to reduce artefacts, offset the polygons a bit
-	glPolygonOffset( 1.0f, 1.0f );
+	glPolygonOffset( 3.0f, 3.0f );
 	glEnable( GL_POLYGON_OFFSET_FILL );
 
 	// render the mesh
@@ -372,5 +339,63 @@ void SmoothMeshApp::renderShadowMap()
 	glPopAttrib();
 }
 
-CINDER_APP_BASIC( SmoothMeshApp, RendererGl )
+void SmoothMeshApp::setupMesh(uint32_t model)
+{
+	// perlin noise generator (see below)
+	Perlin	perlin( 8, clock() & 65535 );
 
+	// clear the mesh
+	mTriMesh.clear();
+
+	// create the vertices and texture coords
+	size_t width = 100;
+	size_t depth = 100;
+
+	for(size_t z=0;z<=depth;++z) {
+		for(size_t x=0;x<=width;++x) {
+			float y = 0.0f;
+
+			switch( model ) {
+			case 1:
+				//	1. random bumps
+				y = 2.5f * Rand::randFloat();
+				break;
+			case 2:
+				//	2. smooth bumps (egg container)
+				y = 5.0f * sinf( (float) M_PI * 0.05f * x ) * cosf( (float) M_PI * 0.05f * z );
+				break;
+			case 3:
+				//	3. perlin noise
+				y = 20.0f * perlin.fBm( Vec3f( static_cast<float>(x), static_cast<float>(z), 0.0f ) * 0.02f ); 
+				break;
+			}
+
+			mTriMesh.appendVertex( Vec3f( static_cast<float>(x), y, static_cast<float>(z) ) );
+			mTriMesh.appendTexCoord( Vec2f( static_cast<float>(x) / width, static_cast<float>(z) / depth ) );
+		}
+	}
+
+	// next, create the index buffer
+	std::vector<uint32_t>	indices;
+
+	for(size_t z=0;z<depth;++z) {
+		size_t base = z * (width + 1);
+
+		for(size_t x=0;x<width;++x) {
+			indices.push_back( base + x );	
+			indices.push_back( base + x + width + 1 );	
+			indices.push_back( base + x + 1 );
+			
+			indices.push_back( base + x + 1 );		
+			indices.push_back( base + x + width + 1 );
+			indices.push_back( base + x + width + 2 );
+		}
+	}
+
+	mTriMesh.appendIndices( &indices.front(), indices.size() );
+
+	// use this custom function to create the normal buffer
+	generateNormals();
+}
+
+CINDER_APP_BASIC( SmoothMeshApp, RendererGl )
