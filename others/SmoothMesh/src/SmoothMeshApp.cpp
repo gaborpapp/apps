@@ -126,9 +126,9 @@ void SmoothMeshApp::generateNormals()
 void SmoothMeshApp::update()
 {
 	// animate light
-	float x = 50.0f + 100.0f * (float) sin( 0.20 * getElapsedSeconds() );
-	float y = 50.0f +  45.0f * (float) sin( 0.13 * getElapsedSeconds() );
-	float z = 50.0f + 100.0f * (float) cos( 0.20 * getElapsedSeconds() );
+	float x = 50.0f + 150.0f * (float) sin( 0.20 * getElapsedSeconds() );
+	float y = 50.0f +  45.0f * (float) cos( 0.13 * getElapsedSeconds() );
+	float z = 50.0f + 150.0f * (float) cos( 0.20 * getElapsedSeconds() );
 
 	mLightPosition = Vec3f(x, y, z);
 }
@@ -142,20 +142,20 @@ void SmoothMeshApp::draw()
 
 	// remember what OpenGL effects are enabled by default,
 	// so we can restore that situation at the end of the draw()
-	glPushAttrib( GL_ENABLE_BIT | GL_CURRENT_BIT );
+	glPushAttrib( GL_ENABLE_BIT | GL_CURRENT_BIT );	
 
 	// enable the depth buffer
 	gl::enableDepthRead();
 	gl::enableDepthWrite();
 
 	// draw origin and axes
-	gl::drawCoordinateFrame(15.0f, 2.5f, 1.0f);
+	//gl::drawCoordinateFrame(15.0f, 2.5f, 1.0f);
 
 	// draw light position
-	gl::color( Color(1.0f, 0.5f, 0.0f) );
-	gl::drawSphere( mLightPosition, 0.5f );
-	gl::drawLine( mLightPosition, Vec3f(mLightPosition.x, 0.0f, mLightPosition.z) );
-	gl::drawLine( mLightPosition, Vec3f(50.0f, 0.0f, 50.0f) );
+	if(mDrawShadowMap) {
+		gl::color( Color(1.0f, 1.0f, 0.0f) );
+		gl::drawFrustum( mShadowCamera );
+	}
 
 	// the annoying thing with lights is that they will automatically convert the
 	// specified coordinates to world coordinates, which depend on the
@@ -211,11 +211,28 @@ void SmoothMeshApp::draw()
 
 	gl::popMatrices();
 
-	if(mDrawShadowMap) {
-		Surface32f shadowMapSurface( mDepthFbo.getDepthTexture() );
-		ip::hdrNormalize( &shadowMapSurface );
+	if(mDrawShadowMap) 
+	{
+		mDepthFbo.getDepthTexture().enableAndBind();
+
+		// we'd like to draw the depth map as a normal texture,
+		// so let's temporarily disable the texture compare mode
+		glPushAttrib( GL_TEXTURE_BIT );		
+		glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_COMPARE_MODE, GL_NONE );
+		glTexParameteri( GL_TEXTURE_2D, GL_DEPTH_TEXTURE_MODE, GL_LUMINANCE );
+
+		// optional: invert colors when drawing, so black is far away and white is nearby
+		//glEnable( GL_BLEND );
+		//glBlendFuncSeparate( GL_ONE_MINUS_SRC_COLOR, GL_ZERO, GL_SRC_ALPHA, GL_DST_ALPHA );
+		
 		gl::color( Color::white() );
-		gl::draw( gl::Texture( shadowMapSurface ), Rectf( 0, 128, 128, 0 ) );
+		gl::drawSolidRect( Rectf( 0, 256, 256, 0 ), false );
+
+		//glDisable( GL_BLEND );
+
+		glPopAttrib();
+
+		mDepthFbo.unbindTexture();
 	}
 }
 
@@ -274,10 +291,10 @@ void SmoothMeshApp::enableLights()
 	gl::Light light(gl::Light::POINT, 0);
 
 	light.lookAt( mLightPosition, Vec3f( 50.0f, 0.0f, 50.0f ) );
-	light.setAmbient( Color( 0.02f, 0.02f, 0.02f ) );
+	light.setAmbient( Color( 0.0f, 0.0f, 0.0f ) );
 	light.setDiffuse( Color( 1.0f, 1.0f, 1.0f ) );
 	light.setSpecular( Color( 1.0f, 1.0f, 1.0f ) );
-	light.setShadowParams( 75.0f, 10.0f, 500.0f );
+	light.setShadowParams( 60.0f, 50.0f, 300.0f );
 	light.enable();
 
 	// enable lighting
@@ -322,7 +339,7 @@ void SmoothMeshApp::renderShadowMap()
 	glClear( GL_DEPTH_BUFFER_BIT );
 
 	// to reduce artefacts, offset the polygons a bit
-	glPolygonOffset( 3.0f, 3.0f );
+	glPolygonOffset( 2.0f, 5.0f );
 	glEnable( GL_POLYGON_OFFSET_FILL );
 
 	// render the mesh
@@ -342,7 +359,7 @@ void SmoothMeshApp::renderShadowMap()
 void SmoothMeshApp::setupMesh(uint32_t model)
 {
 	// perlin noise generator (see below)
-	Perlin	perlin( 8, clock() & 65535 );
+	Perlin	perlin( 3, clock() & 65535 );
 
 	// clear the mesh
 	mTriMesh.clear();
@@ -358,7 +375,7 @@ void SmoothMeshApp::setupMesh(uint32_t model)
 			switch( model ) {
 			case 1:
 				//	1. random bumps
-				y = 2.5f * Rand::randFloat();
+				y = 5.0f * Rand::randFloat();
 				break;
 			case 2:
 				//	2. smooth bumps (egg container)

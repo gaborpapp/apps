@@ -12,7 +12,7 @@ varying vec4 Q;
 void main()
 {	
 	const vec4  gamma = vec4(1.0 / 2.2); 
-	const float shinyness = 50.0;
+	const float shininess = 500.0;
 
 	vec4 ambient = gl_LightSource[0].ambient;
 	vec4 diffuse = gl_LightSource[0].diffuse;
@@ -38,7 +38,7 @@ void main()
 
 	// specular term
 	vec4 Ispec = specular;
-	Ispec *= pow(max(dot(R,E),0.0), shinyness);
+	Ispec *= pow(max(dot(R,E),0.0), shininess);
 	Ispec = clamp(Ispec, 0.0, 1.0) * shadow;
 
 	// final color 
