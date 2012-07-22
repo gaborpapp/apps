@@ -1,5 +1,6 @@
 # scons
-scons
-!scons/SConscript
-!scons/.gitignore
+.sconsign.dblite
 *.o
+
+# vim
+*.sw[a-z]

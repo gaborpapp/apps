@@ -1,0 +1,8 @@
+env = Environment()
+
+env['APP_TARGET'] = 'TerrainApp'
+env['APP_SOURCES'] = ['TerrainApp.cpp']
+env['DEBUG'] = 1
+
+SConscript('../../../scons/SConscript', exports = 'env')
+

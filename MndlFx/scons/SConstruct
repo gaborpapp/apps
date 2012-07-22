@@ -1,0 +1,13 @@
+env = Environment()
+
+env['APP_TARGET'] = 'FxApp'
+env['APP_SOURCES'] = ['FxApp.cpp']
+
+env['APP_SOURCES'] += ['PassThrough.cpp']
+env['APP_SOURCES'] += ['LumaOffset.cpp']
+env['APP_SOURCES'] += ['Posterize.cpp']
+
+env['DEBUG'] = 1
+
+SConscript('../../../scons/SConscript', exports = 'env')
+

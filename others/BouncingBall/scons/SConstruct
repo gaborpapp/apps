@@ -1,0 +1,7 @@
+env = Environment()
+
+env['APP_TARGET'] = 'BouncingBallApp'
+env['APP_SOURCES'] = ['BouncingBallApp.cpp']
+env['ASSETS'] = ['ball.png']
+
+SConscript('../../../../scons/SConscript', exports = 'env')

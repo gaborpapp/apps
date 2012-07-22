@@ -1,0 +1,39 @@
+env = Environment()
+
+env['APP_TARGET'] = 'FbxTestApp'
+env['APP_SOURCES'] = ['FbxTestApp.cpp']
+env['ASSETS'] = ['humanoid.fbx']
+env['DEBUG'] = 0
+
+# FbxKit
+FBX_VERSION = '20113'
+FBX_SDK_PATH = '/Applications/Autodesk/FBXSDK'
+
+_SOURCES = ['../Logger.cpp', 'CinderRenderer.cpp', 'SceneController.cpp',
+		'Scene.cpp', 'Renderer.cpp', 'SceneImporter.cpp']
+_SOURCES = [ '../src/fieldkit/fbx/' + f for f in _SOURCES]
+_INCLUDES = [FBX_SDK_PATH + FBX_VERSION + '/include']
+_INCLUDES += ['../include/fieldkit']
+
+_LIBS = ['fbxsdk_' + FBX_VERSION]
+if ('DEBUG' in env) and (env['DEBUG']):
+	_LIBS[0] +='d'
+
+if env['PLATFORM'] == 'darwin':
+	_LIBPATH = [FBX_SDK_PATH + FBX_VERSION + '/lib/gcc4/']
+
+env.Append(APP_SOURCES = _SOURCES)
+env.Append(CPPPATH = _INCLUDES)
+env.Append(LIBS = _LIBS)
+env.Append(LIBPATH = _LIBPATH)
+
+# copy fbxsdk dylib to app
+if (env['PLATFORM'] == 'darwin') and ('APP_TARGET' in env):
+	dylib = 'lib' + _LIBS[0] + '.dylib'
+	fout = env['APP_TARGET'] + '.app/Contents/MacOS/' + dylib
+	fin = _LIBPATH[0] + dylib
+	Command('#' + fout, fin, Copy(fout, fin))
+
+# end fbx
+SConscript('../../../scons/SConscript', exports = 'env')
+

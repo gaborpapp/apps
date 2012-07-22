@@ -1,0 +1,8 @@
+env = Environment()
+
+env['APP_TARGET'] = 'SmoothMeshApp'
+env['APP_SOURCES'] = ['SmoothMeshApp.cpp']
+env['ASSETS'] = [ 'texture.jpg', 'shader_frag.glsl', 'shader_vert.glsl' ]
+env['DEBUG'] = 0
+
+SConscript('../../../../scons/SConscript', exports = 'env')
