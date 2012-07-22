@@ -2,7 +2,7 @@ env = Environment()
 
 env['APP_TARGET'] = 'FbxTestApp'
 env['APP_SOURCES'] = ['FbxTestApp.cpp']
-env['ASSETS'] = ['humanoid.fbx']
+env['ASSETS'] = ['humanoid.fbx', 'seymour.fbx']
 env['DEBUG'] = 0
 
 # FbxKit

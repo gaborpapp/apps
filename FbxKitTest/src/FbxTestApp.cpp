@@ -58,8 +58,10 @@ void FbxTestApp::setup()
 {
 	gl::disableVerticalSync();
 
-	mFbxSceneRef = fbx::SceneImporter::load( getAssetPath( "humanoid.fbx" ).string() );
+	//mFbxSceneRef = fbx::SceneImporter::load( getAssetPath( "humanoid.fbx" ).string() );
+	mFbxSceneRef = fbx::SceneImporter::load( getAssetPath( "seymour.fbx" ).string() );
 	mFbxSceneController = fbx::SceneController( mFbxSceneRef );
+	mFbxSceneController.setCamera(0);
 
 	mFbxRenderer.setMarkerDelegate( &mFbxCinderRenderer );
 	mFbxRenderer.setSkeletonDelegate( &mFbxCinderRenderer );
@@ -82,7 +84,7 @@ void FbxTestApp::draw()
 {
 	gl::clear( Color::black() );
 
-	mFbxRenderer.drawPerspective( mFbxSceneRef, 1 );
+	mFbxRenderer.drawPerspective( mFbxSceneRef, getWindowAspectRatio() );
 	mFbxRenderer.drawScene( mFbxSceneRef );
 
 	params::InterfaceGl::draw();

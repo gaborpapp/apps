@@ -247,7 +247,7 @@ void Renderer::drawSkeleton(KFbxNode* node, KFbxXMatrix& parentGlobalPosition, K
 
 	// Only draw the skeleton if it's a limb node and if 
 	// the parent also has an attribute of type skeleton.
-	if (skeleton->GetSkeletonType() == KFbxSkeleton::eLIMB_NODE &&
+	if (/* skeleton->GetSkeletonType() == KFbxSkeleton::eLIMB_NODE && */
 		node->GetParent() &&
 		node->GetParent()->GetNodeAttribute() &&
 		node->GetParent()->GetNodeAttribute()->GetAttributeType() == KFbxNodeAttribute::eSKELETON)

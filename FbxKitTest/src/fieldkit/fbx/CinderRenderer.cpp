@@ -43,9 +43,9 @@ void CinderRenderer::setCameraPerspective(double fovY, double aspect,
 
 	cam.setNearClip((float)nearPlane);
 	cam.setFarClip((float)farPlane);
+	cam.setWorldUp(KFbxVector4ToVec3f(up)); // NOTE: setWorldUp must be the first
 	cam.setEyePoint(KFbxVector4ToVec3f(eye));
 	cam.setCenterOfInterestPoint(KFbxVector4ToVec3f(center));
-	cam.setWorldUp(KFbxVector4ToVec3f(up));
 
 	gl::setProjection(cam);
 	gl::setModelView(cam);
