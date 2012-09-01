@@ -2,15 +2,15 @@ varying vec3 v;
 varying vec3 N;
 
 uniform sampler2D tex;
-uniform bool flatShading;
+uniform float flatShading;
 
 void main()
 {
 	vec3 N0;
-	if ( flatShading )
-		N0 = normalize( cross( dFdx( v ), dFdy( v ) ) );
-	else
-		N0 = N;
+	N0 = normalize( cross( dFdx( v ), dFdy( v ) ) );
+
+	// mix original soft and flat shading normal
+	N0 = mix( N, N0, flatShading );
 
 	vec3 L = normalize( gl_LightSource[ 0 ].position.xyz - v );
 	vec3 E = normalize( -v );

@@ -29,12 +29,14 @@
 #include "cinder/params/Params.h"
 #include "cinder/TriMesh.h"
 
+#include "AssimpLoader.h"
 #include "ciFaceshift.h"
 #include "Resources.h"
 
 using namespace ci;
 using namespace ci::app;
 using namespace std;
+using namespace mndl;
 
 class fsExperiments : public AppBasic
 {
@@ -65,12 +67,17 @@ class fsExperiments : public AppBasic
 		gl::GlslProg mShader;
 		gl::Material mMaterial;
 		void setupVbo();
+		void setupModels();
 
 		mndl::faceshift::ciFaceShift mFaceShift;
 
+		mndl::assimp::AssimpLoader mAiHorns;
+
 		params::InterfaceGl mParams;
 		float mFps;
-		bool mFlatShading;
+		float mFlatShadingValue;
+		float mDevilValue;
+		Color mBackground;
 };
 
 void fsExperiments::prepareSettings( Settings *settings )
@@ -95,22 +102,37 @@ void fsExperiments::setup()
 
 	mParams = params::InterfaceGl( "Parameters", Vec2i( 200, 300 ) );
 	mParams.addParam( "Fps", &mFps, "", false );
-	mFlatShading = false;
-	mParams.addParam( "Flat shading", &mFlatShading );
+	mFlatShadingValue = 0;
+	mParams.addParam( "Android", &mFlatShadingValue, "min=0 max=1 step=.05" );
+	mDevilValue = 0;
+	mParams.addParam( "Devil", &mDevilValue, "min=0 max=1 step=.05" );
+	mBackground = Color::gray( .2 );
+	mParams.addParam( "Background", &mBackground );
 
 	mFaceShift.import( "export", true );
 
 	mEyeDistance = -300;
 
+	setupModels();
 	setupVbo();
 
 	Surface headImg = loadImage( loadAsset( "loki2.png" ) );
 	ip::flipVertical( &headImg );
 	mHeadTexture = gl::Texture( headImg );
 
-	mFaceShift.connect();
+	//mFaceShift.connect();
 
 	gl::enable( GL_CULL_FACE );
+}
+
+void fsExperiments::setupModels()
+{
+	mAiHorns = assimp::AssimpLoader( getAssetPath( "models/devil.dae" ) );
+	mAiHorns.disableSkinning();
+	mAiHorns.disableMaterials();
+	mAiHorns.enableAnimation();
+	mAiHorns.setAnimation( 0 );
+	mAiHorns.disableTextures();
 }
 
 void fsExperiments::setupVbo()
@@ -199,12 +221,18 @@ void fsExperiments::update()
 	mLeftEyeRotation = mFaceShift.getLeftEyeRotation();
 	mRightEyeRotation = mFaceShift.getRightEyeRotation();
 
+	if ( mAiHorns.getNumAnimations() > 0 )
+	{
+		mAiHorns.setTime( mDevilValue * mAiHorns.getAnimationDuration( 0 ) );
+		mAiHorns.update();
+	}
+
 	mFps = getAverageFps();
 }
 
 void fsExperiments::draw()
 {
-	gl::clear( Color::black() );
+	gl::clear( mBackground );
 
 	CameraPersp cam( getWindowWidth(), getWindowHeight(), 60.0f );
 	cam.setPerspective( 60, getWindowAspectRatio(), 1, 5000 );
@@ -216,12 +244,7 @@ void fsExperiments::draw()
 	mShader.bind();
 	const std::vector< float >& weights = mFaceShift.getBlendshapeWeights();
 	mShader.uniform( "blendshapeWeights", &( weights[ 0 ] ), weights.size() );
-	mShader.uniform( "flatShading", mFlatShading );
-
-	gl::enable( GL_TEXTURE_RECTANGLE_ARB );
-	gl::enable( GL_TEXTURE_2D );
-	mBlendshapeTexture.bind( 0 );
-	mHeadTexture.bind( 1 );
+	mShader.uniform( "flatShading", mFlatShadingValue );
 
 	gl::enableDepthRead();
 	gl::enableDepthWrite();
@@ -230,12 +253,22 @@ void fsExperiments::draw()
 	gl::pushModelView();
 	gl::rotate( mArcball.getQuat() );
 	gl::rotate( mHeadRotation );
-	gl::draw( mVboMesh );
-	gl::popModelView();
 
+	// draw head
+	gl::enable( GL_TEXTURE_RECTANGLE_ARB );
+	gl::enable( GL_TEXTURE_2D );
+	mBlendshapeTexture.bind( 0 );
+	mHeadTexture.bind( 1 );
+	gl::draw( mVboMesh );
 	mBlendshapeTexture.unbind();
+	mHeadTexture.unbind();
 	gl::disable( GL_TEXTURE_RECTANGLE_ARB );
 	gl::disable( GL_TEXTURE_2D );
+
+	// draw horns
+	mAiHorns.draw();
+
+	gl::popModelView();
 
 	mShader.unbind();
 
@@ -256,7 +289,7 @@ void fsExperiments::mouseWheel ( MouseEvent event )
 {
 	float w = event.getWheelIncrement();
 
-	if ( w > 0 )
+	if ( w < 0 )
 		mEyeDistance *= ( 1.1 + .5 * w );
 	else
 		mEyeDistance /= ( 1.1 - .5 * w );
