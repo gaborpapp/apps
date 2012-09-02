@@ -26,8 +26,9 @@
 #include "cinder/gl/Material.h"
 #include "cinder/gl/Texture.h"
 #include "cinder/gl/Vbo.h"
-#include "cinder/params/Params.h"
 #include "cinder/TriMesh.h"
+
+#include "PParams.h"
 
 #include "AssimpLoader.h"
 #include "ciFaceshift.h"
@@ -43,6 +44,7 @@ class fsExperiments : public AppBasic
 	public:
 		void prepareSettings( Settings *settings );
 		void setup();
+		void shutdown();
 
 		void resize( ResizeEvent event );
 		void mouseDown( MouseEvent event );
@@ -66,6 +68,7 @@ class fsExperiments : public AppBasic
 		gl::Texture mHeadTexture;
 		gl::GlslProg mShader;
 		gl::Material mMaterial;
+		void setupParams();
 		void setupVbo();
 		void setupModels();
 
@@ -73,7 +76,7 @@ class fsExperiments : public AppBasic
 
 		mndl::assimp::AssimpLoader mAiHorns;
 
-		params::InterfaceGl mParams;
+		params::PInterfaceGl mParams;
 		float mFps;
 		float mFlatShadingValue;
 		float mDevilValue;
@@ -100,19 +103,11 @@ void fsExperiments::setup()
 		throw exc;
 	}
 
-	mParams = params::InterfaceGl( "Parameters", Vec2i( 200, 300 ) );
-	mParams.addParam( "Fps", &mFps, "", false );
-	mFlatShadingValue = 0;
-	mParams.addParam( "Android", &mFlatShadingValue, "min=0 max=1 step=.05" );
-	mDevilValue = 0;
-	mParams.addParam( "Devil", &mDevilValue, "min=0 max=1 step=.05" );
-	mBackground = Color::gray( .2 );
-	mParams.addParam( "Background", &mBackground );
-
-	mFaceShift.import( "export", true );
+	mFaceShift.import( "export" );
 
 	mEyeDistance = -300;
 
+	setupParams();
 	setupModels();
 	setupVbo();
 
@@ -123,6 +118,30 @@ void fsExperiments::setup()
 	//mFaceShift.connect();
 
 	gl::enable( GL_CULL_FACE );
+}
+
+void fsExperiments::setupParams()
+{
+	fs::path paramsXml( getAssetPath( "params.xml" ));
+	if ( paramsXml.empty() )
+	{
+#if defined( CINDER_MAC )
+		fs::path assetPath( getResourcePath() / "assets" );
+#else
+		fs::path assetPath( getAppPath() / "assets" );
+#endif
+		createDirectories( assetPath );
+		paramsXml = assetPath / "params.xml" ;
+	}
+	params::PInterfaceGl::load( paramsXml );
+
+	mParams = params::PInterfaceGl( "Parameters", Vec2i( 200, 300 ) );
+	mParams.addPersistentSizeAndPosition();
+
+	mParams.addParam( "Fps", &mFps, "", false );
+	mParams.addPersistentParam( "Android", &mFlatShadingValue, 0.f, "min=0 max=1 step=.05" );
+	mParams.addPersistentParam( "Devil", &mDevilValue, 0.f, "min=0 max=1 step=.05" );
+	mParams.addPersistentParam( "Background", &mBackground, Color::gray( .1 ) );
 }
 
 void fsExperiments::setupModels()
@@ -215,6 +234,11 @@ void fsExperiments::setupVbo()
 	mMaterial = gl::Material( Color::gray( .0 ), Color::gray( .5 ), Color::white(), 50.f );
 }
 
+void fsExperiments::shutdown()
+{
+	params::PInterfaceGl::save();
+}
+
 void fsExperiments::update()
 {
 	mHeadRotation = mFaceShift.getRotation();
@@ -272,7 +296,7 @@ void fsExperiments::draw()
 
 	mShader.unbind();
 
-	params::InterfaceGl::draw();
+	params::PInterfaceGl::draw();
 }
 
 void fsExperiments::mouseDown( MouseEvent event )
