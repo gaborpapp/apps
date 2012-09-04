@@ -30,14 +30,19 @@
 
 #include "PParams.h"
 
-#include "AssimpLoader.h"
 #include "ciFaceshift.h"
+#include "GlobalData.h"
 #include "Resources.h"
+
+#include "Android.h"
+#include "Devil.h"
 
 using namespace ci;
 using namespace ci::app;
 using namespace std;
 using namespace mndl;
+
+namespace mndl {
 
 class fsExperiments : public AppBasic
 {
@@ -56,31 +61,18 @@ class fsExperiments : public AppBasic
 		void draw();
 
 	private:
-		Quatf mHeadRotation;
-		Quatf mLeftEyeRotation;
-		Quatf mRightEyeRotation;
-
 		Arcball mArcball;
 		float mEyeDistance;
 
-		gl::VboMesh mVboMesh;
-		gl::Texture mBlendshapeTexture;
-		gl::Texture mHeadTexture;
-		gl::GlslProg mShader;
-		gl::Material mMaterial;
 		void setupParams();
 		void setupVbo();
-		void setupModels();
+		void setupEffects();
 
-		mndl::faceshift::ciFaceShift mFaceShift;
-
-		mndl::assimp::AssimpLoader mAiHorns;
-
-		params::PInterfaceGl mParams;
 		float mFps;
-		float mFlatShadingValue;
-		float mDevilValue;
 		Color mBackground;
+
+		std::vector< fsExpRef > mEffects;
+		int mCurrentEffect;
 };
 
 void fsExperiments::prepareSettings( Settings *settings )
@@ -92,32 +84,32 @@ void fsExperiments::setup()
 {
 	gl::disableVerticalSync();
 
-	try
-	{
-		mShader = gl::GlslProg( loadResource( RES_BLEND_VERT ),
-								loadResource( RES_BLEND_FRAG ) );
-	}
-	catch ( const std::exception &exc )
-	{
-		console() << exc.what() << endl;
-		throw exc;
-	}
-
-	mFaceShift.import( "export" );
+	GlobalData::get().mFaceShift.import( "export" );
 
 	mEyeDistance = -300;
 
+	mEffects.push_back( fsExpRef( new Android() ) );
+	mEffects.push_back( fsExpRef( new Devil() ) );
+
 	setupParams();
-	setupModels();
 	setupVbo();
+	setupEffects();
 
 	Surface headImg = loadImage( loadAsset( "loki2.png" ) );
 	ip::flipVertical( &headImg );
-	mHeadTexture = gl::Texture( headImg );
+	GlobalData::get().mHeadTexture = gl::Texture( headImg );
 
-	//mFaceShift.connect();
+	//GlobalData::get().mFaceShift.connect();
 
 	gl::enable( GL_CULL_FACE );
+}
+
+void fsExperiments::setupEffects()
+{
+	for ( vector< fsExpRef >::iterator it = mEffects.begin(); it != mEffects.end(); ++it )
+	{
+		(*it)->setup();
+	}
 }
 
 void fsExperiments::setupParams()
@@ -135,30 +127,34 @@ void fsExperiments::setupParams()
 	}
 	params::PInterfaceGl::load( paramsXml );
 
-	mParams = params::PInterfaceGl( "Parameters", Vec2i( 200, 300 ) );
-	mParams.addPersistentSizeAndPosition();
+	GlobalData& data = GlobalData::get();
+	data.mParams = params::PInterfaceGl( "Parameters", Vec2i( 200, 300 ) );
+	data.mParams.addPersistentSizeAndPosition();
 
-	mParams.addParam( "Fps", &mFps, "", false );
-	mParams.addPersistentParam( "Android", &mFlatShadingValue, 0.f, "min=0 max=1 step=.05" );
-	mParams.addPersistentParam( "Devil", &mDevilValue, 0.f, "min=0 max=1 step=.05" );
-	mParams.addPersistentParam( "Background", &mBackground, Color::gray( .1 ) );
-}
+	data.mParams.addParam( "Fps", &mFps, "", false );
+	data.mParams.addPersistentParam( "Background", &mBackground, Color::gray( .1 ) );
 
-void fsExperiments::setupModels()
-{
-	mAiHorns = assimp::AssimpLoader( getAssetPath( "models/devil.dae" ) );
-	mAiHorns.disableSkinning();
-	mAiHorns.disableMaterials();
-	mAiHorns.enableAnimation();
-	mAiHorns.setAnimation( 0 );
-	mAiHorns.disableTextures();
+	// effect params setup
+	mCurrentEffect = 0;
+	vector< string > effectNames;
+	for ( vector< fsExpRef >::iterator it = mEffects.begin(); it != mEffects.end(); ++it )
+	{
+		effectNames.push_back( (*it)->getName() );
+	}
+	data.mParams.addParam( "Effect", effectNames, &mCurrentEffect );
+
+	for ( vector< fsExpRef >::iterator it = mEffects.begin(); it != mEffects.end(); ++it )
+	{
+		(*it)->setupParams();
+	}
 }
 
 void fsExperiments::setupVbo()
 {
-	TriMesh neutralMesh = mFaceShift.getNeutralMesh();
+	GlobalData& data = GlobalData::get();
+	TriMesh neutralMesh = data.mFaceShift.getNeutralMesh();
 	size_t numVertices = neutralMesh.getNumVertices();
-	size_t numBlendShapes = mFaceShift.getNumBlendshapes();
+	size_t numBlendShapes = data.mFaceShift.getNumBlendshapes();
 
 	gl::VboMesh::Layout layout;
 
@@ -170,35 +166,27 @@ void fsExperiments::setupVbo()
 	// TODO: int attribute
 	layout.mCustomStatic.push_back( std::make_pair( gl::VboMesh::Layout::CUSTOM_ATTR_FLOAT, 0 ) );
 
-	mVboMesh = gl::VboMesh( neutralMesh.getNumVertices(),
+	data.mVboMesh = gl::VboMesh( neutralMesh.getNumVertices(),
 							neutralMesh.getNumIndices(), layout, GL_TRIANGLES );
 
-	mVboMesh.bufferPositions( neutralMesh.getVertices() );
-	mVboMesh.bufferIndices( neutralMesh.getIndices() );
+	data.mVboMesh.bufferPositions( neutralMesh.getVertices() );
+	data.mVboMesh.bufferIndices( neutralMesh.getIndices() );
 	if ( !neutralMesh.hasNormals() )
 		neutralMesh.recalculateNormals();
-	mVboMesh.bufferNormals( neutralMesh.getNormals() );
-	mVboMesh.bufferTexCoords2d( 0, neutralMesh.getTexCoords() );
-	mVboMesh.unbindBuffers();
+	data.mVboMesh.bufferNormals( neutralMesh.getNormals() );
+	data.mVboMesh.bufferTexCoords2d( 0, neutralMesh.getTexCoords() );
+	data.mVboMesh.unbindBuffers();
 
 	vector< float > vertexIndices( numVertices, 0.f );
 	for ( uint32_t i = 0; i < numVertices; ++i )
 		vertexIndices[ i ] = static_cast< float >( i );
 
-	mVboMesh.getStaticVbo().bind();
+	data.mVboMesh.getStaticVbo().bind();
 	size_t offset = sizeof( GLfloat ) * ( 3 + 3 + 2 ) * neutralMesh.getNumVertices();
-	mVboMesh.getStaticVbo().bufferSubData( offset,
+	data.mVboMesh.getStaticVbo().bufferSubData( offset,
 			numVertices * sizeof( float ),
 			&vertexIndices[ 0 ] );
-	mVboMesh.getStaticVbo().unbind();
-
-	mShader.bind();
-	GLint location = mShader.getAttribLocation( "index" );
-	mVboMesh.setCustomStaticLocation( 0, location );
-	mShader.uniform( "blendshapes", 0 );
-	mShader.uniform( "tex", 1 );
-	mShader.uniform( "numBlendshapes", static_cast< int >( numBlendShapes ) );
-	mShader.unbind();
+	data.mVboMesh.getStaticVbo().unbind();
 
 	// blendshapes texture
 	gl::Texture::Format format;
@@ -222,16 +210,15 @@ void fsExperiments::setupVbo()
 		{
 			for ( size_t i = 0; i < numBlendShapes; i++ )
 			{
-				*( reinterpret_cast< Vec3f * >( ptr ) ) = mFaceShift.getBlendshapeMesh( i ).getVertices()[ idx ] - neutralMesh.getVertices()[ idx ];
+				*( reinterpret_cast< Vec3f * >( ptr ) ) = data.mFaceShift.getBlendshapeMesh( i ).getVertices()[ idx ] - neutralMesh.getVertices()[ idx ];
 				ptr += 3;
 			}
 			idx++;
 		}
 	}
 
-	mBlendshapeTexture = gl::Texture( blendshapeSurface, format );
+	data.mBlendshapeTexture = gl::Texture( blendshapeSurface, format );
 
-	mMaterial = gl::Material( Color::gray( .0 ), Color::gray( .5 ), Color::white(), 50.f );
 }
 
 void fsExperiments::shutdown()
@@ -241,15 +228,11 @@ void fsExperiments::shutdown()
 
 void fsExperiments::update()
 {
-	mHeadRotation = mFaceShift.getRotation();
-	mLeftEyeRotation = mFaceShift.getLeftEyeRotation();
-	mRightEyeRotation = mFaceShift.getRightEyeRotation();
+	GlobalData::get().mHeadRotation = GlobalData::get().mFaceShift.getRotation();
+	GlobalData::get().mLeftEyeRotation = GlobalData::get().mFaceShift.getLeftEyeRotation();
+	GlobalData::get().mRightEyeRotation = GlobalData::get().mFaceShift.getRightEyeRotation();
 
-	if ( mAiHorns.getNumAnimations() > 0 )
-	{
-		mAiHorns.setTime( mDevilValue * mAiHorns.getAnimationDuration( 0 ) );
-		mAiHorns.update();
-	}
+	mEffects[ mCurrentEffect ]->update();
 
 	mFps = getAverageFps();
 }
@@ -265,36 +248,16 @@ void fsExperiments::draw()
 
 	gl::setViewport( getWindowBounds() );
 
-	mShader.bind();
-	const std::vector< float >& weights = mFaceShift.getBlendshapeWeights();
-	mShader.uniform( "blendshapeWeights", &( weights[ 0 ] ), weights.size() );
-	mShader.uniform( "flatShading", mFlatShadingValue );
-
 	gl::enableDepthRead();
 	gl::enableDepthWrite();
-	gl::color( ColorA::gray( 1., 1. ) );
-	mMaterial.apply();
+
 	gl::pushModelView();
 	gl::rotate( mArcball.getQuat() );
-	gl::rotate( mHeadRotation );
+	gl::rotate( GlobalData::get().mHeadRotation );
 
-	// draw head
-	gl::enable( GL_TEXTURE_RECTANGLE_ARB );
-	gl::enable( GL_TEXTURE_2D );
-	mBlendshapeTexture.bind( 0 );
-	mHeadTexture.bind( 1 );
-	gl::draw( mVboMesh );
-	mBlendshapeTexture.unbind();
-	mHeadTexture.unbind();
-	gl::disable( GL_TEXTURE_RECTANGLE_ARB );
-	gl::disable( GL_TEXTURE_2D );
-
-	// draw horns
-	mAiHorns.draw();
+	mEffects[ mCurrentEffect ]->draw();
 
 	gl::popModelView();
-
-	mShader.unbind();
 
 	params::PInterfaceGl::draw();
 }
@@ -334,7 +297,7 @@ void fsExperiments::keyDown( KeyEvent event )
 			if ( !isFullScreen() )
 			{
 				setFullScreen( true );
-				if ( mParams.isVisible() )
+				if ( GlobalData::get().mParams.isVisible() )
 					showCursor();
 				else
 					hideCursor();
@@ -347,10 +310,10 @@ void fsExperiments::keyDown( KeyEvent event )
 			break;
 
 		case KeyEvent::KEY_s:
-			mParams.show( !mParams.isVisible() );
+			GlobalData::get().mParams.show( !GlobalData::get().mParams.isVisible() );
 			if ( isFullScreen() )
 			{
-				if ( mParams.isVisible() )
+				if ( GlobalData::get().mParams.isVisible() )
 					showCursor();
 				else
 					hideCursor();
@@ -366,5 +329,7 @@ void fsExperiments::keyDown( KeyEvent event )
 	}
 }
 
-CINDER_APP_BASIC( fsExperiments, RendererGl( RendererGl::AA_NONE ) )
+} // namespace mndl
+
+CINDER_APP_BASIC( mndl::fsExperiments, RendererGl( RendererGl::AA_NONE ) )
 

@@ -1,7 +1,8 @@
 env = Environment()
 
 env['APP_TARGET'] = 'fsExperiments'
-env['APP_SOURCES'] = ['fsExperiments.cpp', 'PParams.cpp']
+env['APP_SOURCES'] = ['fsExperiments.cpp', 'PParams.cpp', 'Android.cpp',
+					'Devil.cpp']
 env['ASSETS'] = ['export/*.trimesh', 'loki2.png']
 #env['ASSETS'] = ['export/*.obj', 'loki2.png']
 env['ASSETS'] += ['models/*']
