@@ -6,6 +6,7 @@
 
 #include "PParams.h"
 #include "ciFaceShift.h"
+#include "AssimpLoader.h"
 
 namespace mndl {
 
@@ -22,6 +23,10 @@ class GlobalData
 		ci::gl::VboMesh mVboMesh;
 		ci::gl::Texture mBlendshapeTexture;
 		ci::gl::Texture mHeadTexture;
+
+		mndl::assimp::AssimpLoader mAiEyes;
+		mndl::assimp::AssimpNodeRef mLeftEyeRef;
+		mndl::assimp::AssimpNodeRef mRightEyeRef;
 
 		mndl::faceshift::ciFaceShift mFaceShift;
 

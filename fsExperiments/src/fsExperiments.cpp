@@ -66,6 +66,7 @@ class fsExperiments : public AppBasic
 
 		void setupParams();
 		void setupVbo();
+		void setupEyes();
 		void setupEffects();
 
 		float mFps;
@@ -93,13 +94,14 @@ void fsExperiments::setup()
 
 	setupParams();
 	setupVbo();
+	setupEyes();
 	setupEffects();
 
 	Surface headImg = loadImage( loadAsset( "loki2.png" ) );
 	ip::flipVertical( &headImg );
 	GlobalData::get().mHeadTexture = gl::Texture( headImg );
 
-	//GlobalData::get().mFaceShift.connect();
+	GlobalData::get().mFaceShift.connect();
 
 	gl::enable( GL_CULL_FACE );
 }
@@ -218,7 +220,24 @@ void fsExperiments::setupVbo()
 	}
 
 	data.mBlendshapeTexture = gl::Texture( blendshapeSurface, format );
+}
 
+void fsExperiments::setupEyes()
+{
+	GlobalData& data = GlobalData::get();
+
+	data.mAiEyes = assimp::AssimpLoader( getAssetPath( "models/eyes.dae" ) );
+	data.mAiEyes.disableSkinning();
+	data.mAiEyes.disableMaterials();
+
+	// FIXME: load positions from export/eye
+	data.mLeftEyeRef = data.mAiEyes.getAssimpNode( "left" );
+	assert( data.mLeftEyeRef );
+	data.mLeftEyeRef->setPosition( Vec3f( 31.3636, -24.4065, -24.7222 ) );
+
+	data.mRightEyeRef = data.mAiEyes.getAssimpNode( "right" );
+	assert( data.mRightEyeRef );
+	data.mRightEyeRef->setPosition( Vec3f( -31.1631, -26.0238, -24.7322 ) );
 }
 
 void fsExperiments::shutdown()
@@ -233,7 +252,6 @@ void fsExperiments::update()
 	GlobalData::get().mRightEyeRotation = GlobalData::get().mFaceShift.getRightEyeRotation();
 
 	mEffects[ mCurrentEffect ]->update();
-
 	mFps = getAverageFps();
 }
 
@@ -251,11 +269,20 @@ void fsExperiments::draw()
 	gl::enableDepthRead();
 	gl::enableDepthWrite();
 
+	GlobalData& data = GlobalData::get();
+
 	gl::pushModelView();
 	gl::rotate( mArcball.getQuat() );
-	gl::rotate( GlobalData::get().mHeadRotation );
+	gl::rotate( data.mHeadRotation );
 
 	mEffects[ mCurrentEffect ]->draw();
+
+	gl::enable( GL_POLYGON_OFFSET_FILL );
+	glPolygonOffset( 10, 10 );
+	data.mLeftEyeRef->setOrientation( data.mLeftEyeRotation );
+	data.mRightEyeRef->setOrientation( data.mRightEyeRotation );
+	data.mAiEyes.draw();
+	gl::disable( GL_POLYGON_OFFSET_FILL );
 
 	gl::popModelView();
 
