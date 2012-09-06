@@ -7,7 +7,12 @@ env['ASSETS'] = ['export/*.trimesh', 'loki2.png']
 #env['ASSETS'] = ['export/*.obj', 'loki2.png']
 env['ASSETS'] += ['models/*']
 env['RESOURCES'] = ['Blend.vert', 'Blend.frag']
-env['DEBUG'] = 1
+
+env['APP_SOURCES'] += ['Twister.cpp']
+env['RESOURCES'] += ['Twister.vert', 'Twister.frag', 'TwisterEye.vert',
+		'TwisterEye.frag']
+
+env['DEBUG'] = 0
 
 env = SConscript('../../../blocks/ciFaceShift/scons/SConscript', exports = 'env')
 env = SConscript('../../../blocks/Cinder-Assimp/scons/SConscript', exports = 'env')

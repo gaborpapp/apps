@@ -36,6 +36,7 @@
 
 #include "Android.h"
 #include "Devil.h"
+#include "Twister.h"
 
 using namespace ci;
 using namespace ci::app;
@@ -91,6 +92,7 @@ void fsExperiments::setup()
 
 	mEffects.push_back( fsExpRef( new Android() ) );
 	mEffects.push_back( fsExpRef( new Devil() ) );
+	mEffects.push_back( fsExpRef( new Twister() ) );
 
 	setupParams();
 	setupVbo();
@@ -101,7 +103,7 @@ void fsExperiments::setup()
 	ip::flipVertical( &headImg );
 	GlobalData::get().mHeadTexture = gl::Texture( headImg );
 
-	GlobalData::get().mFaceShift.connect();
+	//GlobalData::get().mFaceShift.connect();
 
 	gl::enable( GL_CULL_FACE );
 }
@@ -228,7 +230,8 @@ void fsExperiments::setupEyes()
 
 	data.mAiEyes = assimp::AssimpLoader( getAssetPath( "models/eyes.dae" ) );
 	data.mAiEyes.disableSkinning();
-	data.mAiEyes.disableMaterials();
+	//data.mAiEyes.disableMaterials();
+	data.mAiEyes.enableMaterials();
 
 	// FIXME: load positions from export/eye
 	data.mLeftEyeRef = data.mAiEyes.getAssimpNode( "left" );
@@ -247,9 +250,14 @@ void fsExperiments::shutdown()
 
 void fsExperiments::update()
 {
-	GlobalData::get().mHeadRotation = GlobalData::get().mFaceShift.getRotation();
-	GlobalData::get().mLeftEyeRotation = GlobalData::get().mFaceShift.getLeftEyeRotation();
-	GlobalData::get().mRightEyeRotation = GlobalData::get().mFaceShift.getRightEyeRotation();
+	GlobalData& data = GlobalData::get();
+
+	data.mHeadRotation = data.mFaceShift.getRotation();
+	data.mLeftEyeRotation = data.mFaceShift.getLeftEyeRotation();
+	data.mRightEyeRotation = data.mFaceShift.getRightEyeRotation();
+
+	data.mLeftEyeRef->setOrientation( data.mLeftEyeRotation );
+	data.mRightEyeRef->setOrientation( data.mRightEyeRotation );
 
 	mEffects[ mCurrentEffect ]->update();
 	mFps = getAverageFps();
@@ -276,13 +284,6 @@ void fsExperiments::draw()
 	gl::rotate( data.mHeadRotation );
 
 	mEffects[ mCurrentEffect ]->draw();
-
-	gl::enable( GL_POLYGON_OFFSET_FILL );
-	glPolygonOffset( 10, 10 );
-	data.mLeftEyeRef->setOrientation( data.mLeftEyeRotation );
-	data.mRightEyeRef->setOrientation( data.mRightEyeRotation );
-	data.mAiEyes.draw();
-	gl::disable( GL_POLYGON_OFFSET_FILL );
 
 	gl::popModelView();
 
