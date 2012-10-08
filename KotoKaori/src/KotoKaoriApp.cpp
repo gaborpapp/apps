@@ -148,8 +148,9 @@ void KotoKaoriApp::setup()
 	// OpenNI
 	try
 	{
-		//mNI = OpenNI( OpenNI::Device() );
+		mNI = OpenNI( OpenNI::Device() );
 
+		/*
 		string path = getAppPath().string();
 	#ifdef CINDER_MAC
 		path += "/../";
@@ -157,6 +158,7 @@ void KotoKaoriApp::setup()
 		path += "rec.oni";
 
 		mNI = OpenNI( path );
+		*/
 	}
 	catch (...)
 	{
@@ -330,5 +332,5 @@ void KotoKaoriApp::draw()
 	params::PInterfaceGl::draw();
 }
 
-CINDER_APP_BASIC(KotoKaoriApp, RendererGl( RendererGl::AA_NONE ) )
+CINDER_APP_BASIC(KotoKaoriApp, RendererGl( RendererGl::AA_MSAA_2 ) )
 

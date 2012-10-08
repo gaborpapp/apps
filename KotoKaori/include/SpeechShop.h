@@ -37,7 +37,7 @@ class SpeechShop : public Effect
 		struct Text {
 			Text () : wordIndex(0) {};
 
-			string name;
+			std::string name;
 			std::vector<std::string> words;
 			unsigned wordIndex;
 		};
@@ -61,7 +61,7 @@ class SpeechShop : public Effect
 		int mTextIndex;
 		void initTexts();
 
-		box2d::Sandbox mSandbox;
+		ci::box2d::Sandbox mSandbox;
 		std::vector< ci::box2d::BoxElement *> mPlugs;
 
 		ci::params::PInterfaceGl mParams;

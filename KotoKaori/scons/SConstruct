@@ -1,70 +1,39 @@
-TARGET = 'KotoKaori'
+import os
+env = Environment(ENV = {'PATH' : os.environ['PATH']})
 
-SOURCES = ['KotoKaoriApp.cpp', 'PParams.cpp', 'Effect.cpp',
+env['APP_TARGET'] = 'KotoKaori'
+env['APP_SOURCES'] = ['KotoKaoriApp.cpp', 'PParams.cpp', 'Effect.cpp',
 		'NI.cpp', 'Utils.cpp']
-RESOURCES = []
-ASSETS = []
-ICON = 'koto.icns'
+env['RESOURCES'] = []
+env['ASSETS'] = []
+env['ICON'] = 'koto.icns'
 
 # KezekLabak
-SOURCES += [ 'DepthMerge.cpp' ]
-RESOURCES += ['PassThroughVert.glsl', 'DepthMergeFrag.glsl']
+env['APP_SOURCES'] += [ 'DepthMerge.cpp' ]
+env['RESOURCES'] += ['PassThroughVert.glsl', 'DepthMergeFrag.glsl']
 
 # BeszedBolt
-SOURCES += [ 'SpeechShop.cpp' ]
-ASSETS += [ 'BeszedBolt' ]
+env['APP_SOURCES'] += [ 'SpeechShop.cpp' ]
+env['ASSETS'] += [ 'BeszedBolt' ]
 
 # Akac
-SOURCES += [ 'Acacia.cpp', 'Leaves.cpp', 'Particles.cpp' ]
-ASSETS += [ 'Akac' ]
-RESOURCES += ['BloomFrag.glsl']
+env['APP_SOURCES'] += [ 'Acacia.cpp', 'Leaves.cpp', 'Particles.cpp' ]
+env['ASSETS'] += [ 'Akac' ]
+env['RESOURCES'] += ['BloomFrag.glsl']
 
 # Hold
-SOURCES += [ 'Moon.cpp' ]
-ASSETS += [ 'Hold' ]
+env['APP_SOURCES'] += [ 'Moon.cpp' ]
+env['ASSETS'] += [ 'Hold' ]
 
 # Varos es termeszet
-SOURCES += [ 'VTT.cpp' ]
-ASSETS += [ 'VarosEsTermeszet' ]
+env['APP_SOURCES'] += [ 'VTT.cpp' ]
+env['ASSETS'] += [ 'VarosEsTermeszet' ]
 
-DEBUG = 0
+env['DEBUG'] = 0
 
-INCLUDES = []
-LIBS = []
-LIBPATH = []
+env = SConscript('../../../blocks/Cinder-NI/scons/SConscript', exports = 'env')
+env = SConscript('../../../blocks/sc-Box2D/scons/SConscript', exports = 'env')
+env = SConscript('../../../blocks/msaFluid/scons/SConscript', exports = 'env')
+env = SConscript('../../../blocks/Cinder-OpenCV/scons/SConscript', exports = 'env')
 
-BOX2DPATH = '../../../blocks/sc-Box2D/scons/'
-MSAFLUID_PATH = '../../../blocks/msaFluid/scons/'
-CINDER_OPENCV_PATH = '../../../blocks/Cinder-OpenCV/scons/'
-
-# OpenNI
-INCLUDES += ['/usr/include/ni/', '/usr/include/nite/']
-LIBS += ['OpenNI', 'usb-1.0']
-LIBPATH += ['/usr/lib/', '/opt/local/lib/']
-
-# box2d
-import sys
-sys.path.append(BOX2DPATH)
-import Box2D
-SOURCES += Box2D.getSources(BOX2DPATH)
-INCLUDES += Box2D.getIncludes(BOX2DPATH)
-
-# msaFluid
-import sys
-sys.path.append(MSAFLUID_PATH)
-import msaFluid
-SOURCES += msaFluid.getSources(MSAFLUID_PATH)
-INCLUDES += msaFluid.getIncludes(MSAFLUID_PATH)
-
-# OpenCV
-sys.path.append(CINDER_OPENCV_PATH)
-import CinderOpenCV
-SOURCES += CinderOpenCV.getSources(CINDER_OPENCV_PATH)
-INCLUDES += CinderOpenCV.getIncludes(CINDER_OPENCV_PATH)
-CV_LIBS = CinderOpenCV.getLibs(CINDER_OPENCV_PATH)
-LIBS += [File(s) for s in CV_LIBS]
-
-SConscript('../../../scons/SConscript',
-	exports = ['TARGET', 'SOURCES', 'INCLUDES', 'LIBS', 'LIBPATH',
-		'ASSETS', 'RESOURCES', 'ICON', 'DEBUG'])
-
+SConscript('../../../scons/SConscript', exports = 'env')
