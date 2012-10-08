@@ -235,6 +235,7 @@ void SpeechShop::update()
 			mSandbox.setGravity( Vec2f( 0, mGravity ) );
 			break;
 	}
+
 	mSandbox.update();
 }
 
@@ -246,10 +247,15 @@ void SpeechShop::addLetter(Vec2i pos)
 	simple.setColor( Color( 1, 1, 1 ) );
 
 	Text *t = &mTexts[mTextIndex];
-	simple.addLine( t->words[ t->wordIndex ] );
+	string word = t->words[ t->wordIndex ];
 	t->wordIndex++;
 	if (t->wordIndex >= t->words.size())
 		t->wordIndex = 0;
+
+	if ( word == "" )
+		return;
+
+	simple.addLine( word );
 
 	gl::Texture texture( simple.render( true, PREMULT ) );
 	TexturedElement *b = new TexturedElement(texture, pos,
@@ -264,7 +270,7 @@ void SpeechShop::draw()
 	//gl::setMatricesWindow( getWindowSize() );
 	// FIXME
 	gl::setMatricesWindow( Vec2i(1024, 768) );
-	mSandbox.draw();
 
+	mSandbox.draw();
 }
 

@@ -1,6 +1,8 @@
 import os
 env = Environment(ENV = {'PATH' : os.environ['PATH']})
 
+env['DEBUG'] = 0
+
 env['APP_TARGET'] = 'KotoKaori'
 env['APP_SOURCES'] = ['KotoKaoriApp.cpp', 'PParams.cpp', 'Effect.cpp',
 		'NI.cpp', 'Utils.cpp']
@@ -29,7 +31,6 @@ env['ASSETS'] += [ 'Hold' ]
 env['APP_SOURCES'] += [ 'VTT.cpp' ]
 env['ASSETS'] += [ 'VarosEsTermeszet' ]
 
-env['DEBUG'] = 0
 
 env = SConscript('../../../blocks/Cinder-NI/scons/SConscript', exports = 'env')
 env = SConscript('../../../blocks/sc-Box2D/scons/SConscript', exports = 'env')
