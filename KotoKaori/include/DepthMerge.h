@@ -19,6 +19,8 @@ class DepthMerge : public Effect
 
 		void setup();
 
+		void instantiate();
+
 		void update();
 		void draw();
 

@@ -92,6 +92,17 @@ void DepthMerge::setup()
 	*/
 }
 
+void DepthMerge::instantiate()
+{
+	mCurrentIndex = 0;
+
+	for ( int i = 0; i < TEXTURE_COUNT; i++)
+	{
+		mDepthTextures[ i ].reset();
+		mColorTextures[ i ].reset();
+	}
+}
+
 void DepthMerge::update()
 {
 	/*
