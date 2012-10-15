@@ -35,10 +35,11 @@ class SpeechShop : public Effect
 
 	private:
 		struct Text {
-			Text () : wordIndex(0) {};
+			Text () : sentenceIndex(0), wordIndex(0) {};
 
 			std::string name;
-			std::vector<std::string> words;
+			std::vector< std::vector< std::string > > sentences;
+			unsigned sentenceIndex;
 			unsigned wordIndex;
 		};
 
@@ -53,7 +54,8 @@ class SpeechShop : public Effect
 		float mMinTextSize;
 		float mMaxTextSize;
 
-		void addLetter( ci::Vec2i pos );
+		void addWord( ci::Vec2i pos );
+		void addSentence( ci::Vec2i pos );
 		void togglePlug();
 
 		void loadTexts();

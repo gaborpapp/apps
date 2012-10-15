@@ -73,6 +73,7 @@ void SpeechShop::initTexts()
 {
 	for (vector<Text>::iterator it = mTexts.begin(); it != mTexts.end(); ++it)
 	{
+		it->sentenceIndex = 0;
 		it->wordIndex = 0;
 	}
 }
@@ -88,9 +89,14 @@ void SpeechShop::loadTexts()
 		{
 			Text t;
 			t.name = it->path().stem().string();
-			t.words = split( loadString( loadAsset( "BeszedBolt/" +
-							it->path().filename().string() ) ), " \t\n" );
-			mTexts.push_back(t);
+			vector< string > sentences = split( loadString( loadAsset( "BeszedBolt/" +
+							it->path().filename().string() ) ), "\n" );
+			for ( vector< string >::iterator sit = sentences.begin();
+					sit != sentences.end(); ++sit )
+			{
+				t.sentences.push_back( split( *sit, " \t" ) );
+			}
+			mTexts.push_back( t );
 		}
 	}
 }
@@ -199,13 +205,13 @@ void SpeechShop::keyUp(KeyEvent event)
 void SpeechShop::mouseDrag(MouseEvent event)
 {
 	if (event.isRight())
-		addLetter(event.getPos());
+		addSentence(event.getPos());
 }
 
 void SpeechShop::mouseDown(MouseEvent event)
 {
 	if (event.isLeft() || event.isRight())
-		addLetter(event.getPos());
+		addSentence(event.getPos());
 }
 
 void SpeechShop::update()
@@ -240,7 +246,7 @@ void SpeechShop::update()
 	mSandbox.update();
 }
 
-void SpeechShop::addLetter(Vec2i pos)
+void SpeechShop::addWord(Vec2i pos)
 {
 	TextLayout simple;
 	std::string boldFont( "Arial Bold" );
@@ -248,10 +254,17 @@ void SpeechShop::addLetter(Vec2i pos)
 	simple.setColor( Color( 1, 1, 1 ) );
 
 	Text *t = &mTexts[mTextIndex];
-	string word = t->words[ t->wordIndex ];
+	string word = t->sentences[ t->sentenceIndex ][ t->wordIndex ];
 	t->wordIndex++;
-	if (t->wordIndex >= t->words.size())
+	if ( t->wordIndex >= t->sentences[ t->sentenceIndex ].size() )
+	{
 		t->wordIndex = 0;
+		t->sentenceIndex++;
+		if ( t->sentenceIndex >= t->sentences.size() )
+		{
+			t->sentenceIndex = 0;
+		}
+	}
 
 	if ( word == "" )
 		return;
@@ -263,6 +276,27 @@ void SpeechShop::addLetter(Vec2i pos)
 			Vec2f(texture.getWidth(), texture.getHeight()));
 	b->setColor(Color::white());
 	mSandbox.addElement(b);
+}
+
+void SpeechShop::addSentence(Vec2i pos)
+{
+	Text *t = &mTexts[mTextIndex];
+	unsigned sId = t->sentenceIndex;
+
+	int m = (int)mMaxTextSize;
+	Vec2i posDiff[] = { Vec2i( m, 0 ),
+						Vec2i( 0, m ),
+						Vec2i( -m, 0 ),
+						Vec2i( 0, m ) };
+	Vec2i addPos = posDiff[ mGravityDir ];
+	// FIXME:
+	Area area( 0, 0, 1024, 768 );
+	while ( sId == t->sentenceIndex )
+	{
+		addWord( pos );
+		pos += addPos;
+		pos = area.closestPoint( pos );
+	}
 }
 
 void SpeechShop::draw()
