@@ -56,6 +56,7 @@ void SpeechShop::setup()
 	std::vector<string> dirNames(dirArr, dirArr + dirSize);
 	mGravityDir = GR_DOWN;
 	mParams.addParam( "Gravity direction", dirNames, &mGravityDir, "", true );
+	mParams.setOptions( "", "refresh=.1" );
 }
 
 void SpeechShop::instantiate()

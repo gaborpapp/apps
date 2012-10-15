@@ -26,6 +26,8 @@
 #include "cinder/Area.h"
 #include "cinder/Rect.h"
 
+#include "AntTweakBar.h"
+
 #include "PParams.h"
 #include "Effect.h"
 
@@ -144,6 +146,8 @@ void KotoKaoriApp::setup()
 	mParams.addPersistentParam("Preview size", &mPreviewSize, 160, "min=80, max=600" );
 	mParams.addButton("Screenshot", std::bind(&KotoKaoriApp::saveScreenshot, this));
 	mParams.addParam("Fps", &mFps, "", true);
+
+	TwDefine( "TW_HELP visible=false" );
 
 	// OpenNI
 	try
