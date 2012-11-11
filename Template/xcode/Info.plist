@@ -7,7 +7,7 @@
 	<key>CFBundleExecutable</key>
 	<string>${EXECUTABLE_NAME}</string>
 	<key>CFBundleIconFile</key>
-	<string>CinderApp.icns</string>
+	<string>${ICON_FILE}</string>
 	<key>CFBundleIdentifier</key>
 	<string>hu.mndl.${PRODUCT_NAME}</string>
 	<key>CFBundleInfoDictionaryVersion</key>
