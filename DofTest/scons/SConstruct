@@ -3,7 +3,7 @@ env = Environment()
 env['APP_TARGET'] = 'DofTest'
 env['APP_SOURCES'] = ['DofTest.cpp', 'CubeMap.cpp']
 env['ASSETS'] = ['sphere.obj', 'cubemap/*']
-env['DEBUG'] = 1
+env['DEBUG'] = 0
 
 SConscript('../../../scons/SConscript', exports = 'env')
 

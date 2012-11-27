@@ -17,9 +17,10 @@
 
 #include "cinder/app/AppBasic.h"
 #include "cinder/gl/gl.h"
-#include "cinder/gl/Vbo.h"
+#include "cinder/gl/DisplayList.h"
 #include "cinder/params/Params.h"
 #include "cinder/Cinder.h"
+#include "cinder/CinderMath.h"
 #include "cinder/ImageIo.h"
 #include "cinder/MayaCamUI.h"
 #include "cinder/ObjLoader.h"
@@ -50,12 +51,14 @@ class DofTest : public AppBasic
 	private:
 		mndl::gl::CubeMap mCubeMap;
 
-		gl::VboMesh mVboMesh;
 		TriMesh mTriMesh;
+		gl::DisplayList mSpheres;
 
 		MayaCamUI mMayaCam;
 
 		params::InterfaceGl mParams;
+
+		float mFps;
 };
 
 void DofTest::prepareSettings( Settings *settings )
@@ -69,7 +72,35 @@ void DofTest::setup()
 
 	ObjLoader loader( loadAsset( "sphere.obj" ) );
 	loader.load( &mTriMesh );
-	mVboMesh = gl::VboMesh( mTriMesh );
+
+	mSpheres = gl::DisplayList( GL_COMPILE );
+	mSpheres.newList();
+
+	const int xGrid = 19,
+			  yGrid = 17,
+			  zGrid = 19;
+	int numObjects = xGrid * yGrid * zGrid;
+	float hStep = 544.37f * 1.f / numObjects;
+	float h = 0.f;
+
+	for ( int z = 0; z < zGrid; z++ )
+	{
+		for ( int y = 0; y < yGrid; y++ )
+		{
+			for ( int x = 0; x < xGrid; x++ )
+			{
+				h += hStep;
+				gl::pushModelView();
+				gl::color( Color( CM_HSV, math< float>::fmod( h, 1.f ), 1.f, 1.f ) );
+				gl::translate( Vec3f( 5 * ( x - xGrid / 2.f ),
+									  5 * ( y - yGrid / 2.f ),
+									  5 * ( z - zGrid / 2.f ) ) );
+				gl::draw( mTriMesh );
+				gl::popModelView();
+			}
+		}
+	}
+	mSpheres.endList();
 
 	mCubeMap = mndl::gl::CubeMap( loadImage( loadAsset( "cubemap/px.jpg" ) ),
 								loadImage( loadAsset( "cubemap/py.jpg" ) ),
@@ -83,11 +114,14 @@ void DofTest::setup()
 	mMayaCam.setCurrentCam( cam );
 
 	mParams = params::InterfaceGl( "Parameters", Vec2i( 200, 300 ) );
+	mParams.addParam( "Fps", &mFps, "", true );
 }
 
 void DofTest::update()
 {
+	mFps = getAverageFps();
 }
+
 
 void DofTest::draw()
 {
@@ -103,9 +137,7 @@ void DofTest::draw()
 	mndl::gl::enableReflectionMapping();
 	mCubeMap.bind();
 	gl::pushMatrices();
-	gl::rotate( Vec3f( getElapsedSeconds() * 27 , getElapsedSeconds() * 15, 90 ) );
-	gl::scale( Vec3f( 20, 20, 20 ) );
-	gl::draw( mVboMesh );
+	mSpheres.draw();
 	gl::popMatrices();
 	mCubeMap.unbind();
 	mndl::gl::disableReflectionMapping();
