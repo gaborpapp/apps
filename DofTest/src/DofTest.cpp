@@ -13,11 +13,15 @@
 
  You should have received a copy of the GNU General Public License
  along with this program. If not, see <http://www.gnu.org/licenses/>.
+
+ Depth of Field test based on by http://www.ro.me/tech/depth-of-field
 */
 
 #include "cinder/app/AppBasic.h"
 #include "cinder/gl/gl.h"
 #include "cinder/gl/DisplayList.h"
+#include "cinder/gl/Fbo.h"
+#include "cinder/gl/GlslProg.h"
 #include "cinder/params/Params.h"
 #include "cinder/Cinder.h"
 #include "cinder/CinderMath.h"
@@ -49,16 +53,24 @@ class DofTest : public AppBasic
 		void draw();
 
 	private:
+		gl::Fbo mFbo;
+		void renderSceneToFbo();
+
 		mndl::gl::CubeMap mCubeMap;
 
 		TriMesh mTriMesh;
 		gl::DisplayList mSpheres;
+		gl::GlslProg mShader;
 
 		MayaCamUI mMayaCam;
 
 		params::InterfaceGl mParams;
 
 		float mFps;
+
+		float mFocus;
+		float mAperture;
+		float mMaxBlur;
 };
 
 void DofTest::prepareSettings( Settings *settings )
@@ -92,15 +104,32 @@ void DofTest::setup()
 				h += hStep;
 				gl::pushModelView();
 				gl::color( Color( CM_HSV, math< float>::fmod( h, 1.f ), 1.f, 1.f ) );
-				gl::translate( Vec3f( 5 * ( x - xGrid / 2.f ),
-									  5 * ( y - yGrid / 2.f ),
-									  5 * ( z - zGrid / 2.f ) ) );
+				gl::translate( 4 * Vec3f( ( x - xGrid / 2.f ),
+										  ( y - yGrid / 2.f ),
+										  ( z - zGrid / 2.f ) ) );
 				gl::draw( mTriMesh );
 				gl::popModelView();
 			}
 		}
 	}
+	gl::color( Color::white() );
 	mSpheres.endList();
+
+	mFbo = gl::Fbo( 1024, 768 );
+	try
+	{
+		mShader = gl::GlslProg( loadAsset( "shaders/PassThroughVert.glsl" ),
+								loadAsset( "shaders/DofFrag.glsl" ) );
+	}
+	catch ( const std::exception &exc )
+	{
+		console() << exc.what() << endl;
+	}
+
+	mShader.bind();
+	mShader.uniform( "tColor", 0 );
+	mShader.uniform( "tDepth", 1 );
+	mShader.uniform( "size", Vec2f( mFbo.getSize() ) );
 
 	mCubeMap = mndl::gl::CubeMap( loadImage( loadAsset( "cubemap/px.jpg" ) ),
 								loadImage( loadAsset( "cubemap/py.jpg" ) ),
@@ -110,11 +139,19 @@ void DofTest::setup()
 								loadImage( loadAsset( "cubemap/nz.jpg" ) ) );
 
 	CameraPersp cam;
-	cam.setPerspective( 60.f, getWindowAspectRatio(), 0.1f, 1000.0f );
+	cam.setPerspective( 60.f, getWindowAspectRatio(), 0.1f, 100.0f );
 	mMayaCam.setCurrentCam( cam );
 
 	mParams = params::InterfaceGl( "Parameters", Vec2i( 200, 300 ) );
 	mParams.addParam( "Fps", &mFps, "", true );
+	mParams.addSeparator();
+
+	mFocus = 0.15f;
+	mParams.addParam( "Focus", &mFocus, "min=0 max=1 step=.01" );
+	mAperture = 0.035f;
+	mParams.addParam( "Aperture", &mAperture, "min=0 max=.2 step=.001" );
+	mMaxBlur = 1.f;
+	mParams.addParam( "Max blur", &mMaxBlur, "min=0 max=3. step=.025" );
 }
 
 void DofTest::update()
@@ -122,15 +159,42 @@ void DofTest::update()
 	mFps = getAverageFps();
 }
 
-
 void DofTest::draw()
 {
-	gl::clear( Color::black() );
-
 	gl::enableDepthRead();
 	gl::enableDepthWrite();
+	renderSceneToFbo();
+
+	gl::disableDepthRead();
+	gl::disableDepthWrite();
 
 	gl::setViewport( getWindowBounds() );
+	gl::setMatricesWindow( getWindowSize() );
+
+	gl::clear( Color::black() );
+	mShader.bind();
+	mFbo.getTexture().bind( 0 );
+	mFbo.getDepthTexture().bind( 1 );
+
+	mShader.uniform( "maxblur", mMaxBlur );
+	mShader.uniform( "aperture", mAperture );
+	mShader.uniform( "focus", mFocus );
+
+	gl::drawSolidRect( getWindowBounds() );
+	mShader.unbind();
+
+	params::InterfaceGl::draw();
+}
+
+void DofTest::renderSceneToFbo()
+{
+	gl::SaveFramebufferBinding bindingSaver;
+
+	mFbo.bindFramebuffer();
+
+	gl::clear( Color::black() );
+
+	gl::setViewport( mFbo.getBounds() );
 	gl::setMatrices( mMayaCam.getCamera() );
 
 	gl::enable( GL_NORMALIZE );
@@ -141,9 +205,8 @@ void DofTest::draw()
 	gl::popMatrices();
 	mCubeMap.unbind();
 	mndl::gl::disableReflectionMapping();
-
-	params::InterfaceGl::draw();
 }
+
 
 void DofTest::keyDown( KeyEvent event )
 {
