@@ -106,6 +106,9 @@ void PicPair::makePairs()
 	mImages0 = loadSurfaces( mPath0 );
 	mImages1 = loadSurfaces( mPath1 );
 
+	if ( mImages0.empty() || mImages1.empty() )
+		return;
+
 	fs::path outDir = getAppPath();
 #ifdef CINDER_MAC
     outDir /= "..";
@@ -180,14 +183,19 @@ vector< Surface > PicPair::loadSurfaces( const fs::path &dir )
 	console() << dir.string() << ":\n------\n" << endl;
 	for ( fs::directory_iterator it( dir ); it != fs::directory_iterator(); ++it )
 	{
-		if ( fs::is_regular_file(*it) &&
-				( (it->path().extension().string() == ".jpg") ||
-				  (it->path().extension().string() == ".png") ) )
+		if ( fs::is_regular_file(*it) )
 		{
 			console() << it->path().filename().string() << endl;
 
-			Surface s = loadImage( dir / it->path().filename() );
-			surfaces.push_back( s );
+			try
+			{
+				Surface s = loadImage( dir / it->path().filename() );
+				surfaces.push_back( s );
+			}
+			catch ( const ImageIoException &exc )
+			{
+				console() << exc.what() << endl;
+			}
 		}
 	}
 

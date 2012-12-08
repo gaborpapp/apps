@@ -1,7 +1,8 @@
-TARGET = 'PicPair'
-SOURCES  = ['PicPair.cpp']
-DEBUG = 0
+env = Environment()
 
-SConscript('../../../scons/SConscript',
-	exports = ['TARGET', 'SOURCES', 'DEBUG'])
+env['APP_TARGET'] = 'PicPair'
+env['APP_SOURCES']  = ['PicPair.cpp']
+env['DEBUG'] = 0
+
+SConscript('../../../scons/SConscript', exports = 'env')
 
