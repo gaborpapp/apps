@@ -1,0 +1,11 @@
+env = Environment()
+
+env['APP_TARGET'] = 'KecskeAr'
+env['APP_SOURCES'] = ['KecskeAr.cpp']
+env['ASSETS'] = ['camera_para.dat', 'marker_cube.cfg']
+env['DEBUG'] = 1
+
+env = SConscript('../../../blocks/Cinder-Artkp/scons/SConscript', exports = 'env')
+
+SConscript('../../../scons/SConscript', exports = 'env')
+
