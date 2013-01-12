@@ -29,6 +29,7 @@
 #include "cinder/CinderMath.h"
 #include "cinder/Matrix.h"
 #include "cinder/Quaternion.h"
+#include "cinder/Timeline.h"
 
 #include "ArTracker.h"
 
@@ -70,8 +71,16 @@ class KecskeAr : public AppBasic
 		bool mFlipY = false;
 		int mObjectId = 0;
 		float mRotationSmoothness = .1f;
+		bool mDebugTracking;
 
 		CameraPersp mCamera;
+
+		// rotation logic
+		Quatf mRot = Quatf( Vec3f( 1, 0, 0 ), 0 ); //< rotation
+		/*! if true - the marker cube is lost for a longer period, and slerp is started
+		 * back to the original orientation, if false - the cube has just been lost this frame,
+		 * indeterminate - the cube is beeing seen */
+		boost::tribool mBackToInit;;
 };
 
 void KecskeAr::setup()
@@ -82,13 +91,11 @@ void KecskeAr::setup()
 
 	mParams.addParam( "Fps", &mFps, "", true );
 
-	/*
-	mParams.addParam( "Mirror horizontally", &mFlipX );
-	mParams.addParam( "Mirror vertically", &mFlipY );
-	*/
 	vector< string > objectNames = { "frame", "cube" };
 	mParams.addParam( "Object", objectNames, &mObjectId );
 	mParams.addParam( "Rotation smoothness", &mRotationSmoothness, "min=0.01 max=1.00 step=.01" );
+	mDebugTracking = false;
+	mParams.addParam( "Debug capture", &mDebugTracking );
 
 	setupCapture();
 
@@ -101,6 +108,9 @@ void KecskeAr::setup()
 	// set up the camera
 	mCamera.setPerspective( 60.f, getWindowAspectRatio(), 0.1f, 1000.0f );
 	mCamera.lookAt( Vec3f( 0.f, 0.f, -10.f ), Vec3f( 0.f, 0.f, 0.f ) );
+
+	// rotation
+	mBackToInit = true;
 }
 
 void KecskeAr::setupCapture()
@@ -178,42 +188,7 @@ void KecskeAr::draw()
 {
 	gl::clear( Color::black() );
 
-#if 0
-	gl::disableDepthRead();
-	gl::disableDepthWrite();
-
-	// draws camera image
-	gl::setViewport( getWindowBounds() );
-	gl::setMatricesWindow( getWindowSize() );
-
-	gl::color( Color::white() );
-	Area outputArea = Area::proportionalFit( Area( 0, 0, CAPTURE_WIDTH, CAPTURE_HEIGHT ), getWindowBounds(), true, true );
-	if ( mCaptTexture )
-		gl::draw( mCaptTexture, outputArea );
-
-	// places a cube on each detected marker
-	gl::enableDepthRead();
-	gl::enableDepthWrite();
-
-	gl::setViewport( outputArea );
-	// sets the projection matrix
-	mArTracker.setProjection();
-
-	// scales the pattern according th the pattern width
-	Vec3d patternScale = Vec3d::one() * mArTracker.getOptions().getPatternWidth();
-	for ( int i = 0; i < mArTracker.getNumMarkers(); i++ )
-	{
-		// id -1 means unknown marker, false positive
-		if ( mArTracker.getMarkerId( i ) == -1 )
-			continue;
-
-		// sets the modelview matrix of the i'th marker
-		mArTracker.setModelView( i );
-		gl::scale( patternScale );
-		gl::drawColorCube( Vec3f::zero(), Vec3f::one() );
-		break;
-	}
-#endif
+	gl::pushMatrices();
 
 	gl::setViewport( getWindowBounds() );
 	gl::setMatrices( mCamera );
@@ -221,7 +196,6 @@ void KecskeAr::draw()
 	gl::enableDepthRead();
 	gl::enableDepthWrite();
 
-	static Quatf rot( Vec3f( 1, 0, 0 ), 0 );
 	//static float scale;
 	bool markerFound = false;
 	for ( int i = 0; i < mArTracker.getNumMarkers(); i++ )
@@ -236,19 +210,37 @@ void KecskeAr::draw()
 		// rotation
 		Quatf q( m );
 		q *= Quatf( Vec3f( 1, 0, 0 ), M_PI );
-		rot = rot.slerp( mRotationSmoothness, q );
+
+		mRot = mRot.slerp( mRotationSmoothness, q );
 
 		markerFound = true;
+		mBackToInit = boost::indeterminate;
+
 		break;
 	}
+
 	if ( !markerFound )
 	{
-		rot = rot.slerp( mRotationSmoothness, Quatf( Vec3f( 1, 0, 0 ), .0 ) );
+		if ( boost::indeterminate( mBackToInit ) )
+		{
+			console() << "cube lost - stating countdown " << getElapsedFrames() << endl;
+			// allow loosing the cube for a small amount of time
+			mBackToInit = false;
+			timeline().add( [ & ]{ mBackToInit = true; }, timeline().getCurrentTime() + .5f );
+		}
+		else
+		if ( mBackToInit == true )
+		{
+			console() << "cube lost totaly - interpolation back to original" << getElapsedFrames() << endl;
+			// lost the cube for a longer period, start moving back to original position
+			mRot = mRot.slerp( mRotationSmoothness, Quatf( Vec3f( 1, 0, 0 ), .0 ) );
+		}
 	}
-	rot.normalize();
+
+	mRot.normalize();
 
 	gl::pushModelView();
-	gl::rotate( rot );
+	gl::rotate( mRot );
 	gl::scale( Vec3f::one() * 3.f );
 	if ( mObjectId == 0 )
 		gl::drawCoordinateFrame();
@@ -256,6 +248,49 @@ void KecskeAr::draw()
 		gl::drawColorCube( Vec3f::zero(), Vec3f::one() );
 	gl::popModelView();
 
+	gl::popMatrices();
+
+	if ( mDebugTracking )
+	{
+		gl::disableDepthRead();
+		gl::disableDepthWrite();
+
+		gl::disableDepthRead();
+		gl::disableDepthWrite();
+
+		// draws camera image
+		Area mDebugArea = Area( Rectf( getWindowBounds() ) * .2f + Vec2f( getWindowSize() ) * Vec2f( .8f, .0f ) );
+		gl::color( Color::white() );
+		Area outputArea = Area::proportionalFit( Area( 0, 0, CAPTURE_WIDTH, CAPTURE_HEIGHT ), mDebugArea, false );
+		gl::setViewport( getWindowBounds() );
+		gl::setMatricesWindow( getWindowSize() );
+		if ( mCaptTexture )
+		{
+			gl::draw( mCaptTexture, outputArea );
+		}
+
+		gl::enableDepthRead();
+		gl::enableDepthWrite();
+
+		gl::setViewport( Area( Rectf( outputArea ) + Vec2f( getWindowSize() ) * Vec2f( .0, .8f ) ) );
+		// sets the projection matrix
+		mArTracker.setProjection();
+
+		// scales the pattern according the the pattern width
+		Vec3d patternScale = Vec3d::one() * mArTracker.getOptions().getPatternWidth();
+		for ( int i = 0; i < mArTracker.getNumMarkers(); i++ )
+		{
+			// id -1 means unknown marker, false positive
+			if ( mArTracker.getMarkerId( i ) == -1 )
+				continue;
+
+			// sets the modelview matrix of the i'th marker
+			mArTracker.setModelView( i );
+			gl::scale( patternScale );
+			gl::drawColorCube( Vec3f::zero(), Vec3f::one() );
+			break;
+		}
+	}
 
 	params::InterfaceGl::draw();
 }
