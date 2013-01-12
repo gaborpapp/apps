@@ -1,7 +1,7 @@
 env = Environment()
 
 env['APP_TARGET'] = 'KecskeAr'
-env['APP_SOURCES'] = ['KecskeAr.cpp']
+env['APP_SOURCES'] = ['KecskeAr.cpp', 'PParams.cpp', 'TrackerManager.cpp']
 env['ASSETS'] = ['camera_para.dat', 'marker_cube.cfg']
 env['DEBUG'] = 1
 
