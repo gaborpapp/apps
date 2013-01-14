@@ -34,6 +34,7 @@ using namespace std;
 class KecskeAr : public AppBasic
 {
 	public:
+		void prepareSettings( Settings *settings );
 		void setup();
 
 		void resize();
@@ -86,9 +87,16 @@ class KecskeAr : public AppBasic
 		int mInteractionMode;
 };
 
+void KecskeAr::prepareSettings( Settings *settings )
+{
+	settings->setWindowSize( 1024, 768 );
+}
+
 void KecskeAr::setup()
 {
 	gl::disableVerticalSync();
+
+	getWindow()->setTitle( "KecskeAr" );
 
 	// params
 	params::PInterfaceGl::load( "params.xml" );
@@ -184,7 +192,9 @@ void KecskeAr::draw()
 	else // outdoor camera
 	{
 		// set the originial camera without rotation and rotate the object instead
-		gl::setMatrices( mCameras[ mCameraIndex ].mCam );
+		CameraPersp cam = mCameras[ mCameraIndex ].mCam;
+		cam.setFov( mFov );
+		gl::setMatrices( cam );
 	}
 
 	gl::enableDepthRead();
