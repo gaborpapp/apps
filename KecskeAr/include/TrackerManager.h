@@ -48,6 +48,9 @@ class TrackerManager
 		// ar
 		mndl::artkp::ArTracker mArTracker;
 
+		bool mAutoThreshold;
+		int mThreshold;
+
 		float mMovementSmoothness;
 		bool mDebugTracking;
 		float mDebugSize;

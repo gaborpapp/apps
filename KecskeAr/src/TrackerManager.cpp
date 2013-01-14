@@ -27,6 +27,9 @@ void TrackerManager::setup()
 	mParams.addPersistentSizeAndPosition();
 
 	setupCapture();
+	mParams.addPersistentParam( "Auto threshold", &mAutoThreshold, true );
+	mParams.addPersistentParam( "Threshold", &mThreshold, 170, "min=1 max=255", true );
+
 	mParams.addPersistentParam( "Movement smoothness", &mMovementSmoothness, 0.1f, "min=0.01 max=1.00 step=.01"
 			"help='Interpolation value for smoother movement. Smaller values result in smoother but laggier.'" );
 	mParams.addPersistentParam( "Tolerance", &mTolerance, 1.f, "min=0 max=5 step=0.1 "
@@ -117,11 +120,22 @@ void TrackerManager::update()
 		lastCapture = mCurrentCapture;
 	}
 
+	static int lastAutoThreshold = true;
+	if ( mAutoThreshold != lastAutoThreshold )
+	{
+		mArTracker.enableAutoThreshold( mAutoThreshold );
+		lastAutoThreshold = mAutoThreshold;
+		mParams.setOptions( "Threshold", "readonly=" + toString< bool >( mAutoThreshold ) );
+	}
+
 	// detect the markers
 	if ( mCapture && mCapture.checkNewFrame() )
 	{
 		Surface8u captSurf( mCapture.getSurface() );
 		mCaptTexture = gl::Texture( captSurf );
+
+		if ( !mAutoThreshold )
+			mArTracker.setThreshold( mThreshold );
 		mArTracker.update( captSurf );
 	}
 
