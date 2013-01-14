@@ -2,6 +2,7 @@
 
 #include <vector>
 
+#include "cinder/gl/Fbo.h"
 #include "cinder/gl/Texture.h"
 
 #include "cinder/Capture.h"
@@ -25,7 +26,7 @@ class TrackerManager
 
 		ci::Quatf getRotation() const { return mRotation; }
 
-		ci::Vec3f getScale() const { return ci::Vec3f( mScale, mScale, mScale ); };
+		float getZoom() const { return mZoom; };
 
 	private:
 		void setupCapture();
@@ -47,7 +48,7 @@ class TrackerManager
 		// ar
 		mndl::artkp::ArTracker mArTracker;
 
-		float mRotationSmoothness;
+		float mMovementSmoothness;
 		bool mDebugTracking;
 		float mDebugSize;
 
@@ -55,14 +56,15 @@ class TrackerManager
 		ci::Quatf mRotation = ci::Quatf( ci::Vec3f( 1, 0, 0 ), 0 ); //< rotation
 		// scale logic
 		ci::Vec3f mPosition; // marker cube position in millimeters
-		float mScale = 1.f;
+		float mZoom = .6f; // zoom mapped from cube z values to 0-1 range
 		float mMinZ, mMaxZ; // cube Z position range
-		float mMinScale, mMaxScale; //< scale connected to the z-range
 
 		/**! if true - the marker cube is lost for a longer period, and slerp is started
 		 * back to the original orientation, if false - the cube has just been lost this frame,
 		 * indeterminate - the cube is beeing seen */
 		boost::tribool mBackToInit;
 		float mTolerance; //< duration for which the missing marker cube is tolerated
+
+		ci::gl::Fbo mDebugFbo; //< debug draw
 };
 

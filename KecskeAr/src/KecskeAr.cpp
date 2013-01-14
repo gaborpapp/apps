@@ -183,6 +183,18 @@ void KecskeAr::draw()
 {
 	gl::clear( Color::black() );
 
+	if ( mInteractionMode == MODE_AR )
+	{
+		mFov = lmap( mTrackerManager.getZoom(), .0f, 1.f, 10.f, 90.f );
+
+		// original orientation * ar orientation
+		Quatf oriInit = mCameras[ mCameraIndex ].mCam.getOrientation();
+		// mirror rotation
+		Quatf q = mTrackerManager.getRotation();
+		q.v = -q.v;
+		mCurrentCamera.mCam.setOrientation( oriInit * q );
+	}
+
 	gl::setViewport( getWindowBounds() );
 	mCurrentCamera.mCam.setFov( mFov );
 	if ( mCurrentCamera.mType == TYPE_INDOOR )
@@ -205,12 +217,9 @@ void KecskeAr::draw()
 	if ( mCurrentCamera.mType == TYPE_OUTDOOR )
 	{
 		Quatf q = mCurrentCamera.mCam.getOrientation();
-		q.v.x = -q.v.x;
-		q.v.z = -q.v.z;
+		q.v = -q.v;
 		gl::rotate( q );
 	}
-	//gl::rotate( mTrackerManager.getRotation() );
-	//gl::scale( mTrackerManager.getScale() );
 
 	gl::color( Color::white() );
 	mAssimpLoader.draw();
@@ -250,6 +259,7 @@ void KecskeAr::resize()
 {
 	for ( CameraExt &ce : mCameras )
 		ce.mCam.setAspectRatio( getWindowAspectRatio() );
+	mCurrentCamera.mCam.setAspectRatio( getWindowAspectRatio() );
 }
 
 void KecskeAr::keyDown( KeyEvent event )

@@ -27,13 +27,12 @@ void TrackerManager::setup()
 	mParams.addPersistentSizeAndPosition();
 
 	setupCapture();
-	mParams.addPersistentParam( "Rotation smoothness", &mRotationSmoothness, 0.1f, "min=0.01 max=1.00 step=.01" );
+	mParams.addPersistentParam( "Movement smoothness", &mMovementSmoothness, 0.1f, "min=0.01 max=1.00 step=.01"
+			"help='Interpolation value for smoother movement. Smaller values result in smoother but laggier.'" );
 	mParams.addPersistentParam( "Tolerance", &mTolerance, 1.f, "min=0 max=5 step=0.1 "
-			"help='duration in seconds for which the missing marker cube is tolerated' " );
+			"help='duration in seconds for which the missing marker cube is tolerated'" );
 	mParams.addPersistentParam( "Minimum distance", &mMinZ, 300.f, "min=10 max=2000 step=10" );
 	mParams.addPersistentParam( "Maximum distance", &mMaxZ, 1000.f, "min=10 max=3000 step=10" );
-	mParams.addPersistentParam( "Minimum scale", &mMinScale, .1f, "min=.05 max=1 step=.05" );
-	mParams.addPersistentParam( "Maximum scale", &mMaxScale, 3.f, "min=1 max=20 step=.05" );
 
 	mParams.addSeparator();
 	mParams.addParam( "Rotation", &mRotation, "", true );
@@ -53,6 +52,8 @@ void TrackerManager::setup()
 
 	// rotation
 	mBackToInit = true;
+
+	mDebugFbo = gl::Fbo( CAPTURE_WIDTH, CAPTURE_HEIGHT );
 }
 
 void TrackerManager::setupCapture()
@@ -124,9 +125,7 @@ void TrackerManager::update()
 		mArTracker.update( captSurf );
 	}
 
-	// rotation quaternion calculation
-
-	//static float scale;
+	// zoom and rotation quaternion calculation
 	bool markerFound = false;
 	for ( int i = 0; i < mArTracker.getNumMarkers(); i++ )
 	{
@@ -139,15 +138,13 @@ void TrackerManager::update()
 
 		mPosition = m.getTranslate().xyz();
 
-		float scale = lmap< float >( math< float >::clamp( mPosition.z, mMinZ, mMaxZ ),
-									mMinZ, mMaxZ, mMaxScale, mMinScale );
-		mScale = lerp( mScale, scale, mRotationSmoothness );
+		float zoom = lmap< float >( math< float >::clamp( mPosition.z, mMinZ, mMaxZ ),
+									mMinZ, mMaxZ, 0.f, 1.f );
+		mZoom = lerp( mZoom, zoom, mMovementSmoothness );
 
 		// rotation
 		Quatf q( m );
-		q *= Quatf( Vec3f( 1, 0, 0 ), M_PI );
-
-		mRotation = mRotation.slerp( mRotationSmoothness, q );
+		mRotation = mRotation.slerp( mMovementSmoothness, q );
 
 		markerFound = true;
 		mBackToInit = boost::indeterminate;
@@ -169,8 +166,8 @@ void TrackerManager::update()
 		if ( mBackToInit == true )
 		{
 			// lost the cube for a longer period, start moving back to original position
-			mRotation = mRotation.slerp( mRotationSmoothness, Quatf( Vec3f( 1, 0, 0 ), .0 ) );
-			mScale = lerp( mScale, 1.f, mRotationSmoothness );
+			mRotation = mRotation.slerp( mMovementSmoothness, Quatf( Vec3f( 1, 0, 0 ), .0 ) );
+			mZoom = lerp( mZoom, .6f, mMovementSmoothness );
 		}
 	}
 
@@ -184,30 +181,24 @@ void TrackerManager::draw()
 
 	gl::pushMatrices();
 
+	mDebugFbo.bindFramebuffer();
+
+	gl::clear( Color::black() );
+
 	gl::disableDepthRead();
 	gl::disableDepthWrite();
 
-	// draws camera image
-	Area mDebugArea = Area( Rectf( app::getWindowBounds() ) * mDebugSize +
-			Vec2f( app::getWindowSize() ) * Vec2f( 1.f - mDebugSize, .0f ) );
-	gl::color( Color::white() );
-	Area outputArea = Area::proportionalFit( Area( 0, 0, CAPTURE_WIDTH, CAPTURE_HEIGHT ), mDebugArea, false );
-	if ( outputArea.getX2() < app::getWindowWidth() )
-	{
-		outputArea.offset( Vec2i( app::getWindowWidth() - outputArea.getX2(), 0 ) );
-	}
-
-	gl::setViewport( app::getWindowBounds() );
-	gl::setMatricesWindow( app::getWindowSize() );
+	gl::setViewport( mDebugFbo.getBounds() );
+	gl::setMatricesWindow( mDebugFbo.getSize() );
 	if ( mCaptTexture )
 	{
-		gl::draw( mCaptTexture, outputArea );
+		gl::draw( mCaptTexture, mDebugFbo.getBounds() );
 	}
 
+	gl::setMatricesWindow( mDebugFbo.getSize() );
 	gl::enableDepthRead();
 	gl::enableDepthWrite();
 
-	gl::setViewport( outputArea + Vec2i( 0, app::getWindowHeight() - outputArea.getHeight() ) );
 	// sets the projection matrix
 	mArTracker.setProjection();
 
@@ -221,10 +212,30 @@ void TrackerManager::draw()
 
 		// sets the modelview matrix of the i'th marker
 		mArTracker.setModelView( i );
+		// scale
 		gl::scale( patternScale );
 		gl::drawColorCube( Vec3f::zero(), Vec3f::one() );
 		break;
 	}
 
+	mDebugFbo.unbindFramebuffer();
+
+	gl::setViewport( app::getWindowBounds() );
+	gl::setMatricesWindow( app::getWindowSize() );
+
+	// draws camera image
+	Area mDebugArea = Area( Rectf( app::getWindowBounds() ) * mDebugSize +
+			Vec2f( app::getWindowSize() ) * Vec2f( 1.f - mDebugSize, .0f ) );
+	gl::color( Color::white() );
+	Area outputArea = Area::proportionalFit( Area( 0, 0, CAPTURE_WIDTH, CAPTURE_HEIGHT ), mDebugArea, false );
+	if ( outputArea.getX2() < app::getWindowWidth() )
+	{
+		outputArea.offset( Vec2i( app::getWindowWidth() - outputArea.getX2(), 0 ) );
+	}
+	mDebugFbo.getTexture().setFlipped();
+	// mirrors camera image
+	gl::translate( Vec2f( 2 * app::getWindowWidth() - outputArea.getWidth(), 0 ) );
+	gl::scale( Vec2f( -1.f, 1.f ) );
+	gl::draw( mDebugFbo.getTexture(), outputArea );
 	gl::popMatrices();
 }
