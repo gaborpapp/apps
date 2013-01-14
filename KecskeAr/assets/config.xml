@@ -1,0 +1,7 @@
+<?xml version="1.0"?>
+<model name="model/2013.01.14_1139_fa.dae" />
+
+<camera name="Camera_udvar" type="indoor" />
+<camera name="Camera_templom" type="indoor" />
+<camera name="Camera_kulso" type="outdoor" />
+

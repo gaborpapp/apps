@@ -36,10 +36,10 @@ void TrackerManager::setup()
 	mParams.addPersistentParam( "Maximum scale", &mMaxScale, 3.f, "min=1 max=20 step=.05" );
 
 	mParams.addSeparator();
-	mParams.addParam( "Rotation", &mRotation, "", false );
-	mParams.addParam( "X", &mPosition.x, "group=ArPosition", false );
-	mParams.addParam( "Y", &mPosition.y, "group=ArPosition", false );
-	mParams.addParam( "Z", &mPosition.z, "group=ArPosition", false );
+	mParams.addParam( "Rotation", &mRotation, "", true );
+	mParams.addParam( "X", &mPosition.x, "group=ArPosition", true );
+	mParams.addParam( "Y", &mPosition.y, "group=ArPosition", true );
+	mParams.addParam( "Z", &mPosition.z, "group=ArPosition", true );
 
 	mParams.addSeparator();
 	mParams.addPersistentParam( "Debug tracking", &mDebugTracking, false );

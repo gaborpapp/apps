@@ -21,7 +21,9 @@
 
 #include "cinder/Camera.h"
 #include "cinder/Cinder.h"
+#include "cinder/MayaCamUI.h"
 
+#include "AssimpLoader.h"
 #include "PParams.h"
 #include "TrackerManager.h"
 
@@ -36,6 +38,8 @@ class KecskeAr : public AppBasic
 
 		void resize();
 		void keyDown( KeyEvent event );
+		void mouseDown( MouseEvent event );
+		void mouseDrag( MouseEvent event );
 
 		void update();
 		void draw();
@@ -50,9 +54,36 @@ class KecskeAr : public AppBasic
 		TrackerManager mTrackerManager;
 
 		float mFps;
-		int mObjectId = 0;
 
-		CameraPersp mCamera;
+		void loadModel();
+		mndl::assimp::AssimpLoader mAssimpLoader;
+
+		// cameras
+		typedef enum
+		{
+			TYPE_INDOOR = 0,
+			TYPE_OUTDOOR = 1
+		} CameraType;
+
+		struct CameraExt
+		{
+			string mName;
+			CameraType mType;
+			CameraPersp mCam;
+		};
+
+		int mCameraIndex;
+		vector< CameraExt > mCameras;
+		CameraExt mCurrentCamera;
+		MayaCamUI mMayaCam;
+		float mFov;
+
+		enum
+		{
+			MODE_MOUSE = 0,
+			MODE_AR = 1
+		};
+		int mInteractionMode;
 };
 
 void KecskeAr::setup()
@@ -66,19 +97,75 @@ void KecskeAr::setup()
 	mParams.addPersistentSizeAndPosition();
 
 	mParams.addParam( "Fps", &mFps, "", true );
+	mParams.addSeparator();
 
-	vector< string > objectNames = { "frame", "cube" };
-	mParams.addParam( "Object", objectNames, &mObjectId );
+	vector< string > interactionNames = { "mouse", "ar" };
+	mParams.addPersistentParam( "Interaction mode", interactionNames, &mInteractionMode, 0 );
+	mFov = 60.f;
+	mParams.addParam( "Fov", &mFov, "min=10 max=90" );
 
-	// set up the camera
-	mCamera.setPerspective( 60.f, getWindowAspectRatio(), 0.1f, 1000.0f );
-	mCamera.lookAt( Vec3f( 0.f, 0.f, -10.f ), Vec3f( 0.f, 0.f, 0.f ) );
+	loadModel();
 
 	mTrackerManager.setup();
 }
 
+void KecskeAr::loadModel()
+{
+	XmlTree doc( loadFile( getAssetPath( "config.xml" ) ) );
+	XmlTree xmlLicense = doc.getChild( "model" );
+	string filename = xmlLicense.getAttributeValue< string >( "name", "" );
+
+	try
+	{
+		mAssimpLoader = mndl::assimp::AssimpLoader( getAssetPath( filename ) );
+	}
+	catch ( mndl::assimp::AssimpLoaderExc &exc )
+	{
+		console() << exc.what() << endl;
+		quit();
+	};
+
+	// set up cameras
+	vector< string > cameraNames;
+	mCameras.resize( mAssimpLoader.getNumCameras() );
+	for ( size_t i = 0; i < mAssimpLoader.getNumCameras(); i++ )
+	{
+		string name = mAssimpLoader.getCameraName( i );
+		cameraNames.push_back( name );
+		mCameras[ i ].mName = name;
+		mCameras[ i ].mType = TYPE_INDOOR;
+		mCameras[ i ].mCam = mAssimpLoader.getCamera( i );
+
+		// load camera parameter from config file
+		for ( XmlTree::Iter cIt = doc.begin( "camera" ); cIt != doc.end(); ++cIt )
+		{
+			string cName = cIt->getAttributeValue< string >( "name", "" );
+			if ( cName != name )
+				continue;
+			string cTypeStr = cIt->getAttributeValue< string >( "type", "indoor" );
+			if ( cTypeStr == "indoor" )
+				mCameras[ i ].mType = TYPE_INDOOR;
+			else
+			if ( cTypeStr == "outdoor" )
+				mCameras[ i ].mType = TYPE_OUTDOOR;
+		}
+	}
+	mCameraIndex = 0;
+	mParams.addParam( "Cameras", cameraNames, &mCameraIndex );
+}
+
 void KecskeAr::update()
 {
+	static int lastCameraIndex = -1;
+	static int lastInteractionMode = -1;
+	if ( ( lastCameraIndex != mCameraIndex ) ||
+		 ( lastInteractionMode != mInteractionMode ) )
+	{
+		mCurrentCamera = mCameras[ mCameraIndex ];
+		lastCameraIndex = mCameraIndex;
+		lastInteractionMode = mInteractionMode;
+	}
+
 	mFps = getAverageFps();
 
 	mTrackerManager.update();
@@ -89,20 +176,35 @@ void KecskeAr::draw()
 	gl::clear( Color::black() );
 
 	gl::setViewport( getWindowBounds() );
-	gl::setMatrices( mCamera );
+	mCurrentCamera.mCam.setFov( mFov );
+	if ( mCurrentCamera.mType == TYPE_INDOOR )
+	{
+		gl::setMatrices( mCurrentCamera.mCam );
+	}
+	else // outdoor camera
+	{
+		// set the originial camera without rotation and rotate the object instead
+		gl::setMatrices( mCameras[ mCameraIndex ].mCam );
+	}
 
 	gl::enableDepthRead();
 	gl::enableDepthWrite();
 
 	gl::pushModelView();
-	gl::rotate( mTrackerManager.getRotation() );
-	gl::scale( mTrackerManager.getScale() );
-	if ( mObjectId == 0 )
-		gl::drawCoordinateFrame();
-	else
-		gl::drawColorCube( Vec3f::zero(), Vec3f::one() );
-	gl::popModelView();
 
+	if ( mCurrentCamera.mType == TYPE_OUTDOOR )
+	{
+		Quatf q = mCurrentCamera.mCam.getOrientation();
+		q.v.x = -q.v.x;
+		q.v.z = -q.v.z;
+		gl::rotate( q );
+	}
+	//gl::rotate( mTrackerManager.getRotation() );
+	//gl::scale( mTrackerManager.getScale() );
+
+	gl::color( Color::white() );
+	mAssimpLoader.draw();
+	gl::popModelView();
 
 	mTrackerManager.draw();
 
@@ -114,9 +216,30 @@ void KecskeAr::shutdown()
 	params::PInterfaceGl::save();
 }
 
+void KecskeAr::mouseDown( MouseEvent event )
+{
+	if ( mInteractionMode != MODE_MOUSE )
+		return;
+
+	mMayaCam.setCurrentCam( mCurrentCamera.mCam );
+	mMayaCam.mouseDown( event.getPos() );
+	mCurrentCamera.mCam = mMayaCam.getCamera();
+}
+
+void KecskeAr::mouseDrag( MouseEvent event )
+{
+	if ( mInteractionMode != MODE_MOUSE )
+		return;
+
+	mMayaCam.setCurrentCam( mCurrentCamera.mCam );
+	mMayaCam.mouseDrag( event.getPos(), event.isLeftDown(), event.isMiddleDown(), event.isRightDown() );
+	mCurrentCamera.mCam = mMayaCam.getCamera();
+}
+
 void KecskeAr::resize()
 {
-	mCamera.setPerspective( 60.f, getWindowAspectRatio(), 0.1f, 1000.0f );
+	for ( CameraExt &ce : mCameras )
+		ce.mCam.setAspectRatio( getWindowAspectRatio() );
 }
 
 void KecskeAr::keyDown( KeyEvent event )
@@ -158,7 +281,6 @@ void KecskeAr::keyDown( KeyEvent event )
 			break;
 	}
 }
-
 
 CINDER_APP_BASIC( KecskeAr, RendererGl )
 
