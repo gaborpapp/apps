@@ -32,7 +32,7 @@ public:
 
 	void keyDown( KeyEvent event );
 
-	void resize( ResizeEvent event );
+	void resize();
 private:
 	void enableLights();
 	void disableLights();
@@ -277,10 +277,10 @@ void SmoothMeshApp::keyDown( KeyEvent event )
 	}
 }
 
-void SmoothMeshApp::resize( ResizeEvent event )
+void SmoothMeshApp::resize()
 {
 	CameraPersp cam = mMayaCam.getCamera();
-	cam.setAspectRatio( event.getAspectRatio() );
+	cam.setAspectRatio( getWindowAspectRatio() );
 
 	mMayaCam.setCurrentCam( cam );
 }
@@ -317,7 +317,9 @@ void SmoothMeshApp::setupShadowMap()
 	static const int size = 2048;
 
 	// create a frame buffer object (FBO) containing only a depth buffer
-	mDepthFbo = gl::Fbo( size, size, false, false, true );
+	// NOTE: without a color buffer it hangs on OSX 10.8 with some Geforce cards
+	// https://forum.libcinder.org/topic/anyone-else-experiencing-shadow-mapping-problems-with-the-new-xcode
+	mDepthFbo = gl::Fbo( size, size, false, true, true );
 
 	// set it up for shadow mapping
 	mDepthFbo.bindDepthTexture();
