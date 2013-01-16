@@ -105,12 +105,15 @@ class KecskeAr : public AppBasic
 		Color mLightDiffuse;
 		Color mLightSpecular;
 		float mShadowStrength;
+		float mGamma;
 
 		Matrix44f mShadowMatrix;
 		CameraPersp mShadowCamera;
 
+		int mDepthSize;
 		gl::Fbo mDepthFbo;
 		gl::GlslProg mRenderShader;
+		gl::GlslProg mDepthShader;
 
 		bool mDrawShadowMap;
 		bool mEnableLighting;
@@ -146,10 +149,12 @@ void KecskeAr::setup()
 	mParams.addPersistentParam( "Light diffuse", &mLightDiffuse, Color::white() );
 	mParams.addPersistentParam( "Light specular", &mLightDiffuse, Color::white() );
 	mParams.addPersistentParam( "Shadow strength", &mShadowStrength, .9f, "min=0 max=1 step=.05" );
+	mParams.addPersistentParam( "Gamma", &mGamma, 2.2f, "min=1 max=5 step=.1" );
 
 	mParams.addPersistentParam( "Enable lighting", &mEnableLighting, true );
 	mDrawShadowMap = false;
 	mParams.addParam( "Draw shadowmap", &mDrawShadowMap );
+	mParams.addPersistentParam( "Shadowmap size", &mDepthSize, 2048, "min=256 max=4096 step=16" );
 
 	loadModel();
 	setupShadowMap();
@@ -164,7 +169,15 @@ void KecskeAr::setup()
 		console() << "Could not compile shader:" << e.what() << std::endl;
 	}
 
-
+	try
+	{
+		mDepthShader = gl::GlslProg( loadAsset( "shaders/PassThrough.vert" ),
+									 loadAsset( "shaders/ShowDepth.frag" ) );
+	}
+	catch( const std::exception &e )
+	{
+		console() << "Could not compile shader:" << e.what() << std::endl;
+	}
 
 	mTrackerManager.setup();
 }
@@ -224,18 +237,18 @@ void KecskeAr::loadModel()
 
 void KecskeAr::setupShadowMap()
 {
-    static const int size = 2048;
+	// create a frame buffer object (FBO) containing only a depth buffer
+	// NOTE: without a color buffer it hangs on OSX 10.8 with some Geforce cards
+	// https://forum.libcinder.org/topic/anyone-else-experiencing-shadow-mapping-problems-with-the-new-xcode
+	mDepthFbo = gl::Fbo( mDepthSize, mDepthSize, false, true, true );
 
-    // create a frame buffer object (FBO) containing only a depth buffer
-    // NOTE: without a color buffer it hangs on OSX 10.8 with some Geforce cards
-    // https://forum.libcinder.org/topic/anyone-else-experiencing-shadow-mapping-problems-with-the-new-xcode
-    mDepthFbo = gl::Fbo( size, size, false, true, true );
+	// set it up for shadow mapping
+	mDepthFbo.bindDepthTexture();
+	glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_R_TO_TEXTURE );
+	glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR );
+	mDepthFbo.unbindTexture();
 
-    // set it up for shadow mapping
-    mDepthFbo.bindDepthTexture();
-    glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_R_TO_TEXTURE );
-    glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR );
-    mDepthFbo.unbindTexture();
+	mShadowMapUpdateNeeded = true;
 }
 
 void KecskeAr::renderShadowMap()
@@ -283,6 +296,7 @@ void KecskeAr::update()
 		mCurrentCamera = mCameras[ mCameraIndex ];
 		lastCameraIndex = mCameraIndex;
 		lastInteractionMode = mInteractionMode;
+		mShadowMapUpdateNeeded = true;
 	}
 
 	mFps = getAverageFps();
@@ -308,7 +322,7 @@ void KecskeAr::enableLights()
 	light.setAmbient( mLightAmbient );
 	light.setDiffuse( mLightDiffuse );
 	light.setSpecular( mLightSpecular );
-	light.setShadowParams( 60.0f, 5.0f, 3000.0f );
+	light.setShadowParams( 60.0f, 5.0f, 5000.0f );
 	light.enable();
 
 	// enable lighting
@@ -316,7 +330,6 @@ void KecskeAr::enableLights()
 
 	if ( mCurrentCamera.mType == TYPE_INDOOR )
 	{
-		light.update( mCurrentCamera.mCam );
 		mShadowMatrix = light.getShadowTransformationMatrix( mCurrentCamera.mCam );
 	}
 	else // outdoor camera
@@ -324,8 +337,8 @@ void KecskeAr::enableLights()
 		// set the originial camera without rotation and rotate the object instead
 		CameraPersp cam = mCameras[ mCameraIndex ].mCam;
 		cam.setFov( mFov );
-		light.update( cam );
 		mShadowMatrix = light.getShadowTransformationMatrix( cam );
+		mShadowMapUpdateNeeded = true;
 	}
 
 	mShadowCamera = light.getShadowCamera();
@@ -356,6 +369,7 @@ void KecskeAr::draw()
 
 	gl::setViewport( getWindowBounds() );
 	mCurrentCamera.mCam.setFov( mFov );
+
 	if ( mCurrentCamera.mType == TYPE_INDOOR )
 	{
 		gl::setMatrices( mCurrentCamera.mCam );
@@ -396,6 +410,7 @@ void KecskeAr::draw()
 		mRenderShader.uniform( "shadowTexture", 1 );
 		mRenderShader.uniform( "shadowMatrix", mShadowMatrix );
 		mRenderShader.uniform( "shadowStrength", mShadowStrength );
+		mRenderShader.uniform( "gamma", mGamma );
 	}
 
 	drawModel();
@@ -417,33 +432,30 @@ void KecskeAr::draw()
 
 	if ( mDrawShadowMap )
 	{
-		/*
 		gl::setMatricesWindow( getWindowSize() );
 
 		gl::disableDepthRead();
 		gl::disableDepthWrite();
 
-        mDepthFbo.getDepthTexture().enableAndBind();
+		if ( mDepthShader )
+		{
+			mDepthShader.bind();
+			mDepthShader.uniform( "tDepth", 0 );
+			mDepthShader.uniform( "zNear", mShadowCamera.getNearClip() );
+			mDepthShader.uniform( "zFar", mShadowCamera.getFarClip() );
+		}
 
-        // we'd like to draw the depth map as a normal texture,
-        // so let's temporarily disable the texture compare mode
-        glPushAttrib( GL_TEXTURE_BIT );
-        glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_COMPARE_MODE, GL_NONE );
-        glTexParameteri( GL_TEXTURE_2D, GL_DEPTH_TEXTURE_MODE, GL_LUMINANCE );
+		mDepthFbo.bindDepthTexture();
+		glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_COMPARE_MODE, GL_NONE );
+		gl::color( Color::white() );
+		gl::drawSolidRect( Rectf( 0, 256, 256, 0 ) );
+		glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_R_TO_TEXTURE );
+		mDepthFbo.unbindTexture();
 
-        // optional: invert colors when drawing, so black is far away and white is nearby
-        //glEnable( GL_BLEND );
-        //glBlendFuncSeparate( GL_ONE_MINUS_SRC_COLOR, GL_ZERO, GL_SRC_ALPHA, GL_DST_ALPHA );
-
-        gl::color( Color::white() );
-        gl::drawSolidRect( Rectf( 0, 256, 256, 0 ), false );
-
-        //glDisable( GL_BLEND );
-
-        glPopAttrib();
-
-        mDepthFbo.unbindTexture();
-		*/
+		if ( mDepthShader )
+		{
+			mDepthShader.unbind();
+		}
 	}
 
 	params::InterfaceGl::draw();
