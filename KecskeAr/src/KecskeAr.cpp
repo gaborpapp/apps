@@ -113,6 +113,7 @@ class KecskeAr : public AppBasic
 		gl::GlslProg mRenderShader;
 
 		bool mDrawShadowMap;
+		bool mEnableLighting;
 		bool mShadowMapUpdateNeeded = true;
 };
 
@@ -146,6 +147,7 @@ void KecskeAr::setup()
 	mParams.addPersistentParam( "Light specular", &mLightDiffuse, Color::white() );
 	mParams.addPersistentParam( "Shadow strength", &mShadowStrength, .9f, "min=0 max=1 step=.05" );
 
+	mParams.addPersistentParam( "Enable lighting", &mEnableLighting, true );
 	mDrawShadowMap = false;
 	mParams.addParam( "Draw shadowmap", &mDrawShadowMap );
 
@@ -314,6 +316,7 @@ void KecskeAr::enableLights()
 
 	if ( mCurrentCamera.mType == TYPE_INDOOR )
 	{
+		light.update( mCurrentCamera.mCam );
 		mShadowMatrix = light.getShadowTransformationMatrix( mCurrentCamera.mCam );
 	}
 	else // outdoor camera
@@ -321,8 +324,10 @@ void KecskeAr::enableLights()
 		// set the originial camera without rotation and rotate the object instead
 		CameraPersp cam = mCameras[ mCameraIndex ].mCam;
 		cam.setFov( mFov );
+		light.update( cam );
 		mShadowMatrix = light.getShadowTransformationMatrix( cam );
 	}
+
 	mShadowCamera = light.getShadowCamera();
 }
 
@@ -373,16 +378,18 @@ void KecskeAr::draw()
 		gl::drawFrustum( mShadowCamera );
 	}
 
-	enableLights();
-
-	renderShadowMap();
+	if ( mEnableLighting )
+	{
+		enableLights();
+		renderShadowMap();
+	}
 
 	// enable texturing and bind texture to texture unit 1
 	gl::enable( GL_TEXTURE_2D );
 	mDepthFbo.bindDepthTexture( 1 );
 
 	// bind the shader and set the uniform variables
-	if ( mRenderShader )
+	if ( mRenderShader && mEnableLighting )
 	{
 		mRenderShader.bind();
 		mRenderShader.uniform( "diffuseTexture", 0 );
@@ -392,9 +399,12 @@ void KecskeAr::draw()
 	}
 
 	drawModel();
-	disableLights();
+	if ( mEnableLighting )
+	{
+		disableLights();
+	}
 
-	if ( mRenderShader )
+	if ( mRenderShader && mEnableLighting )
 	{
 		mRenderShader.unbind();
 	}
