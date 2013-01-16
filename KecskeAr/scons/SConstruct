@@ -3,6 +3,7 @@ env = Environment()
 env['APP_TARGET'] = 'KecskeAr'
 env['APP_SOURCES'] = ['KecskeAr.cpp', 'PParams.cpp', 'TrackerManager.cpp']
 env['ASSETS'] = ['camera_para.dat', 'marker_cube.cfg', 'config.xml', 'model/*', 'shaders/*']
+env['ICON'] = '../resources/KecskeAr.icns'
 env['DEBUG'] = 0
 
 env = SConscript('../../../blocks/Cinder-Assimp/scons/SConscript', exports = 'env')
