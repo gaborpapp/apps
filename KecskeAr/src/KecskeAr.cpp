@@ -411,6 +411,10 @@ void KecskeAr::draw()
 	if ( mInteractionMode == MODE_AR )
 	{
 		state = mTrackerManager.getState();
+		if ( state <  TrackerManager::STATE_IDLE )
+		{
+			mCameraIndex = state;
+		}
 
 		mFov = lmap( mTrackerManager.getZoom(), .0f, 1.f, 10.f, 80.f );
 
