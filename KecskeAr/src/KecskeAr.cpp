@@ -76,6 +76,7 @@ class KecskeAr : public AppBasic
 			string mName;
 			CameraType mType;
 			CameraPersp mCam;
+			bool mLightingEnabled;
 		};
 
 		int mCameraIndex;
@@ -118,6 +119,17 @@ class KecskeAr : public AppBasic
 		bool mDrawShadowMap;
 		bool mEnableLighting;
 		bool mShadowMapUpdateNeeded = true;
+
+		// postprocess
+		static const int FBO_WIDTH = 1280;
+		static const int FBO_HEIGHT = 800;
+		gl::Fbo mFbo;
+		gl::GlslProg mPostProcessShader;
+		float mHue;
+		float mSaturation;
+		float mLightness;
+
+		gl::Texture mLogo;
 };
 
 void KecskeAr::prepareSettings( Settings *settings )
@@ -143,18 +155,24 @@ void KecskeAr::setup()
 	vector< string > interactionNames = { "mouse", "ar" };
 	mParams.addPersistentParam( "Interaction mode", interactionNames, &mInteractionMode, 0 );
 	mFov = 60.f;
-	mParams.addParam( "Fov", &mFov, "min=10 max=90" );
-	mParams.addPersistentParam( "Light direction", &mLightDirection, Vec3f( -1.f, -1.f, 1.f ) );
+	mParams.addParam( "Fov", &mFov, "min=10 max=80" );
+	mParams.addPersistentParam( "Light direction", &mLightDirection, Vec3f( 1.45696115f, -1.05111349, 0.812103748 ) );
 	mParams.addPersistentParam( "Light ambient", &mLightAmbient, Color::black() );
 	mParams.addPersistentParam( "Light diffuse", &mLightDiffuse, Color::white() );
 	mParams.addPersistentParam( "Light specular", &mLightDiffuse, Color::white() );
-	mParams.addPersistentParam( "Shadow strength", &mShadowStrength, .9f, "min=0 max=1 step=.05" );
-	mParams.addPersistentParam( "Gamma", &mGamma, 2.2f, "min=1 max=5 step=.1" );
+	mParams.addPersistentParam( "Shadow strength", &mShadowStrength, .55f, "min=0 max=1 step=.05" );
+	mParams.addPersistentParam( "Gamma", &mGamma, 1.0f, "min=1 max=5 step=.1" );
 
 	mParams.addPersistentParam( "Enable lighting", &mEnableLighting, true );
 	mDrawShadowMap = false;
 	mParams.addParam( "Draw shadowmap", &mDrawShadowMap );
 	mParams.addPersistentParam( "Shadowmap size", &mDepthSize, 2048, "min=256 max=4096 step=16" );
+	mParams.addSeparator();
+	mParams.addText( "Postprocessing" );
+	mParams.addPersistentParam( "Hue", &mHue, 0.f, "min=0 max=1 step=.01" );
+	mParams.addPersistentParam( "Saturation", &mSaturation, 1.f, "min=0.1 max=10 step=.05" );
+	mParams.addPersistentParam( "Lightness", &mLightness, 1.f, "min=0.1 max=10 step=.05" );
+	mParams.addSeparator();
 
 	loadModel();
 	setupShadowMap();
@@ -180,6 +198,25 @@ void KecskeAr::setup()
 	}
 
 	mTrackerManager.setup();
+
+	mFbo = gl::Fbo( FBO_WIDTH, FBO_HEIGHT );
+	try
+	{
+		mPostProcessShader = gl::GlslProg( loadAsset( "shaders/PassThrough.vert" ),
+										   loadAsset( "shaders/PostProcess.frag" ) );
+	}
+	catch( const std::exception &e )
+	{
+		console() << "Could not compile shader:" << e.what() << std::endl;
+	}
+
+	for ( CameraExt &ce : mCameras )
+		ce.mCam.setAspectRatio( mFbo.getAspectRatio() );
+
+	mLogo = loadImage( loadAsset( "logo.png" ) );
+
+	setFullScreen( true );
+	params::PInterfaceGl::showAllParams( false );
 }
 
 void KecskeAr::loadModel()
@@ -221,6 +258,8 @@ void KecskeAr::loadModel()
 			else
 			if ( cTypeStr == "outdoor" )
 				mCameras[ i ].mType = TYPE_OUTDOOR;
+
+			mCameras[ i ].mLightingEnabled = cIt->getAttributeValue< bool >( "lighting", false );
 		}
 	}
 	mCameraIndex = 0;
@@ -256,6 +295,8 @@ void KecskeAr::renderShadowMap()
 	if ( !mShadowMapUpdateNeeded )
 		return;
 
+	gl::SaveFramebufferBinding binderSaver;
+
 	// store the current OpenGL state,
 	// so we can restore it when done
 	glPushAttrib( GL_VIEWPORT_BIT | GL_ENABLE_BIT | GL_CURRENT_BIT );
@@ -280,7 +321,7 @@ void KecskeAr::renderShadowMap()
 	gl::popMatrices();
 
 	// unbind the FBO and restore the OpenGL state
-	mDepthFbo.unbindFramebuffer();
+	//mDepthFbo.unbindFramebuffer();
 
 	glPopAttrib();
 	mShadowMapUpdateNeeded = false;
@@ -328,6 +369,7 @@ void KecskeAr::enableLights()
 	// enable lighting
 	gl::enable( GL_LIGHTING );
 
+	mShadowCamera = light.getShadowCamera();
 	if ( mCurrentCamera.mType == TYPE_INDOOR )
 	{
 		mShadowMatrix = light.getShadowTransformationMatrix( mCurrentCamera.mCam );
@@ -338,10 +380,23 @@ void KecskeAr::enableLights()
 		CameraPersp cam = mCameras[ mCameraIndex ].mCam;
 		cam.setFov( mFov );
 		mShadowMatrix = light.getShadowTransformationMatrix( cam );
+
+		/*
+		Quatf q = mCurrentCamera.mCam.getOrientation();
+		q.v = -q.v;
+		Matrix44f rotinv( q );
+		rotinv.invert();
+
+		Matrix44f shadowTransMatrix = mShadowCamera.getProjectionMatrix();
+		//shadowTransMatrix *= rotinv;
+		shadowTransMatrix *= mShadowCamera.getModelViewMatrix();
+		shadowTransMatrix *= cam.getInverseModelViewMatrix();
+		shadowTransMatrix *= rotinv;
+		mShadowMatrix = shadowTransMatrix;
+		*/
+
 		mShadowMapUpdateNeeded = true;
 	}
-
-	mShadowCamera = light.getShadowCamera();
 }
 
 void KecskeAr::disableLights()
@@ -351,13 +406,13 @@ void KecskeAr::disableLights()
 
 void KecskeAr::draw()
 {
-	glPushAttrib( GL_ENABLE_BIT | GL_CURRENT_BIT );
-
-	gl::clear( Color::black() );
+	int state = 1 + mCameraIndex;
 
 	if ( mInteractionMode == MODE_AR )
 	{
-		mFov = lmap( mTrackerManager.getZoom(), .0f, 1.f, 10.f, 90.f );
+		state = mTrackerManager.getState();
+
+		mFov = lmap( mTrackerManager.getZoom(), .0f, 1.f, 10.f, 80.f );
 
 		// original orientation * ar orientation
 		Quatf oriInit = mCameras[ mCameraIndex ].mCam.getOrientation();
@@ -367,75 +422,120 @@ void KecskeAr::draw()
 		mCurrentCamera.mCam.setOrientation( oriInit * q );
 	}
 
-	gl::setViewport( getWindowBounds() );
-	mCurrentCamera.mCam.setFov( mFov );
-
-	if ( mCurrentCamera.mType == TYPE_INDOOR )
+	if ( state == TrackerManager::STATE_IDLE )
 	{
-		gl::setMatrices( mCurrentCamera.mCam );
+		gl::clear( Color::black() );
+		gl::disableDepthRead();
+		gl::disableDepthWrite();
+		gl::setViewport( getWindowBounds() );
+		gl::setMatricesWindow( getWindowSize() );
+
+		if ( mLogo )
+			gl::draw( mLogo, getWindowBounds() );
 	}
-	else // outdoor camera
+	else
 	{
-		// set the originial camera without rotation and rotate the object instead
-		CameraPersp cam = mCameras[ mCameraIndex ].mCam;
-		cam.setFov( mFov );
-		gl::setMatrices( cam );
+		glPushAttrib( GL_ENABLE_BIT | GL_CURRENT_BIT );
+
+		mFbo.bindFramebuffer();
+
+		gl::clear( Color::black() );
+
+		//gl::setViewport( getWindowBounds() );
+		gl::setViewport( mFbo.getBounds() );
+		mCurrentCamera.mCam.setFov( mFov );
+
+		if ( mCurrentCamera.mType == TYPE_INDOOR )
+		{
+			gl::setMatrices( mCurrentCamera.mCam );
+		}
+		else // outdoor camera
+		{
+			// set the originial camera without rotation and rotate the object instead
+			CameraPersp cam = mCameras[ mCameraIndex ].mCam;
+			cam.setFov( mFov );
+			gl::setMatrices( cam );
+		}
+
+		gl::enableDepthRead();
+		gl::enableDepthWrite();
+
+		// draw light position
+		if ( mDrawShadowMap )
+		{
+			gl::color( Color( 1.f, 1.f, 0.f ) );
+			gl::drawFrustum( mShadowCamera );
+		}
+
+		if ( mEnableLighting && mCurrentCamera.mLightingEnabled )
+		{
+			enableLights();
+			renderShadowMap();
+		}
+
+		// enable texturing and bind texture to texture unit 1
+		gl::enable( GL_TEXTURE_2D );
+		mDepthFbo.bindDepthTexture( 1 );
+
+		// bind the shader and set the uniform variables
+		if ( mRenderShader && mEnableLighting && mCurrentCamera.mLightingEnabled )
+		{
+			mRenderShader.bind();
+			mRenderShader.uniform( "diffuseTexture", 0 );
+			mRenderShader.uniform( "shadowTexture", 1 );
+			mRenderShader.uniform( "shadowMatrix", mShadowMatrix );
+			mRenderShader.uniform( "shadowStrength", mShadowStrength );
+			mRenderShader.uniform( "gamma", mGamma );
+		}
+
+		drawModel();
+		if ( mEnableLighting && mCurrentCamera.mLightingEnabled )
+		{
+			disableLights();
+		}
+
+		if ( mRenderShader && mEnableLighting && mCurrentCamera.mLightingEnabled )
+		{
+			mRenderShader.unbind();
+		}
+		mDepthFbo.unbindTexture();
+
+		glPopAttrib();
+		mFbo.unbindFramebuffer();
+
+		gl::disableDepthRead();
+		gl::disableDepthWrite();
+		gl::setMatricesWindow( getWindowSize() );
+
+		// draw output on screen
+		Rectf outputRect( mFbo.getBounds() );
+		Rectf screenRect( getWindowBounds() );
+		outputRect = outputRect.getCenteredFit( screenRect, true );
+		if ( screenRect.getAspectRatio() > outputRect.getAspectRatio() )
+			outputRect.scaleCentered( screenRect.getWidth() / outputRect.getWidth() );
+		else
+			outputRect.scaleCentered( screenRect.getHeight() / outputRect.getHeight() );
+		if ( mPostProcessShader )
+		{
+			mPostProcessShader.bind();
+			mPostProcessShader.uniform( "tex", 0 );
+			mPostProcessShader.uniform( "hue", mHue );
+			mPostProcessShader.uniform( "saturation", mSaturation );
+			mPostProcessShader.uniform( "lightness", mLightness );
+		}
+
+		mFbo.getTexture().setFlipped();
+		gl::draw( mFbo.getTexture(), outputRect );
+
+		if ( mPostProcessShader )
+		{
+			mPostProcessShader.unbind();
+		}
 	}
-
-	gl::enableDepthRead();
-	gl::enableDepthWrite();
-
-	// draw light position
-	if ( mDrawShadowMap )
-	{
-		gl::color( Color( 1.f, 1.f, 0.f ) );
-		gl::drawFrustum( mShadowCamera );
-	}
-
-	if ( mEnableLighting )
-	{
-		enableLights();
-		renderShadowMap();
-	}
-
-	// enable texturing and bind texture to texture unit 1
-	gl::enable( GL_TEXTURE_2D );
-	mDepthFbo.bindDepthTexture( 1 );
-
-	// bind the shader and set the uniform variables
-	if ( mRenderShader && mEnableLighting )
-	{
-		mRenderShader.bind();
-		mRenderShader.uniform( "diffuseTexture", 0 );
-		mRenderShader.uniform( "shadowTexture", 1 );
-		mRenderShader.uniform( "shadowMatrix", mShadowMatrix );
-		mRenderShader.uniform( "shadowStrength", mShadowStrength );
-		mRenderShader.uniform( "gamma", mGamma );
-	}
-
-	drawModel();
-	if ( mEnableLighting )
-	{
-		disableLights();
-	}
-
-	if ( mRenderShader && mEnableLighting )
-	{
-		mRenderShader.unbind();
-	}
-	mDepthFbo.unbindTexture();
-
-
-	mTrackerManager.draw();
-
-	glPopAttrib();
 
 	if ( mDrawShadowMap )
 	{
 		gl::setMatricesWindow( getWindowSize() );
-
-		gl::disableDepthRead();
-		gl::disableDepthWrite();
 
 		if ( mDepthShader )
 		{
@@ -458,6 +558,8 @@ void KecskeAr::draw()
 		}
 	}
 
+	mTrackerManager.draw();
+
 	params::InterfaceGl::draw();
 }
 
@@ -470,7 +572,8 @@ void KecskeAr::drawModel()
 	{
 		Quatf q = mCurrentCamera.mCam.getOrientation();
 		q.v = -q.v;
-		gl::rotate( q );
+		//gl::rotate( q );
+		gl::multModelView( q.toMatrix44() );
 	}
 
 	gl::color( Color::white() );
@@ -507,9 +610,11 @@ void KecskeAr::mouseDrag( MouseEvent event )
 
 void KecskeAr::resize()
 {
+	/*
 	for ( CameraExt &ce : mCameras )
 		ce.mCam.setAspectRatio( getWindowAspectRatio() );
 	mCurrentCamera.mCam.setAspectRatio( getWindowAspectRatio() );
+	*/
 }
 
 void KecskeAr::keyDown( KeyEvent event )

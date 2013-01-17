@@ -28,6 +28,17 @@ class TrackerManager
 
 		float getZoom() const { return mZoom; };
 
+		int getState() const { return mState; }
+
+		// state logic
+		enum
+		{
+			STATE_CAMERA0 = 0,
+			STATE_CAMERA1,
+			STATE_CAMERA2,
+			STATE_IDLE
+		};
+
 	private:
 		void setupCapture();
 
@@ -69,5 +80,6 @@ class TrackerManager
 		float mTolerance; //< duration for which the missing marker cube is tolerated
 
 		ci::gl::Fbo mDebugFbo; //< debug draw
+		int mState = STATE_IDLE;
 };
 

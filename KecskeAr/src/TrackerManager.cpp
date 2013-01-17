@@ -141,6 +141,18 @@ void TrackerManager::update()
 
 	// zoom and rotation quaternion calculation
 	bool markerFound = false;
+	static double lastSeenMarkerTime = 0;
+	static const double markerLostTime = 5.;
+
+	if ( !mArTracker.getMarkerIds().empty() )
+	{
+		lastSeenMarkerTime = app::getElapsedSeconds();
+		int firstId = mArTracker.getMarkerIds()[ 0 ];
+		int state = firstId / 6;
+		if ( ( state >= STATE_CAMERA0 ) && ( state <= STATE_CAMERA2 ) )
+			mState = state;
+	}
+
 	for ( int i = 0; i < mArTracker.getNumMarkers(); i++ )
 	{
 		// id -1 means unknown marker, false positive
@@ -182,6 +194,11 @@ void TrackerManager::update()
 			// lost the cube for a longer period, start moving back to original position
 			mRotation = mRotation.slerp( mMovementSmoothness, Quatf( Vec3f( 1, 0, 0 ), .0 ) );
 			mZoom = lerp( mZoom, .6f, mMovementSmoothness );
+		}
+
+		if ( ( app::getElapsedSeconds() - lastSeenMarkerTime ) > markerLostTime )
+		{
+			mState = STATE_IDLE;
 		}
 	}
 
@@ -234,6 +251,8 @@ void TrackerManager::draw()
 
 	mDebugFbo.unbindFramebuffer();
 
+	gl::disableDepthRead();
+	gl::disableDepthWrite();
 	gl::setViewport( app::getWindowBounds() );
 	gl::setMatricesWindow( app::getWindowSize() );
 
@@ -248,8 +267,10 @@ void TrackerManager::draw()
 	}
 	mDebugFbo.getTexture().setFlipped();
 	// mirrors camera image
+	/*
 	gl::translate( Vec2f( 2 * app::getWindowWidth() - outputArea.getWidth(), 0 ) );
 	gl::scale( Vec2f( -1.f, 1.f ) );
+	*/
 	gl::draw( mDebugFbo.getTexture(), outputArea );
 	gl::popMatrices();
 }

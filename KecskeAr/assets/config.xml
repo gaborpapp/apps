@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
-<model name="model/2013.01.16_1459.dae" />
+<model name="model/2013.01.17_1154_DDS_textures.dae" />
 
-<camera name="Camera_udvar" type="indoor" />
-<camera name="Camera_templom" type="indoor" />
-<camera name="Camera_kulso" type="outdoor" />
+<camera name="Camera_udvar" type="indoor" lighting="1" />
+<camera name="Camera_templom" type="indoor" lighting="0" />
+<camera name="Camera_kulso" type="outdoor" lighting="0" />
 

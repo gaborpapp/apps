@@ -30,7 +30,8 @@ void main()
 
 	// diffuse term
 	vec4 Idiff = texture2D( diffuseTexture, gl_TexCoord[0].st ) * diffuse;
-	Idiff *= max( dot(N, L), 0.0 );
+	//Idiff *= max( dot(N, L), 0.0 );
+	Idiff *= max( dot(N, L), 0.3 ); // fake ambient light in shadowed areas by Gas
 	Idiff = clamp( Idiff, 0.0, 1.0 ) * shadow;
 
 	// specular term
