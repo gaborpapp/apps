@@ -406,7 +406,7 @@ void KecskeAr::disableLights()
 
 void KecskeAr::draw()
 {
-	int state = 1 + mCameraIndex;
+	int state = mCameraIndex;
 
 	if ( mInteractionMode == MODE_AR )
 	{
@@ -493,6 +493,7 @@ void KecskeAr::draw()
 		}
 
 		drawModel();
+
 		if ( mEnableLighting && mCurrentCamera.mLightingEnabled )
 		{
 			disableLights();
@@ -502,6 +503,7 @@ void KecskeAr::draw()
 		{
 			mRenderShader.unbind();
 		}
+
 		mDepthFbo.unbindTexture();
 
 		glPopAttrib();
@@ -509,6 +511,7 @@ void KecskeAr::draw()
 
 		gl::disableDepthRead();
 		gl::disableDepthWrite();
+		gl::setViewport( getWindowBounds() );
 		gl::setMatricesWindow( getWindowSize() );
 
 		// draw output on screen

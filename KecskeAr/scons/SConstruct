@@ -7,7 +7,7 @@ env['ASSETS'] = ['camera_para.dat', 'marker_cube.cfg', 'config.xml', 'model/*', 
 env['ICON'] = '../resources/KecskeAr.icns'
 env['DEBUG'] = 0
 
-env = SConscript('../blocks/Cinder-Assimp/scons/SConscript', exports = 'env')
+env = SConscript('../../../blocks/Cinder-Assimp/scons/SConscript', exports = 'env')
 env = SConscript('../../../blocks/Cinder-Artkp/scons/SConscript', exports = 'env')
 
 SConscript('../../../scons/SConscript', exports = 'env')
