@@ -3,5 +3,5 @@
 
 <camera name="Camera_udvar" type="indoor" lighting="1" />
 <camera name="Camera_templom" type="indoor" lighting="0" />
-<camera name="Camera_kulso" type="outdoor" lighting="0" />
+<camera name="Camera_kulso" type="outdoor" lighting="1" />
 

@@ -1,1 +1,2 @@
 requires the loadDds-mipmap-fix cinder branch 
+this patch should be merged with inverse camera modelview matrix https://github.com/cinder/Cinder/pull/274

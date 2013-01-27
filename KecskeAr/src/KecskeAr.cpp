@@ -343,6 +343,20 @@ void KecskeAr::update()
 	mFps = getAverageFps();
 
 	mTrackerManager.update();
+
+	// rotate the object if outdoor camera
+	if ( mCurrentCamera.mType == TYPE_OUTDOOR )
+	{
+		Quatf q = mCurrentCamera.mCam.getOrientation();
+		q.v = -q.v;
+		mDisplayList.getModelMatrix() = q.toMatrix44();
+		mShadowMapUpdateNeeded = true;
+	}
+	else
+	{
+		// reset transformation for indoor cameras
+		mDisplayList.getModelMatrix().setToIdentity();
+	}
 }
 
 void KecskeAr::enableLights()
@@ -380,20 +394,6 @@ void KecskeAr::enableLights()
 		CameraPersp cam = mCameras[ mCameraIndex ].mCam;
 		cam.setFov( mFov );
 		mShadowMatrix = light.getShadowTransformationMatrix( cam );
-
-		/*
-		Quatf q = mCurrentCamera.mCam.getOrientation();
-		q.v = -q.v;
-		Matrix44f rotinv( q );
-		rotinv.invert();
-
-		Matrix44f shadowTransMatrix = mShadowCamera.getProjectionMatrix();
-		//shadowTransMatrix *= rotinv;
-		shadowTransMatrix *= mShadowCamera.getModelViewMatrix();
-		shadowTransMatrix *= cam.getInverseModelViewMatrix();
-		shadowTransMatrix *= rotinv;
-		mShadowMatrix = shadowTransMatrix;
-		*/
 
 		mShadowMapUpdateNeeded = true;
 	}
@@ -573,15 +573,6 @@ void KecskeAr::draw()
 void KecskeAr::drawModel()
 {
 	gl::pushModelView();
-
-	// rotate the object if outdoor camera
-	if ( mCurrentCamera.mType == TYPE_OUTDOOR )
-	{
-		Quatf q = mCurrentCamera.mCam.getOrientation();
-		q.v = -q.v;
-		//gl::rotate( q );
-		gl::multModelView( q.toMatrix44() );
-	}
 
 	gl::color( Color::white() );
 	//mAssimpLoader.draw();
