@@ -291,10 +291,13 @@ void KecskeAr::loadModel()
 
 void KecskeAr::setupShadowMap()
 {
-	// create a frame buffer object (FBO) containing only a depth buffer
-	// NOTE: without a color buffer it hangs on OSX 10.8 with some Geforce cards
+	// create a frame buffer object (FBO) containing only a depth buffer and a single channel color buffer
+	// NOTE: although the color buffer would not be necessary without it the app hangs on OSX 10.8 with some Geforce cards
 	// https://forum.libcinder.org/topic/anyone-else-experiencing-shadow-mapping-problems-with-the-new-xcode
-	mDepthFbo = gl::Fbo( mDepthSize, mDepthSize, false, true, true );
+	gl::Fbo::Format format;
+	format.setColorInternalFormat( GL_R8 );
+	format.enableDepthBuffer();
+	mDepthFbo = gl::Fbo( mDepthSize, mDepthSize, format );
 
 	// set it up for shadow mapping
 	mDepthFbo.bindDepthTexture();
@@ -331,11 +334,17 @@ void KecskeAr::renderShadowMap()
 	gl::enableDepthWrite();
 
 	// TODO: disable shading, colors, for speedup
+	// Disable color writes, and use flat shading for speed
+	glShadeModel( GL_FLAT );
+	glColorMask( 0, 0, 0, 0 );
+
 	gl::pushMatrices();
 	gl::setMatrices( mShadowCamera );
 	drawModel();
 	gl::popMatrices();
 
+	glShadeModel( GL_SMOOTH );
+	glColorMask( 1, 1, 1, 1 );
 	// unbind the FBO and restore the OpenGL state
 	//mDepthFbo.unbindFramebuffer();
 
