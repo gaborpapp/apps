@@ -62,6 +62,7 @@ class KecskeAr : public AppBasic
 		void loadModel();
 		void drawModel();
 		mndl::assimp::AssimpLoader mAssimpLoader;
+		mndl::assimp::AssimpLoader mSkyDome;
 		gl::DisplayList mDisplayList;
 
 		// cameras
@@ -101,6 +102,7 @@ class KecskeAr : public AppBasic
 		void disableLights();
 
 		float mModelRadius;
+		float mLightDistance;
 		Vec3f mLightDirection;
 		Color mLightAmbient;
 		Color mLightDiffuse;
@@ -157,6 +159,7 @@ void KecskeAr::setup()
 	mFov = 60.f;
 	mParams.addParam( "Fov", &mFov, "min=10 max=80" );
 	mParams.addPersistentParam( "Light direction", &mLightDirection, Vec3f( 1.45696115f, -1.05111349, 0.812103748 ) );
+	mParams.addPersistentParam( "Light distance", &mLightDistance, .1f, "min=.01 max=2 step=0.005" );
 	mParams.addPersistentParam( "Light ambient", &mLightAmbient, Color::black() );
 	mParams.addPersistentParam( "Light diffuse", &mLightDiffuse, Color::white() );
 	mParams.addPersistentParam( "Light specular", &mLightDiffuse, Color::white() );
@@ -222,12 +225,24 @@ void KecskeAr::setup()
 void KecskeAr::loadModel()
 {
 	XmlTree doc( loadFile( getAssetPath( "config.xml" ) ) );
-	XmlTree xmlLicense = doc.getChild( "model" );
-	string filename = xmlLicense.getAttributeValue< string >( "name", "" );
+	XmlTree xmlModel = doc.getChild( "model" );
+	string modelFile = xmlModel.getAttributeValue< string >( "name", "" );
+	XmlTree xmlSky = doc.getChild( "sky" );
+	string skyFile = xmlSky.getAttributeValue< string >( "name", "" );
 
 	try
 	{
-		mAssimpLoader = mndl::assimp::AssimpLoader( getAssetPath( filename ) );
+		mAssimpLoader = mndl::assimp::AssimpLoader( getAssetPath( modelFile ) );
+	}
+	catch ( mndl::assimp::AssimpLoaderExc &exc )
+	{
+		console() << exc.what() << endl;
+		quit();
+	};
+
+	try
+	{
+		mSkyDome = mndl::assimp::AssimpLoader( getAssetPath( skyFile ) );
 	}
 	catch ( mndl::assimp::AssimpLoaderExc &exc )
 	{
@@ -315,6 +330,7 @@ void KecskeAr::renderShadowMap()
 	// render the mesh
 	gl::enableDepthWrite();
 
+	// TODO: disable shading, colors, for speedup
 	gl::pushMatrices();
 	gl::setMatrices( mShadowCamera );
 	drawModel();
@@ -362,22 +378,25 @@ void KecskeAr::update()
 void KecskeAr::enableLights()
 {
 	static Vec3f lastLightDirection;
+	static float lastLightDistance;
 
-	if ( lastLightDirection != mLightDirection )
+	if ( ( lastLightDirection != mLightDirection ) ||
+		 ( lastLightDistance != mLightDistance ) )
 	{
 		lastLightDirection = mLightDirection;
+		lastLightDistance = mLightDistance;
 		mShadowMapUpdateNeeded = true;
 	}
 
 	// setup light 0
 	gl::Light light( gl::Light::POINT, 0 );
 
-	Vec3f lightPosition = -mLightDirection * mModelRadius;
+	Vec3f lightPosition = -mLightDirection * mModelRadius * mLightDistance;
 	light.lookAt( lightPosition, Vec3f( 0.0f, 0.0f, 0.0f ) );
 	light.setAmbient( mLightAmbient );
 	light.setDiffuse( mLightDiffuse );
 	light.setSpecular( mLightSpecular );
-	light.setShadowParams( 60.0f, 5.0f, 5000.0f );
+	light.setShadowParams( 60.0f, 5.0f, lightPosition.length() * 1.5f );
 	light.enable();
 
 	// enable lighting
@@ -505,6 +524,10 @@ void KecskeAr::draw()
 		}
 
 		mDepthFbo.unbindTexture();
+
+		// draw sky
+		if ( mCurrentCamera.mType == TYPE_INDOOR )
+			mSkyDome.draw();
 
 		glPopAttrib();
 		mFbo.unbindFramebuffer();
