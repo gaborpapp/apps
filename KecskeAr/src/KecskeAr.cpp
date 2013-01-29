@@ -63,6 +63,7 @@ class KecskeAr : public AppBasic
 		void drawModel();
 		mndl::assimp::AssimpLoader mAssimpLoader;
 		mndl::assimp::AssimpLoader mSkyDome;
+		mndl::assimp::AssimpNodeRef mVolumeLight;
 		gl::DisplayList mDisplayList;
 
 		// cameras
@@ -280,6 +281,9 @@ void KecskeAr::loadModel()
 	mCameraIndex = 0;
 	mParams.addParam( "Cameras", cameraNames, &mCameraIndex );
 
+	mVolumeLight = mAssimpLoader.getAssimpNode( "volume" );
+	mVolumeLight->hide();
+
 	AxisAlignedBox3f bbox = mAssimpLoader.getBoundingBox();
 	mModelRadius = ( bbox.getSize() * .5f ).length();
 
@@ -370,6 +374,7 @@ void KecskeAr::update()
 	mTrackerManager.update();
 
 	// rotate the object if outdoor camera
+	/*
 	if ( mCurrentCamera.mType == TYPE_OUTDOOR )
 	{
 		Quatf q = mCurrentCamera.mCam.getOrientation();
@@ -382,6 +387,7 @@ void KecskeAr::update()
 		// reset transformation for indoor cameras
 		mDisplayList.getModelMatrix().setToIdentity();
 	}
+	*/
 }
 
 void KecskeAr::enableLights()
@@ -521,6 +527,7 @@ void KecskeAr::draw()
 		}
 
 		drawModel();
+		mDepthFbo.unbindTexture();
 
 		if ( mEnableLighting && mCurrentCamera.mLightingEnabled )
 		{
@@ -532,7 +539,50 @@ void KecskeAr::draw()
 			mRenderShader.unbind();
 		}
 
-		mDepthFbo.unbindTexture();
+		// draw volume lights
+		if ( mCameraIndex == TrackerManager::STATE_CAMERA1 )
+		{
+			gl::enableAdditiveBlending();
+			gl::disableDepthWrite();
+
+			vector< mndl::assimp::AssimpMeshRef >::const_iterator meshIt = mVolumeLight->mMeshes.begin();
+			for ( ; meshIt != mVolumeLight->mMeshes.end(); ++meshIt )
+			{
+				mndl::assimp::AssimpMeshRef assimpMeshRef = *meshIt;
+
+				if ( assimpMeshRef->mAiMesh->mNumBones == 0 )
+				{
+					gl::pushModelView();
+					gl::multModelView( mVolumeLight->getDerivedTransform() );
+				}
+
+				// Texture Binding
+				if ( assimpMeshRef->mTexture )
+				{
+					assimpMeshRef->mTexture.enableAndBind();
+				}
+
+				assimpMeshRef->mMaterial.apply();
+				//gl::color( assimpMeshRef->mMaterial.getDiffuse());
+
+				// Culling
+				gl::disable( GL_CULL_FACE );
+
+				gl::draw( assimpMeshRef->mCachedTriMesh );
+
+				// Texture Binding
+				if ( assimpMeshRef->mTexture )
+				{
+					assimpMeshRef->mTexture.unbind();
+				}
+
+				if ( assimpMeshRef->mAiMesh->mNumBones == 0 )
+					gl::popModelView();
+			}
+
+			gl::enableDepthWrite();
+			gl::disableAlphaBlending();
+		}
 
 		// draw sky
 		if ( mCurrentCamera.mType == TYPE_INDOOR )
@@ -606,9 +656,16 @@ void KecskeAr::drawModel()
 {
 	gl::pushModelView();
 
+	if ( mCurrentCamera.mType == TYPE_OUTDOOR )
+	{
+		Quatf q = mCurrentCamera.mCam.getOrientation();
+		q.v = -q.v;
+		gl::multModelView( q.toMatrix44() );
+	}
+
 	gl::color( Color::white() );
-	//mAssimpLoader.draw();
-	mDisplayList.draw();
+	mAssimpLoader.draw();
+	//mDisplayList.draw();
 
 	gl::popModelView();
 }
