@@ -1,5 +1,5 @@
 /*
- Copyright (C) 2012 Gabor Papp
+ Copyright (C) 2013 Gabor Papp
 
  This program is free software; you can redistribute it and/or modify
  it under the terms of the GNU General Public License as published by
@@ -51,6 +51,17 @@ void TemplateApp::setup()
 	mParams = params::InterfaceGl( "Parameters", Vec2i( 200, 300 ) );
 }
 
+void TemplateApp::update()
+{
+}
+
+void TemplateApp::draw()
+{
+	gl::clear( Color::black() );
+
+	params::InterfaceGl::draw();
+}
+
 void TemplateApp::keyDown( KeyEvent event )
 {
 	switch ( event.getCode() )
@@ -91,16 +102,5 @@ void TemplateApp::keyDown( KeyEvent event )
 	}
 }
 
-void TemplateApp::update()
-{
-}
-
-void TemplateApp::draw()
-{
-	gl::clear( Color::black() );
-
-	params::InterfaceGl::draw();
-}
-
-CINDER_APP_BASIC( TemplateApp, RendererGl( RendererGl::AA_NONE ) )
+CINDER_APP_BASIC( TemplateApp, RendererGl )
 
