@@ -1,0 +1,11 @@
+env = Environment()
+
+env['APP_TARGET'] = 'ChairTest'
+env['APP_SOURCES'] = ['ChairTest.cpp']
+env['ASSETS'] = ['model/3chairs.obj', 'shaders/*']
+env['DEBUG'] = 0
+
+env = SConscript('../../../../blocks/MndlKit/scons/SConscript', exports = 'env')
+
+SConscript('../../../../scons/SConscript', exports = 'env')
+
