@@ -4,6 +4,7 @@ env['APP_TARGET'] = 'ChargesApp'
 env['APP_SOURCES'] = ['AdarKutta.cpp', 'Charge.cpp', 'ChargesApp.cpp',
 	'EffectCharge.cpp', 'KawaseBloom.cpp', 'Particle.cpp']
 env['ASSETS'] = ['charge.ogg']
+env['ICON'] = '../xcode/charges.icns'
 env['DEBUG'] = 0
 
 env = SConscript('../../../blocks/Cinder-LeapSdk/scons/SConscript', exports = 'env')

@@ -102,6 +102,8 @@ void ChargesApp::setup()
 	mParams.addPersistentParam( "Line width", &mLineWidth, 4.5f, "min=.5 max=10 step=.1" );
 	mParams.addPersistentParam( "Bloom strength", &mBloomStrength, .25, "min=0 max=1 step=.05" );
 	mParams.addPersistentParam( "Finger disapperance thr", &mFingerDisapperanceThreshold, .1f, "min=0 max=2 step=.05" );
+
+	mndl::kit::params::PInterfaceGl::showAllParams( false );
 }
 
 void ChargesApp::update()
