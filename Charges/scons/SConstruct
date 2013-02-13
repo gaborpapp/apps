@@ -1,0 +1,12 @@
+env = Environment()
+
+env['APP_TARGET'] = 'ChargesApp'
+env['APP_SOURCES'] = ['AdarKutta.cpp', 'Charge.cpp', 'ChargesApp.cpp',
+	'EffectCharge.cpp', 'KawaseBloom.cpp', 'Particle.cpp']
+env['DEBUG'] = 1
+
+env = SConscript('../../../blocks/Cinder-LeapSdk/scons/SConscript', exports = 'env')
+env = SConscript('../../../blocks/MndlKit/scons/SConscript', exports = 'env')
+
+SConscript('../../../scons/SConscript', exports = 'env')
+
