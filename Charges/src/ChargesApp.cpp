@@ -64,6 +64,7 @@ class ChargesApp : public AppBasic
 
 		mndl::kit::params::PInterfaceGl mParams;
 		float mFps;
+		float mLineWidth;
 		float mBloomStrength;
 		float mFingerDisapperanceThreshold;
 };
@@ -75,7 +76,7 @@ void ChargesApp::prepareSettings( Settings *settings )
 
 void ChargesApp::setup()
 {
-	gl::disableVerticalSync();
+	//gl::disableVerticalSync();
 
 	gl::Fbo::Format format;
 	format.enableDepthBuffer( false );
@@ -98,14 +99,13 @@ void ChargesApp::setup()
 	mParams.addPersistentSizeAndPosition();
 	mParams.addParam( "Fps", &mFps, "", true );
 	mParams.addSeparator();
-	mParams.addPersistentParam( "Bloom strength", &mBloomStrength, .8f, "min=0 max=1. step=.05" );
-	mParams.addPersistentParam( "Finger disapperance thr", &mFingerDisapperanceThreshold, .3f, "min=0 max=2 step=.05" );
+	mParams.addPersistentParam( "Line width", &mLineWidth, 4.5f, "min=.5 max=10 step=.1" );
+	mParams.addPersistentParam( "Bloom strength", &mBloomStrength, .25, "min=0 max=1 step=.05" );
+	mParams.addPersistentParam( "Finger disapperance thr", &mFingerDisapperanceThreshold, .1f, "min=0 max=2 step=.05" );
 }
 
 void ChargesApp::update()
 {
-	//console() << mTimestamp << endl;
-
 	mFps = getAverageFps();
 
 	// Update device
@@ -191,6 +191,7 @@ void ChargesApp::draw()
 	gl::setMatricesWindow( mFbo.getSize() );
 
 	gl::clear( Color::black() );
+	mEffectCharge.setLineWidth( mLineWidth );
 	mEffectCharge.draw();
 
 	mFbo.unbindFramebuffer();

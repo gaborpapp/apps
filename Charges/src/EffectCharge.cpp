@@ -3,6 +3,7 @@
 #include <vector>
 
 #include "cinder/Cinder.h"
+#include "cinder/app/App.h"
 #include "cinder/gl/gl.h"
 
 #include "EffectCharge.h"
@@ -109,15 +110,11 @@ void EffectCharge::setup(void)
 		}
 	}
 
-#if 0
 	/* load sounds */
-	for (int i = 0; i < SHAPEMAX; i++)
+	for ( int i = 0; i < MAX_SAMPLES; i++ )
 	{
-		sound[i].loadSound("charge.wav");
-		sound[i].setLoop(true);
-		sound[i].setVolume(0.3);
+		mSamples[ i ] = mAudio.load( app::getAssetPath( "charge.ogg" ) );
 	}
-#endif
 }
 
 void EffectCharge::instantiate(void)
@@ -128,12 +125,10 @@ void EffectCharge::instantiate(void)
 
 void EffectCharge::deinstantiate(void)
 {
-#if 0
-	for (int i = 0; i < SHAPEMAX; i++)
+	for ( int i = 0; i < MAX_SAMPLES; i++ )
 	{
-		sound[i].stop();
+		mAudio.stop( mSamples[ i ] );
 	}
-#endif
 }
 
 void EffectCharge::draw(void)
@@ -144,6 +139,7 @@ void EffectCharge::draw(void)
 	gl::clear( Color::black() );
 	gl::enableAlphaBlending();
 
+	glLineWidth( mLineWidth );
     if (charges.size())
 	{
 		/* generate particles from charges */
@@ -183,9 +179,8 @@ void EffectCharge::addCursor(int id, float x, float y, float r)
 	int sign = (rand() % 2) ? 1 : -1;
 	charges.push_back(Charge(id, x, y, sign * r, color));
 
-#if 0
-	sound[id].play();
-#endif
+	if ( id < MAX_SAMPLES )
+		mAudio.play( mSamples[ id ], 0.3f, true );
 }
 
 void EffectCharge::updateCursor(int id, float x, float y, float r)
@@ -217,8 +212,7 @@ void EffectCharge::removeCursor(int id)
 		}
 	}
 
-#if 0
-	sound[id].stop();
-#endif
+	if ( id < MAX_SAMPLES )
+		mAudio.stop( mSamples[ id ] );
 }
 
