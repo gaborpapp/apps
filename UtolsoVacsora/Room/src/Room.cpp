@@ -56,7 +56,6 @@ class Room : public AppBasic
 
 		void loadModel();
 		TriMesh mTriMesh;
-		MayaCamUI mMayaCam;
 
 		enum InteractionState {
 			INTERACTION_NONE = 0, // no interaction, happens when picking fails
@@ -67,14 +66,54 @@ class Room : public AppBasic
 		};
 		InteractionState mInteractionState = INTERACTION_CAMERA;
 		Vec3f mPickedPoint; // point in the bounding box of the chair
-		Matrix44f mTransform = Matrix44f::identity(); // chair transformation
-		Matrix44f mLastTransform; // chair transformation before picking
+
+		#define NUM_CHAIRS 3
+		struct Chair
+		{
+			public:
+				void setPitch( float p ) { mPitch = p; mTransformCached = false; }
+				void setPosition( const Vec3f &p ) { mPosition = p; mTransformCached = false; }
+				float getPitch() const { return mPitch; }
+				const Vec3f &getPosition() const { return mPosition; }
+				float *getPitchRef() { return &mPitch; }
+				Vec3f *getPositionRef() { return &mPosition; }
+
+				const Matrix44f &getTransform()
+				{
+					if ( !mTransformCached )
+						calcTransform();
+					return mTransform;
+				}
+
+				void calcTransform()
+				{
+					mTransform.setToIdentity();
+					mTransform = Quatf( Vec3f::yAxis(), mPitch );
+					mTransform.setTranslate( mPosition );
+				}
+
+			protected:
+				Matrix44f mTransform;
+				Vec3f mPosition = Vec3f::zero();
+				float mPitch = 0.f; // rotation around y
+				bool mTransformCached = false;
+		};
+
+		int mPickedChair = -1;
+		Chair mChairs[ NUM_CHAIRS ];
+		float mLastPitch; // last pitch of picked chair before picking
+		Vec3f mLastPosition; // last position
 
 		Vec2i mMousePos; // current mouse position
 		Vec2i mMousePosPicked; // mouse position during picking
 
-		bool performPicking( Vec3f *pickedPoint );
+		bool performPicking();
 		void performTransformation();
+
+		MayaCamUI mMayaCam;
+		CameraPersp mCamera;
+		Vec3f mCameraPosition;
+		Vec3f mCameraCenterOfInterestPoint;
 
 		float mFps;
 };
@@ -90,18 +129,31 @@ void Room::setup()
 
 	kit::params::PInterfaceGl::load( "params.xml" );
 	mParams = kit::params::PInterfaceGl( "Parameters", Vec2i( 200, 300 ) );
+
 	mParams.addParam( "Fps", &mFps, "", true );
 	mParams.addSeparator();
 	mParams.addPersistentParam( "Light direction", &mLightDirection, Vec3f( -.2, -.1, 1 ).normalized() );
+	mParams.addSeparator();
+	mParams.addText( "Chairs" );
+	for ( int i = 0; i < NUM_CHAIRS; i++ )
+	{
+		mParams.addPersistentParam( "Position " + toString( i ),
+				mChairs[ i ].getPositionRef(), Vec3f( ( i - (float)NUM_CHAIRS / 2.f ) * 2.f, 0.f, 0.f ),
+				"group='Chair " + toString( i ) + "'" );
+		mParams.addPersistentParam( "Pitch " + toString( i ), mChairs[ i ].getPitchRef(), 0.f,
+				"group='Chair " + toString( i ) + "'" );
+		mParams.setOptions( "Chair " + toString( i ), "opened=false" );
+	}
+	mParams.addText( "Camera" );
+	mParams.addPersistentParam( "Eye", &mCameraPosition, Vec3f( 0, 1, 10 ), "", true );
+	mParams.addPersistentParam( "Center of Interest", &mCameraCenterOfInterestPoint,
+			Vec3f::zero(), "", true );
+	mCamera.setPerspective( 60, getWindowAspectRatio(), 1, 500 );
+	mCamera.setEyePoint( mCameraPosition );
+	mCamera.setCenterOfInterestPoint( mCameraCenterOfInterestPoint );
+	mMayaCam.setCurrentCam( mCamera );
 
 	loadModel();
-
-	CameraPersp cam;
-	cam.setPerspective( 60, getWindowAspectRatio(), 1, 500 );
-	cam.setEyePoint( Vec3f( 0, 1, 10 ) );
-	cam.setCenterOfInterestPoint( Vec3f::zero() );
-
-	mMayaCam.setCurrentCam( cam );
 }
 
 void Room::loadModel()
@@ -133,25 +185,15 @@ void Room::loadModel()
 void Room::update()
 {
 	mFps = getAverageFps();
-}
 
-void Room::draw()
-{
-	gl::clear( Color::white() );
-	gl::setViewport( getWindowBounds() );
-	gl::setMatrices( mMayaCam.getCamera() );
-
-	gl::color( Color::gray( .5f ) );
-
-	gl::enableDepthRead();
-	gl::enableDepthWrite();
-
+	// interaction state - pick, move, rotate
 	switch ( mInteractionState )
 	{
 		case INTERACTION_PICK:
-			if ( performPicking( &mPickedPoint ) )
+			if ( performPicking() )
 			{
-				mLastTransform = mTransform;
+				mLastPosition = mChairs[ mPickedChair ].getPosition();
+				mLastPitch = mChairs[ mPickedChair ].getPitch();
 			}
 			else
 			{
@@ -168,19 +210,45 @@ void Room::draw()
 			break;
 	}
 
+	// update camera params
+	if ( mCameraPosition != mCamera.getEyePoint() )
+	{
+		mCameraPosition = mCamera.getEyePoint();
+	}
+
+	if ( mCameraCenterOfInterestPoint != mCamera.getCenterOfInterestPoint() )
+	{
+		mCameraCenterOfInterestPoint = mCamera.getCenterOfInterestPoint();
+	}
+}
+
+void Room::draw()
+{
+	gl::clear( Color::gray( .1f ) );
+	gl::setViewport( getWindowBounds() );
+	gl::setMatrices( mCamera );
+
+	gl::color( Color::gray( .5f ) );
+
+	gl::enableDepthRead();
+	gl::enableDepthWrite();
+
 	gl::enable( GL_LIGHTING );
 
 	gl::Light light( gl::Light::DIRECTIONAL, 0 );
 	light.setDirection( -mLightDirection.normalized() );
 	light.setAmbient( ColorAf::gray( 0.5 ) );
 	light.setDiffuse( ColorAf( 1.0f, 1.0f, 1.0f, 1.0f ) );
-	light.update( mMayaCam.getCamera() );
+	light.update( mCamera );
 	light.enable();
 
-	gl::pushModelView();
-	gl::multModelView( mTransform );
-	gl::draw( mTriMesh );
-	gl::popModelView();
+	for ( int i = 0; i < NUM_CHAIRS; i++ )
+	{
+		gl::pushModelView();
+		gl::multModelView( mChairs[ i ].getTransform() );
+		gl::draw( mTriMesh );
+		gl::popModelView();
+	}
 
 	light.disable();
 	gl::disable( GL_LIGHTING );
@@ -188,11 +256,8 @@ void Room::draw()
 	kit::params::PInterfaceGl::draw();
 }
 
-bool Room::performPicking( Vec3f *pickedPoint )
+bool Room::performPicking()
 {
-	// get our camera
-	CameraPersp cam = mMayaCam.getCamera();
-
 	// save mouse position for rotation
 	mMousePosPicked = mMousePos;
 
@@ -201,53 +266,65 @@ bool Room::performPicking( Vec3f *pickedPoint )
 	float v = mMousePos.y / (float)getWindowHeight();
 	// because OpenGL and Cinder use a coordinate system
 	// where (0, 0) is in the LOWERleft corner, we have to flip the v-coordinate
-	Ray ray = cam.generateRay( u,  1.0f - v, cam.getAspectRatio() );
+	Ray ray = mCamera.generateRay( u, 1.0f - v, mCamera.getAspectRatio() );
 
 	AxisAlignedBox3f mObjectBounds = mTriMesh.calcBoundingBox();
-	AxisAlignedBox3f worldBoundsExact = mObjectBounds.transformed( mTransform );
 
-	float intersections[ 2 ];
-	int numIntersections = worldBoundsExact.intersect( ray, intersections );
-	console() << numIntersections << " " << intersections[ 0 ] << endl;
-	if ( numIntersections > 0 )
+	float closest = numeric_limits< float >::max();
+	int closestId = -1;
+	for ( int i = 0; i < NUM_CHAIRS; i++ )
 	{
-		*pickedPoint = ray.calcPosition( intersections[ 0 ] );
+		const Matrix44f &transform = mChairs[ i ].getTransform();
+		AxisAlignedBox3f worldBounds = mObjectBounds.transformed( transform );
+		float intersections[ 2 ];
+		int numIntersections = worldBounds.intersect( ray, intersections );
+		if ( numIntersections > 0 )
+		{
+			if ( intersections[ 0 ] < closest )
+			{
+				closest = intersections[ 0 ];
+				closestId = i;
+			}
+		}
+	}
+
+	if ( closestId != -1 )
+	{
+		mPickedPoint = ray.calcPosition( closest );
+		mPickedChair = closestId;
 		return true;
 	}
 	else
+	{
 		return false;
+	}
 }
 
 void Room::performTransformation()
 {
 	if ( mInteractionState == INTERACTION_MOVE )
 	{
-		// get our camera
-		CameraPersp cam = mMayaCam.getCamera();
-
 		// generate a ray from the camera into our world
 		float u = mMousePos.x / (float)getWindowWidth();
 		float v = mMousePos.y / (float)getWindowHeight();
 		// because OpenGL and Cinder use a coordinate system
 		// where (0, 0) is in the LOWERleft corner, we have to flip the v-coordinate
-		Ray ray = cam.generateRay( u,  1.0f - v, cam.getAspectRatio() );
+		Ray ray = mCamera.generateRay( u, 1.0f - v, mCamera.getAspectRatio() );
 
 		float result;
 		if ( ray.calcPlaneIntersection( Vec3f( 0.f, mPickedPoint.y, 0.f ), Vec3f::yAxis(), &result ) )
 		{
 			Vec3f intersection = ray.calcPosition( result );
-			Vec4f lastPosition = mLastTransform.getTranslate();
-			mTransform.setTranslate( lastPosition.xyz() +
-					Vec3f( intersection.x - mPickedPoint.x, 0.f,
-						intersection.z - mPickedPoint.z ) );
+			mChairs[ mPickedChair ].setPosition( mLastPosition +
+												 Vec3f( intersection.x - mPickedPoint.x, 0.f,
+														intersection.z - mPickedPoint.z ) );
 		}
 	}
 	else
 	if ( mInteractionState == INTERACTION_ROTATE )
 	{
 		float v = ( mMousePos.x - mMousePosPicked.x ) / (float)getWindowWidth();
-		//Quatf lastQuat = Quatf( mLastTransform );
-		mTransform = mLastTransform * Quatf( Vec3f::yAxis(), v * 2 * M_PI ).normalized();
+		mChairs[ mPickedChair ].setPitch( mLastPitch + v * 2 * M_PI );
 	}
 }
 
@@ -307,7 +384,9 @@ void Room::mouseDown( MouseEvent event )
 	else
 	{
 		mInteractionState = INTERACTION_CAMERA;
+		mMayaCam.setCurrentCam( mCamera );
 		mMayaCam.mouseDown( event.getPos() );
+		mCamera = mMayaCam.getCamera();
 	}
 }
 
@@ -330,7 +409,9 @@ void Room::mouseDrag( MouseEvent event )
 	else
 	if ( mInteractionState == INTERACTION_CAMERA )
 	{
+		mMayaCam.setCurrentCam( mCamera );
 		mMayaCam.mouseDrag( event.getPos(), event.isLeftDown(), event.isMiddleDown(), event.isRightDown() );
+		mCamera = mMayaCam.getCamera();
 	}
 }
 
@@ -341,9 +422,7 @@ void Room::mouseUp( MouseEvent event )
 
 void Room::resize()
 {
-	CameraPersp cam = mMayaCam.getCamera();
-	cam.setAspectRatio( getWindowAspectRatio() );
-	mMayaCam.setCurrentCam( cam );
+	mCamera.setAspectRatio( getWindowAspectRatio() );
 }
 
 CINDER_APP_BASIC( Room, RendererGl )
