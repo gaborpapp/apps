@@ -24,6 +24,7 @@
 #include "cinder/app/AppBasic.h"
 #include "cinder/gl/GlslProg.h"
 #include "cinder/gl/Light.h"
+#include "cinder/gl/Material.h"
 #include "cinder/gl/gl.h"
 
 #include "mndlkit/params/PParams.h"
@@ -68,7 +69,8 @@ class Room : public AppBasic
 		Vec3f mPickedPoint; // point in the bounding box of the chair
 
 		#define NUM_CHAIRS 3
-		struct Chair
+		#define NUM_DANCERS 1
+		struct Entity
 		{
 			public:
 				void setPitch( float p ) { mPitch = p; mTransformCached = false; }
@@ -77,6 +79,10 @@ class Room : public AppBasic
 				const Vec3f &getPosition() const { return mPosition; }
 				float *getPitchRef() { return &mPitch; }
 				Vec3f *getPositionRef() { return &mPosition; }
+
+				void setColor( const Color &c ) { mColor = c; }
+				const Color &getColor() { return mColor; }
+				Color *getColorRef() { return &mColor; }
 
 				const Matrix44f &getTransform()
 				{
@@ -97,11 +103,12 @@ class Room : public AppBasic
 				Vec3f mPosition = Vec3f::zero();
 				float mPitch = 0.f; // rotation around y
 				bool mTransformCached = false;
+				Color mColor = Color::gray( .5f );
 		};
 
-		int mPickedChair = -1;
-		Chair mChairs[ NUM_CHAIRS ];
-		float mLastPitch; // last pitch of picked chair before picking
+		int mPickedEntity = -1;
+		Entity mEntities[ NUM_CHAIRS + NUM_DANCERS ];
+		float mLastPitch; // last pitch of picked entity before picking
 		Vec3f mLastPosition; // last position
 
 		Vec2i mMousePos; // current mouse position
@@ -138,11 +145,21 @@ void Room::setup()
 	for ( int i = 0; i < NUM_CHAIRS; i++ )
 	{
 		mParams.addPersistentParam( "Position " + toString( i ),
-				mChairs[ i ].getPositionRef(), Vec3f( ( i - (float)NUM_CHAIRS / 2.f ) * 2.f, 0.f, 0.f ),
+				mEntities[ i ].getPositionRef(), Vec3f( ( i - (float)NUM_CHAIRS / 2.f ) * 2.f, 0.f, 0.f ),
 				"group='Chair " + toString( i ) + "'" );
-		mParams.addPersistentParam( "Pitch " + toString( i ), mChairs[ i ].getPitchRef(), 0.f,
+		mParams.addPersistentParam( "Pitch " + toString( i ), mEntities[ i ].getPitchRef(), 0.f,
 				"group='Chair " + toString( i ) + "'" );
 		mParams.setOptions( "Chair " + toString( i ), "opened=false" );
+	}
+	mParams.addSeparator();
+	mParams.addText( "Dancers" );
+	for ( int j = NUM_CHAIRS, i = 0; j < NUM_CHAIRS + NUM_DANCERS; j++, i++ )
+	{
+		mEntities[ j ].setColor( Color( 1.f, .9f, .1f ) );
+		mParams.addPersistentParam( "Position " + toString( j ),
+				mEntities[ j ].getPositionRef(), Vec3f( ( i - (float)NUM_DANCERS / 2.f ) * 2.f, 1.f, 0.f ),
+				"group='Dancer " + toString( i ) + "'" );
+		mParams.setOptions( "Dancer " + toString( i ), "opened=false" );
 	}
 	mParams.addText( "Camera" );
 	mParams.addPersistentParam( "Eye", &mCameraPosition, Vec3f( 0, 1, 10 ), "", true );
@@ -192,8 +209,8 @@ void Room::update()
 		case INTERACTION_PICK:
 			if ( performPicking() )
 			{
-				mLastPosition = mChairs[ mPickedChair ].getPosition();
-				mLastPitch = mChairs[ mPickedChair ].getPitch();
+				mLastPosition = mEntities[ mPickedEntity ].getPosition();
+				mLastPitch = mEntities[ mPickedEntity ].getPitch();
 			}
 			else
 			{
@@ -228,8 +245,6 @@ void Room::draw()
 	gl::setViewport( getWindowBounds() );
 	gl::setMatrices( mCamera );
 
-	gl::color( Color::gray( .5f ) );
-
 	gl::enableDepthRead();
 	gl::enableDepthWrite();
 
@@ -242,11 +257,19 @@ void Room::draw()
 	light.update( mCamera );
 	light.enable();
 
-	for ( int i = 0; i < NUM_CHAIRS; i++ )
+	// default opengl material
+	gl::Material material( Color::gray( .2f ), Color::gray( .8f ) );
+	for ( int i = 0; i < NUM_CHAIRS + NUM_DANCERS; i++ )
 	{
+		material.setAmbient( mEntities[ i ].getColor() );
+		material.apply();
+
 		gl::pushModelView();
-		gl::multModelView( mChairs[ i ].getTransform() );
-		gl::draw( mTriMesh );
+		gl::multModelView( mEntities[ i ].getTransform() );
+		if ( i < NUM_CHAIRS )
+			gl::draw( mTriMesh );
+		else
+			gl::drawSphere( Vec3f::zero(), .1f );
 		gl::popModelView();
 	}
 
@@ -271,10 +294,10 @@ bool Room::performPicking()
 	AxisAlignedBox3f mObjectBounds = mTriMesh.calcBoundingBox();
 
 	float closest = numeric_limits< float >::max();
-	int closestId = -1;
-	for ( int i = 0; i < NUM_CHAIRS; i++ )
+	mPickedEntity = -1;
+	for ( int i = 0; i < NUM_CHAIRS + NUM_DANCERS; i++ )
 	{
-		const Matrix44f &transform = mChairs[ i ].getTransform();
+		const Matrix44f &transform = mEntities[ i ].getTransform();
 		AxisAlignedBox3f worldBounds = mObjectBounds.transformed( transform );
 		float intersections[ 2 ];
 		int numIntersections = worldBounds.intersect( ray, intersections );
@@ -283,15 +306,14 @@ bool Room::performPicking()
 			if ( intersections[ 0 ] < closest )
 			{
 				closest = intersections[ 0 ];
-				closestId = i;
+				mPickedEntity = i;
 			}
 		}
 	}
 
-	if ( closestId != -1 )
+	if ( mPickedEntity != -1 )
 	{
 		mPickedPoint = ray.calcPosition( closest );
-		mPickedChair = closestId;
 		return true;
 	}
 	else
@@ -302,6 +324,9 @@ bool Room::performPicking()
 
 void Room::performTransformation()
 {
+	if ( mPickedEntity == -1)
+		return;
+
 	if ( mInteractionState == INTERACTION_MOVE )
 	{
 		// generate a ray from the camera into our world
@@ -315,7 +340,7 @@ void Room::performTransformation()
 		if ( ray.calcPlaneIntersection( Vec3f( 0.f, mPickedPoint.y, 0.f ), Vec3f::yAxis(), &result ) )
 		{
 			Vec3f intersection = ray.calcPosition( result );
-			mChairs[ mPickedChair ].setPosition( mLastPosition +
+			mEntities[ mPickedEntity ].setPosition( mLastPosition +
 												 Vec3f( intersection.x - mPickedPoint.x, 0.f,
 														intersection.z - mPickedPoint.z ) );
 		}
@@ -323,8 +348,29 @@ void Room::performTransformation()
 	else
 	if ( mInteractionState == INTERACTION_ROTATE )
 	{
-		float v = ( mMousePos.x - mMousePosPicked.x ) / (float)getWindowWidth();
-		mChairs[ mPickedChair ].setPitch( mLastPitch + v * 2 * M_PI );
+		if ( mPickedEntity >= NUM_CHAIRS ) // move along y for dancer entities
+		{
+			// generate a ray from the camera into our world
+			float u = mMousePos.x / (float)getWindowWidth();
+			float v = mMousePos.y / (float)getWindowHeight();
+			Ray ray = mCamera.generateRay( u, 1.0f - v, mCamera.getAspectRatio() );
+
+			Vec3f right, up;
+			mCamera.getBillboardVectors( &right, &up );
+			float result;
+			if ( ray.calcPlaneIntersection( Vec3f( mPickedPoint.x, 0.f, mPickedPoint.z ),
+						right.cross( Vec3f( 0.f, 1.f, 0.f ) ), &result ) )
+			{
+				Vec3f intersection = ray.calcPosition( result );
+				mEntities[ mPickedEntity ].setPosition( mLastPosition +
+						Vec3f( 0.f, intersection.y - mPickedPoint.y, 0.f ) );
+			}
+		}
+		else // rotation for chairs
+		{
+			float v = ( mMousePos.x - mMousePosPicked.x ) / (float)getWindowWidth();
+			mEntities[ mPickedEntity ].setPitch( mLastPitch + v * 2 * M_PI );
+		}
 	}
 }
 
