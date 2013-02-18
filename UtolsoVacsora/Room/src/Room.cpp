@@ -20,6 +20,7 @@
 #include "cinder/MayaCamUI.h"
 #include "cinder/ObjLoader.h"
 #include "cinder/Quaternion.h"
+#include "cinder/Sphere.h"
 #include "cinder/TriMesh.h"
 #include "cinder/app/AppBasic.h"
 #include "cinder/gl/GlslProg.h"
@@ -86,6 +87,10 @@ class Room : public AppBasic
 				const Color &getColor() { return mColor; }
 				Color *getColorRef() { return &mColor; }
 
+				void setScale( float s ) { mScale = s; }
+				float getScale() { return mScale; }
+				float *getScaleRef() { return &mScale; }
+
 				const Matrix44f &getTransform()
 				{
 					if ( !mTransformCached )
@@ -106,6 +111,7 @@ class Room : public AppBasic
 				float mPitch = 0.f; // rotation around y
 				bool mTransformCached = false;
 				Color mColor = Color::gray( .5f );
+				float mScale = 1.f;
 		};
 
 		int mPickedEntity = -1;
@@ -142,9 +148,9 @@ void Room::setup()
 	mParams.addParam( "Fps", &mFps, "", true );
 	mParams.addSeparator();
 	mParams.addText( "Light" );
-	mParams.addPersistentParam( "Constant attenuation", &mLightConstantAttenuation, 1.f, "min=0 step=.01" );
-	mParams.addPersistentParam( "Linear attenuation", &mLightLinearAttenuation, .0f, "min=0 step=.01" );
-	mParams.addPersistentParam( "Quadratic attenuation", &mLightQuadraticAttenuation, .0f, "min=0 step=.01" );
+	mParams.addPersistentParam( "Constant attenuation", &mLightConstantAttenuation, .5f, "min=0 step=.01" );
+	mParams.addPersistentParam( "Linear attenuation", &mLightLinearAttenuation, .25f, "min=0 step=.01" );
+	mParams.addPersistentParam( "Quadratic attenuation", &mLightQuadraticAttenuation, .05f, "min=0 step=.01" );
 	mParams.addSeparator();
 	mParams.addText( "Chairs" );
 	for ( int i = 0; i < NUM_CHAIRS; i++ )
@@ -161,8 +167,9 @@ void Room::setup()
 	for ( int j = NUM_CHAIRS, i = 0; j < NUM_CHAIRS + NUM_DANCERS; j++, i++ )
 	{
 		mEntities[ j ].setColor( Color( 1.f, .9f, .1f ) );
+		mEntities[ j ].setScale( .1f );
 		mParams.addPersistentParam( "Position " + toString( j ),
-				mEntities[ j ].getPositionRef(), Vec3f( ( i - (float)NUM_DANCERS / 2.f ) * 2.f, 1.f, 0.f ),
+				mEntities[ j ].getPositionRef(), Vec3f( ( i - (float)NUM_DANCERS / 2.f ) * 2.f, 2.5f, 0.f ),
 				"group='Dancer " + toString( i ) + "'" );
 		mParams.setOptions( "Dancer " + toString( i ), "opened=false" );
 	}
@@ -277,7 +284,7 @@ void Room::draw()
 		if ( i < NUM_CHAIRS )
 			gl::draw( mTriMesh );
 		else
-			gl::drawSphere( Vec3f::zero(), .1f );
+			gl::drawSphere( Vec3f::zero(), mEntities[ i ].getScale() );
 		gl::popModelView();
 	}
 
@@ -305,16 +312,32 @@ bool Room::performPicking()
 	mPickedEntity = -1;
 	for ( int i = 0; i < NUM_CHAIRS + NUM_DANCERS; i++ )
 	{
-		const Matrix44f &transform = mEntities[ i ].getTransform();
-		AxisAlignedBox3f worldBounds = mObjectBounds.transformed( transform );
-		float intersections[ 2 ];
-		int numIntersections = worldBounds.intersect( ray, intersections );
-		if ( numIntersections > 0 )
+		if ( i < NUM_CHAIRS )
 		{
-			if ( intersections[ 0 ] < closest )
+			const Matrix44f &transform = mEntities[ i ].getTransform();
+			AxisAlignedBox3f worldBounds = mObjectBounds.transformed( transform );
+			float intersections[ 2 ];
+			int numIntersections = worldBounds.intersect( ray, intersections );
+			if ( numIntersections > 0 )
 			{
-				closest = intersections[ 0 ];
-				mPickedEntity = i;
+				if ( intersections[ 0 ] < closest )
+				{
+					closest = intersections[ 0 ];
+					mPickedEntity = i;
+				}
+			}
+		}
+		else // dancer spheres
+		{
+			Sphere boundingSphere( mEntities[ i ].getPosition(), mEntities[ i ].getScale() );
+			float intersection;
+			if ( boundingSphere.intersect( ray, &intersection ) )
+			{
+				if ( intersection < closest )
+				{
+					closest = intersection;
+					mPickedEntity = i;
+				}
 			}
 		}
 	}
