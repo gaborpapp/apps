@@ -53,7 +53,9 @@ class Room : public AppBasic
 
 	private:
 		kit::params::PInterfaceGl mParams;
-		Vec3f mLightDirection;
+		float mLightConstantAttenuation;
+		float mLightLinearAttenuation;
+		float mLightQuadraticAttenuation;
 
 		void loadModel();
 		TriMesh mTriMesh;
@@ -139,7 +141,10 @@ void Room::setup()
 
 	mParams.addParam( "Fps", &mFps, "", true );
 	mParams.addSeparator();
-	mParams.addPersistentParam( "Light direction", &mLightDirection, Vec3f( -.2, -.1, 1 ).normalized() );
+	mParams.addText( "Light" );
+	mParams.addPersistentParam( "Constant attenuation", &mLightConstantAttenuation, 1.f, "min=0 step=.01" );
+	mParams.addPersistentParam( "Linear attenuation", &mLightLinearAttenuation, .0f, "min=0 step=.01" );
+	mParams.addPersistentParam( "Quadratic attenuation", &mLightQuadraticAttenuation, .0f, "min=0 step=.01" );
 	mParams.addSeparator();
 	mParams.addText( "Chairs" );
 	for ( int i = 0; i < NUM_CHAIRS; i++ )
@@ -250,10 +255,13 @@ void Room::draw()
 
 	gl::enable( GL_LIGHTING );
 
-	gl::Light light( gl::Light::DIRECTIONAL, 0 );
-	light.setDirection( -mLightDirection.normalized() );
+	gl::Light light( gl::Light::POINT, 0 );
+	light.setPosition( mEntities[ NUM_CHAIRS ].getPosition() );
 	light.setAmbient( ColorAf::gray( 0.5 ) );
 	light.setDiffuse( ColorAf( 1.0f, 1.0f, 1.0f, 1.0f ) );
+	light.setConstantAttenuation( mLightConstantAttenuation );
+	light.setLinearAttenuation( mLightLinearAttenuation );
+	light.setQuadraticAttenuation( mLightQuadraticAttenuation );
 	light.update( mCamera );
 	light.enable();
 
