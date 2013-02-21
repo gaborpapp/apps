@@ -1,0 +1,111 @@
+#include "cinder/Cinder.h"
+#include "cinder/app/App.h"
+#include "cinder/gl/gl.h"
+
+#include "DualParaboloidShadowMap.h"
+
+using namespace ci;
+
+void DualParaboloidShadowMap::setup()
+{
+	// NOTE: although the color buffer would not be necessary without it the app hangs on OSX 10.8 with some Geforce cards
+	// https://forum.libcinder.org/topic/anyone-else-experiencing-shadow-mapping-problems-with-the-new-xcode
+	gl::Fbo::Format format;
+	format.setColorInternalFormat( GL_RGB );
+	format.enableDepthBuffer();
+	mFboDepthForward = gl::Fbo( SHADOW_MAP_RESOLUTION, SHADOW_MAP_RESOLUTION, format );
+	mFboDepthBackward = gl::Fbo( SHADOW_MAP_RESOLUTION, SHADOW_MAP_RESOLUTION, format );
+
+	try
+	{
+		mShaderDepth = gl::GlslProg( app::loadAsset( "shaders/DualParaboloidDepth.vert" ),
+									 app::loadAsset( "shaders/DualParaboloidDepth.frag" ) );
+	}
+	catch( const std::exception &e )
+	{
+		app::console() << "Could not compile shader:" << e.what() << std::endl;
+	}
+
+	try
+	{
+		mShaderShadow = gl::GlslProg( app::loadAsset( "shaders/DualParaboloidShadow.vert" ),
+									  app::loadAsset( "shaders/DualParaboloidShadow.frag" ) );
+	}
+	catch( const std::exception &e )
+	{
+		app::console() << "Could not compile shader:" << e.what() << std::endl;
+	}
+
+	mLightRef = std::shared_ptr< gl::Light >( new gl::Light( gl::Light::POINT, 0 ) );
+	mLightRef->setShadowParams( 90.f, .1f, 16.f );
+}
+
+void DualParaboloidShadowMap::update( const CameraPersp &cam )
+{
+	mLightRef->update( cam );
+	mShadowMatrix = mLightRef->getShadowTransformationMatrix( cam );
+}
+
+void DualParaboloidShadowMap::draw()
+{
+	gl::color( Color::white() );
+	gl::draw( mFboDepthForward.getTexture(), Rectf( 0, 256, 256, 0 ) );
+	gl::draw( mFboDepthBackward.getTexture(), Rectf( 256, 256, 512, 0 ) );
+}
+
+void DualParaboloidShadowMap::bindDepth( int direction )
+{
+	// store the current OpenGL state, so we can restore it when done
+	glPushAttrib( GL_VIEWPORT_BIT | GL_ENABLE_BIT | GL_CURRENT_BIT );
+
+	// bind the shadow map Fbo
+	if ( direction > 0 )
+		mFboDepthForward.bindFramebuffer();
+	else
+		mFboDepthBackward.bindFramebuffer();
+
+	// set the viewport to the correct dimensions and clear the Fbo
+	gl::setViewport( mFboDepthForward.getBounds() );
+	gl::clear();
+
+	gl::disable( GL_CULL_FACE );
+	gl::enableDepthRead();
+	gl::enableDepthWrite();
+
+	mLightRef->setDirection( Vec3f( 0.f, 0.f, 1.f ) );
+	mLightRef->setShadowRenderMatrices();
+
+	const CameraPersp &shadowCam = mLightRef->getShadowCamera();
+	if ( mShaderDepth )
+	{
+		mShaderDepth.bind();
+		mShaderDepth.uniform( "hemisphereDirection", (float)direction );
+		mShaderDepth.uniform( "nearClip", shadowCam.getNearClip() );
+		mShaderDepth.uniform( "farClip", shadowCam.getFarClip() );
+	}
+}
+
+void DualParaboloidShadowMap::unbindDepth()
+{
+	if ( mShaderDepth )
+		mShaderDepth.unbind();
+
+	gl::popMatrices();
+
+	mFboDepthForward.unbindFramebuffer();
+
+	glPopAttrib();
+}
+
+void DualParaboloidShadowMap::bindShadow()
+{
+	if ( mShaderShadow )
+		mShaderShadow.bind();
+}
+
+void DualParaboloidShadowMap::unbindShadow()
+{
+	if ( mShaderShadow )
+		mShaderShadow.unbind();
+}
+
