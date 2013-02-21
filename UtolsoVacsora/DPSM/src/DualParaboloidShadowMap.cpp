@@ -16,6 +16,15 @@ void DualParaboloidShadowMap::setup()
 	mFboDepthForward = gl::Fbo( SHADOW_MAP_RESOLUTION, SHADOW_MAP_RESOLUTION, format );
 	mFboDepthBackward = gl::Fbo( SHADOW_MAP_RESOLUTION, SHADOW_MAP_RESOLUTION, format );
 
+	mFboDepthForward.bindDepthTexture();
+	glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_R_TO_TEXTURE );
+	glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR );
+	mFboDepthForward.unbindTexture();
+	mFboDepthBackward.bindDepthTexture();
+	glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_R_TO_TEXTURE );
+	glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR );
+	mFboDepthBackward.unbindTexture();
+
 	try
 	{
 		mShaderDepth = gl::GlslProg( app::loadAsset( "shaders/DualParaboloidDepth.vert" ),
@@ -100,12 +109,27 @@ void DualParaboloidShadowMap::unbindDepth()
 void DualParaboloidShadowMap::bindShadow()
 {
 	if ( mShaderShadow )
+	{
+		const CameraPersp &shadowCam = mLightRef->getShadowCamera();
 		mShaderShadow.bind();
+		mShaderShadow.uniform( "shadowMatrix", mShadowMatrix );
+		// TODO: these are not really needed
+		mShaderShadow.uniform( "shadowNearClip", shadowCam.getNearClip() );
+		mShaderShadow.uniform( "shadowFarClip", shadowCam.getFarClip() );
+		mShaderShadow.uniform( "shadowTextureForward", 0 );
+		mShaderShadow.uniform( "shadowTextureBackward", 1 );
+		mFboDepthForward.bindDepthTexture( 0 );
+		mFboDepthBackward.bindDepthTexture( 1 );
+	}
 }
 
 void DualParaboloidShadowMap::unbindShadow()
 {
 	if ( mShaderShadow )
+	{
 		mShaderShadow.unbind();
+		mFboDepthForward.getDepthTexture().unbind( 0 );
+		mFboDepthBackward.getDepthTexture().unbind( 1 );
+	}
 }
 

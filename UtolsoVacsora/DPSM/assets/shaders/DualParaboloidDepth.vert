@@ -11,7 +11,7 @@ void main()
 	position /= position.w; // normalize by w
 	position.z *= hemisphereDirection; // set z-values to forward or backward
 
-	float d = length( position.xyz ); // determine the distance between to vertex and the origin
+	float d = length( position.xyz ); // determine the distance between the vertex and the origin
 	position /= d; // divide the vertex position by the distance
 
 	z = position.z;
@@ -21,9 +21,10 @@ void main()
 	position.x /= position.z;
 	position.y /= position.z;
 
-	position.z = ( d - nearClip ) / ( farClip - nearClip ); // scale depth to [0, 1]
+	//position.z = d;
+	position.z = ( d - nearClip ) / ( farClip - nearClip ); // scale depth to [0, 1] for display
 	position.w = 1.;
-	depth = position.z;
+	depth = ( d - nearClip ) / ( farClip - nearClip ); // scale depth to [0, 1] for display
 
 	gl_Position = position;
 	gl_FrontColor = gl_Color;
