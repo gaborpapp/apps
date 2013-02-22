@@ -7,8 +7,10 @@ varying vec4 Q;
 uniform float shadowNearClip;
 uniform float shadowFarClip;
 
-uniform sampler2DShadow shadowTextureForward;
-uniform sampler2DShadow shadowTextureBackward;
+uniform sampler2D shadowTextureForward;
+uniform sampler2D shadowTextureBackward;
+
+const float SHADOW_EPSILON = .001;
 
 void main()
 {
@@ -40,42 +42,36 @@ void main()
 
 	// dual-parabolic shadow mapping
 	vec3 q = Q.xyz / Q.w;
-	float ds = length( q ); // distance between the vertex and the origin
+	// distance between the vertex and the origin is the z-coordinate in
+	// the parabolic space
+	float z = length( q );
 
-	float alpha = .5 + q.z * attenuation; // ???
+	vec3 Q0 = normalize( q );
+	// results in bigger fov in the parabolic texture lookup,
+	// which removes the seam at the border of the maps
+	const float SEAM_EPSILON = 0.01;
+	if ( q.z > 0. )
+		Q0.z = Q0.z + 1. + SEAM_EPSILON;
+	else
+		Q0.z = 1. + SEAM_EPSILON - Q0.z;
+	Q0.xy /= Q0.z;
+	Q0.xy = .5 * Q0.xy + .5;
 
-	vec3 Q0 = q / ds;
-	Q0.z = Q0.z + 1.;
-	Q0.x = Q0.x / Q0.z;
-	Q0.y = Q0.y / Q0.z;
-	Q0.z = ds;// * attenuation;
-
-	Q0.x = .5 * Q0.x + .5;
-	Q0.y = .5 * Q0.y + .5;
-
-	vec3 Q1 = q / ds;
-	Q1.z = 1. - Q1.z;
-	Q1.x = Q1.x / Q1.z;
-	Q1.y = Q1.y / Q1.z;
-	Q1.z = ds;// * attenuation;
-
-	Q1.x = .5 * Q1.x + .5;
-	Q1.y = .5 * Q1.y + .5;
-
-	float shadow;
-	if ( alpha >= .5 )
-	//if ( q.z > 0. )
+	float shadowZ;
+	if ( q.z > 0. )
 	{
-		Q0.z = ( Q0.z - shadowNearClip ) / ( shadowFarClip - shadowNearClip ); // scale depth to [0, 1] for display
-		shadow = shadow2D( shadowTextureForward, Q0.xyz ).r;
+		shadowZ = texture2D( shadowTextureForward, Q0.xy ).b;
 	}
 	else
 	{
-		Q1.z = ( Q1.z - shadowNearClip ) / ( shadowFarClip - shadowNearClip ); // scale depth to [0, 1] for display
-		shadow = shadow2D( shadowTextureBackward, Q1.xyz ).r;
+		shadowZ = texture2D( shadowTextureBackward, Q0.xy ).b;
 	}
 
-	shadow = shadow * .3;
+	float shadowCoeff = 1.;
+	if ( shadowZ + SHADOW_EPSILON < z )
+	{
+		shadowCoeff = .4;
+	}
 
-	gl_FragColor = shadow * ( ambient + diffuse + specular ) * attenuation;
+	gl_FragColor = shadowCoeff * ( ambient + diffuse + specular ) * attenuation;
 }

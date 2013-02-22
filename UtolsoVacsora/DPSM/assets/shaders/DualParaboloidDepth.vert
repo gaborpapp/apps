@@ -21,10 +21,10 @@ void main()
 	position.x /= position.z;
 	position.y /= position.z;
 
-	//position.z = d;
-	position.z = ( d - nearClip ) / ( farClip - nearClip ); // scale depth to [0, 1] for display
+	position.z = d / 1000.;
+	//position.z = ( d - nearClip ) / ( farClip - nearClip ); // scale depth
 	position.w = 1.;
-	depth = ( d - nearClip ) / ( farClip - nearClip ); // scale depth to [0, 1] for display
+	depth = d;
 
 	gl_Position = position;
 	gl_FrontColor = gl_Color;

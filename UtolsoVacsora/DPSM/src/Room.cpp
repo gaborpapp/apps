@@ -152,6 +152,7 @@ void Room::setup()
 
 	kit::params::PInterfaceGl::load( "params.xml" );
 	mParams = kit::params::PInterfaceGl( "Parameters", Vec2i( 200, 300 ) );
+	mParams.addPersistentSizeAndPosition();
 
 	mParams.addParam( "Fps", &mFps, "", true );
 	mParams.addSeparator();

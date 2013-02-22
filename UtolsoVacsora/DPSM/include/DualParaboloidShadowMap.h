@@ -7,6 +7,8 @@
 #include "cinder/gl/GlslProg.h"
 #include "cinder/gl/Light.h"
 
+#include "mndlkit/params/PParams.h"
+
 class DualParaboloidShadowMap
 {
 	public:
@@ -33,5 +35,8 @@ class DualParaboloidShadowMap
 		std::shared_ptr< ci::gl::Light > mLightRef;
 
 		ci::Matrix44f mShadowMatrix;
+
+		mndl::kit::params::PInterfaceGl mParams;
+		bool mDrawMaps;
 };
 
