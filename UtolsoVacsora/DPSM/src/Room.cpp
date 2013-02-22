@@ -324,8 +324,6 @@ void Room::update()
 			break;
 	}
 
-	mShadowMap.update( mCamera );
-
 	// update camera params
 	if ( mCameraPosition != mCamera.getEyePoint() )
 	{
@@ -368,6 +366,8 @@ void Room::draw()
 {
 	std::shared_ptr< gl::Light > lightref = mShadowMap.getLightRef();
 	lightref->setPosition( mEntities[ NUM_CHAIRS ].getPosition() );
+
+	mShadowMap.update( mCamera );
 
 	// render shadow map
 	mShadowMap.bindDepth( 1 );

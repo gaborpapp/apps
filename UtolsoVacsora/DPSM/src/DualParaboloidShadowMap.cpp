@@ -67,11 +67,11 @@ void DualParaboloidShadowMap::update( const CameraPersp &cam )
 	mLightRef->update( cam );
 
 	// calculate shadow matrix without the projection transform
-	// FIXME: test readings are needed to properly cache matrices?!?
 	const CameraPersp &shadowCam = mLightRef->getShadowCamera();
-	Matrix44f test = shadowCam.getModelViewMatrix();
 	mShadowMatrix = shadowCam.getModelViewMatrix();
-	test = cam.getModelViewMatrix();
+	// FIXME: test readings are needed to properly cache matrices?!?
+	// wasn't this cinder bug fixed in commit 3455e767?
+	Matrix44f test = cam.getModelViewMatrix();
 	mShadowMatrix *= cam.getInverseModelViewMatrix();
 }
 
