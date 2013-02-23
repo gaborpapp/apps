@@ -137,12 +137,12 @@ class KecskeAr : public AppBasic
 
 void KecskeAr::prepareSettings( Settings *settings )
 {
-	settings->setWindowSize( 1024, 768 );
+	settings->setWindowSize( 1280, 720 );
 }
 
 void KecskeAr::setup()
 {
-	gl::disableVerticalSync();
+	//gl::disableVerticalSync();
 
 	getWindow()->setTitle( "KecskeAr" );
 
@@ -159,8 +159,8 @@ void KecskeAr::setup()
 	mParams.addPersistentParam( "Interaction mode", interactionNames, &mInteractionMode, 0 );
 	mFov = 60.f;
 	mParams.addParam( "Fov", &mFov, "min=10 max=80" );
-	mParams.addPersistentParam( "Light direction", &mLightDirection, Vec3f( 1.45696115f, -1.05111349, 0.812103748 ) );
-	mParams.addPersistentParam( "Light distance", &mLightDistance, .1f, "min=.01 max=2 step=0.005" );
+	mParams.addPersistentParam( "Light direction", &mLightDirection, Vec3f( 1.42215264, -1.07486057, -0.842143714 ) );
+	mParams.addPersistentParam( "Light distance", &mLightDistance, 1.f, "min=.01 max=2 step=0.005" );
 	mParams.addPersistentParam( "Light ambient", &mLightAmbient, Color::black() );
 	mParams.addPersistentParam( "Light diffuse", &mLightDiffuse, Color::white() );
 	mParams.addPersistentParam( "Light specular", &mLightDiffuse, Color::white() );
@@ -174,8 +174,8 @@ void KecskeAr::setup()
 	mParams.addSeparator();
 	mParams.addText( "Postprocessing" );
 	mParams.addPersistentParam( "Hue", &mHue, 0.f, "min=0 max=1 step=.01" );
-	mParams.addPersistentParam( "Saturation", &mSaturation, 1.f, "min=0.1 max=10 step=.05" );
-	mParams.addPersistentParam( "Lightness", &mLightness, 1.f, "min=0.1 max=10 step=.05" );
+	mParams.addPersistentParam( "Saturation", &mSaturation, 1.55f, "min=0.1 max=10 step=.05" );
+	mParams.addPersistentParam( "Lightness", &mLightness, 1.2f, "min=0.1 max=10 step=.05" );
 	mParams.addSeparator();
 
 	loadModel();
@@ -706,6 +706,9 @@ void KecskeAr::resize()
 
 void KecskeAr::keyDown( KeyEvent event )
 {
+	const float ORIENTATION_STEP = .02f;
+	const float FOW_STEP = .5f;
+
 	switch ( event.getCode() )
 	{
 		case KeyEvent::KEY_f:
@@ -737,6 +740,49 @@ void KecskeAr::keyDown( KeyEvent event )
 
 		case KeyEvent::KEY_ESCAPE:
 			quit();
+			break;
+
+		case KeyEvent::KEY_LEFT:
+		{
+				Quatf ori = mCurrentCamera.mCam.getOrientation();
+				Quatf pitchStep( Vec3f::yAxis(), ORIENTATION_STEP );
+				mCurrentCamera.mCam.setOrientation( ori * pitchStep );
+				break;
+		}
+
+		case KeyEvent::KEY_RIGHT:
+		{
+			Quatf ori = mCurrentCamera.mCam.getOrientation();
+			Quatf pitchStep( Vec3f::yAxis(), -ORIENTATION_STEP );
+			mCurrentCamera.mCam.setOrientation( ori * pitchStep );
+
+			break;
+		}
+
+		case KeyEvent::KEY_UP:
+		{
+				Quatf ori = mCurrentCamera.mCam.getOrientation();
+				Quatf yawStep( Vec3f::xAxis(), ORIENTATION_STEP );
+				mCurrentCamera.mCam.setOrientation( yawStep * ori );
+				break;
+		}
+
+		case KeyEvent::KEY_DOWN:
+		{
+			Quatf ori = mCurrentCamera.mCam.getOrientation();
+			Quatf yawStep( Vec3f::xAxis(), -ORIENTATION_STEP );
+			mCurrentCamera.mCam.setOrientation( yawStep * ori );
+			break;
+		}
+
+		case KeyEvent::KEY_a:
+			if ( mFov > 10.f )
+				mFov -= FOW_STEP;
+			break;
+
+		case KeyEvent::KEY_z:
+			if ( mFov < 80.f )
+				mFov += FOW_STEP;
 			break;
 
 		default:
