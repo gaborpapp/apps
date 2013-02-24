@@ -131,6 +131,7 @@ class Room : public AppBasic
 		Vec3f mCameraCenterOfInterestPoint;
 
 		float mFps;
+		bool mVerticalSyncEnabled;
 };
 
 void Room::prepareSettings( Settings *settings )
@@ -146,6 +147,7 @@ void Room::setup()
 	mParams = kit::params::PInterfaceGl( "Parameters", Vec2i( 200, 300 ) );
 
 	mParams.addParam( "Fps", &mFps, "", true );
+	mParams.addPersistentParam( "Vertical sync", &mVerticalSyncEnabled, true );
 	mParams.addSeparator();
 	mParams.addText( "Light" );
 	mParams.addPersistentParam( "Constant attenuation", &mLightConstantAttenuation, .5f, "min=0 step=.01" );
@@ -214,6 +216,8 @@ void Room::loadModel()
 void Room::update()
 {
 	mFps = getAverageFps();
+	if ( mVerticalSyncEnabled != gl::isVerticalSyncEnabled() )
+		gl::enableVerticalSync( mVerticalSyncEnabled );
 
 	// interaction state - pick, move, rotate
 	switch ( mInteractionState )

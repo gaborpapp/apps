@@ -139,6 +139,7 @@ class Room : public AppBasic
 		DualParaboloidShadowMap mShadowMap;
 
 		float mFps;
+		bool mVerticalSyncEnabled;
 };
 
 void Room::prepareSettings( Settings *settings )
@@ -155,6 +156,7 @@ void Room::setup()
 	mParams.addPersistentSizeAndPosition();
 
 	mParams.addParam( "Fps", &mFps, "", true );
+	mParams.addPersistentParam( "Vertical sync", &mVerticalSyncEnabled, true );
 	mParams.addSeparator();
 	mParams.addText( "Light" );
 	mParams.addPersistentParam( "Constant attenuation", &mLightConstantAttenuation, .5f, "min=0 step=.01" );
@@ -299,6 +301,8 @@ TriMesh Room::createSquare( const Vec2i &resolution )
 void Room::update()
 {
 	mFps = getAverageFps();
+	if ( mVerticalSyncEnabled != gl::isVerticalSyncEnabled() )
+		gl::enableVerticalSync( mVerticalSyncEnabled );
 
 	// interaction state - pick, move, rotate
 	switch ( mInteractionState )
