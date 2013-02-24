@@ -1,0 +1,11 @@
+env = Environment()
+
+env['APP_TARGET'] = 'Voronoi'
+env['APP_SOURCES'] = ['Room.cpp', 'Voronoi.cpp']
+env['ASSETS'] = ['model/chair.obj']
+env['DEBUG'] = 0
+
+env = SConscript('../../../../blocks/MndlKit/scons/SConscript', exports = 'env')
+
+SConscript('../../../../scons/SConscript', exports = 'env')
+
