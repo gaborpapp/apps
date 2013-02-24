@@ -60,6 +60,8 @@ class Room : public AppBasic
 
 		void loadModel();
 		TriMesh mTriMesh;
+		TriMesh createSquare( const Vec2i &resolution );
+		TriMesh mTrimeshPlane;
 
 		enum InteractionState {
 			INTERACTION_NONE = 0, // no interaction, happens when picking fails
@@ -185,6 +187,7 @@ void Room::setup()
 	mMayaCam.setCurrentCam( mCamera );
 
 	loadModel();
+	mTrimeshPlane = createSquare( Vec2i( 64, 64 ) );
 }
 
 void Room::loadModel()
@@ -211,6 +214,79 @@ void Room::loadModel()
 		// one-time only: write mesh to binary file
 		mTriMesh.write( writeFile( getAssetPath( "model" ) / meshName ) );
 	}
+}
+
+// based on Cinder-MeshHelper by Ban the Rewind
+// https://github.com/BanTheRewind/Cinder-MeshHelper/
+TriMesh Room::createSquare( const Vec2i &resolution )
+{
+	vector< uint32_t > indices;
+	vector< Vec3f > normals;
+	vector< Vec3f > positions;
+	vector< Vec2f > texCoords;
+
+	Vec3f norm0( 0.0f, 1.0f, 0.0f );
+
+	Vec2f scale( 1.0f / math< float >::max( (float)resolution.x, 1.0f ),
+				 1.0f / math<float>::max( (float)resolution.y, 1.0f ) );
+	uint32_t index = 0;
+	for ( int32_t y = 0; y < resolution.y; ++y )
+	{
+		for ( int32_t x = 0; x < resolution.x; ++x, ++index )
+		{
+			float x1 = (float)x * scale.x;
+			float y1 = (float)y * scale.y;
+			float x2 = (float)( x + 1 ) * scale.x;
+			float y2 = (float)( y + 1 ) * scale.y;
+
+			Vec3f pos0( x1 - 0.5f, 0.0f, y1 - 0.5f );
+			Vec3f pos1( x2 - 0.5f, 0.0f, y1 - 0.5f );
+			Vec3f pos2( x1 - 0.5f, 0.0f, y2 - 0.5f );
+			Vec3f pos3( x2 - 0.5f, 0.0f, y2 - 0.5f );
+
+			Vec2f texCoord0( x1, y1 );
+			Vec2f texCoord1( x2, y1 );
+			Vec2f texCoord2( x1, y2 );
+			Vec2f texCoord3( x2, y2 );
+
+			positions.push_back( pos2 );
+			positions.push_back( pos1 );
+			positions.push_back( pos0 );
+			positions.push_back( pos1 );
+			positions.push_back( pos2 );
+			positions.push_back( pos3 );
+
+			texCoords.push_back( texCoord2 );
+			texCoords.push_back( texCoord1 );
+			texCoords.push_back( texCoord0 );
+			texCoords.push_back( texCoord1 );
+			texCoords.push_back( texCoord2 );
+			texCoords.push_back( texCoord3 );
+
+			for ( uint32_t i = 0; i < 6; ++i )
+			{
+				indices.push_back( index * 6 + i );
+				normals.push_back( norm0 );
+			}
+		}
+	}
+
+	TriMesh mesh;
+
+	mesh.appendIndices( &indices[ 0 ], indices.size() );
+	for ( auto normal: normals )
+	{
+		mesh.appendNormal( normal );
+	}
+
+	mesh.appendVertices( &positions[ 0 ], positions.size() );
+
+	for ( auto texCoord: texCoords )
+	{
+		mesh.appendTexCoord( texCoord );
+	}
+
+	return mesh;
 }
 
 void Room::update()
@@ -291,6 +367,13 @@ void Room::draw()
 			gl::drawSphere( Vec3f::zero(), mEntities[ i ].getScale() );
 		gl::popModelView();
 	}
+
+	gl::pushModelView();
+	material.setAmbient( Color::gray( .5f ) );
+	material.apply();
+	gl::scale( Vec3f( 16.f, 1.f, 16.f ) );
+	gl::draw( mTrimeshPlane );
+	gl::popModelView();
 
 	light.disable();
 	gl::disable( GL_LIGHTING );
