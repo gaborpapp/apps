@@ -62,6 +62,8 @@ class Room : public AppBasic
 
 		void loadModel();
 		TriMesh mTriMesh;
+
+		static const int PLANE_SIZE = 32;
 		TriMesh createSquare( const Vec2i &resolution );
 		TriMesh mTrimeshPlane;
 
@@ -131,6 +133,13 @@ class Room : public AppBasic
 		bool performPicking();
 		void performTransformation();
 
+		// 3d lissajous curve autopilot
+		bool mAutopilotEnabled;
+		float mAutopilotA, mAutopilotAlpha, mAutopilotPhi;
+		float mAutopilotB, mAutopilotBeta, mAutopilotPsi;
+		float mAutopilotC, mAutopilotGamma, mAutopilotChi;
+		Vec3f getAutopilotPosition( float t );
+
 		MayaCamUI mMayaCam;
 		CameraPersp mCamera;
 		Vec3f mCameraPosition;
@@ -184,6 +193,21 @@ void Room::setup()
 				"group='Dancer " + toString( i ) + "'" );
 		mParams.setOptions( "Dancer " + toString( i ), "opened=false" );
 	}
+
+	mParams.addSeparator();
+	mParams.addText( "Autopilot" );
+	mParams.addPersistentParam( "Autopilot enable", &mAutopilotEnabled, false );
+	mParams.addPersistentParam( "x amplitude a", &mAutopilotA, 0.f, "min=0 max=2 step=.05" );
+	mParams.addPersistentParam( "x frequency alpha", &mAutopilotAlpha, 0.f, "min=0 max=4 step=.05" );
+	mParams.addPersistentParam( "x phase phi", &mAutopilotPhi, 0.f, "min=0 max=6.25 step=.05" );
+	mParams.addPersistentParam( "y amplitude b", &mAutopilotB, 0.f, "min=0 max=2 step=.05" );
+	mParams.addPersistentParam( "y frequency beta", &mAutopilotBeta, 0.f, "min=0 max=4 step=.05" );
+	mParams.addPersistentParam( "y phase psi", &mAutopilotPsi, 0.f, "min=0 max=6.25 step=.05" );
+	mParams.addPersistentParam( "z amplitude c", &mAutopilotC, 0.f, "min=0 max=2 step=.05" );
+	mParams.addPersistentParam( "z frequency gamma", &mAutopilotGamma, 0.f, "min=0 max=4 step=.05" );
+	mParams.addPersistentParam( "z phase chi", &mAutopilotChi, 0.f, "min=0 max=6.25 step=.05" );
+
+	mParams.addSeparator();
 	mParams.addText( "Camera" );
 	mParams.addPersistentParam( "Eye", &mCameraPosition, Vec3f( 0, 1, 10 ), "", true );
 	mParams.addPersistentParam( "Center of Interest", &mCameraCenterOfInterestPoint,
@@ -201,8 +225,10 @@ void Room::setup()
 
 void Room::loadModel()
 {
-	const fs::path objName = "chair.obj";
+	const fs::path objName = "hokedli.obj";
 	fs::path meshName( objName );
+//#define FORCE_OBJ
+#ifndef FORCE_OBJ
 	meshName.replace_extension( "msh" );
 
 	try
@@ -216,13 +242,16 @@ void Room::loadModel()
 	}
 	catch ( ... )
 	{
+#endif
 		// load model into mesh
 		ObjLoader loader( loadAsset( fs::path( "model" ) / objName ) );
 		loader.load( &mTriMesh );
 
+#ifndef FORCE_OBJ
 		// one-time only: write mesh to binary file
 		mTriMesh.write( writeFile( getAssetPath( "model" ) / meshName ) );
 	}
+#endif
 }
 
 // based on Cinder-MeshHelper by Ban the Rewind
@@ -298,6 +327,14 @@ TriMesh Room::createSquare( const Vec2i &resolution )
 	return mesh;
 }
 
+Vec3f Room::getAutopilotPosition( float t )
+{
+	Vec3f npos( mAutopilotA * math< float >::sin( mAutopilotAlpha * t + mAutopilotPhi ),
+				mAutopilotB * math< float >::sin( mAutopilotBeta * t + mAutopilotPsi ),
+				mAutopilotC * math< float >::sin( mAutopilotGamma * t + mAutopilotChi ) );
+	return .5f * ( npos + Vec3f( 0.f, 5.f, 0.f ) ) * Vec3f( PLANE_SIZE * .25f, 1.f, PLANE_SIZE *.25f );
+}
+
 void Room::update()
 {
 	mFps = getAverageFps();
@@ -338,6 +375,10 @@ void Room::update()
 	{
 		mCameraCenterOfInterestPoint = mCamera.getCenterOfInterestPoint();
 	}
+
+	// update dancer 0 if autopilot is enabled
+	if ( mAutopilotEnabled )
+		mEntities[ NUM_CHAIRS ].setPosition( getAutopilotPosition( (float)getElapsedSeconds() ) );
 }
 
 void Room::renderScene( bool renderDepth )
@@ -361,7 +402,7 @@ void Room::renderScene( bool renderDepth )
 	gl::pushModelView();
 	material.setAmbient( Color::gray( .5f ) );
 	material.apply();
-	gl::scale( Vec3f( 16.f, 1.f, 16.f ) );
+	gl::scale( Vec3f( PLANE_SIZE * .5f, 1.f, PLANE_SIZE * .5f ) );
 	gl::draw( mTrimeshPlane );
 	gl::popModelView();
 }

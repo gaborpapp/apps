@@ -2,7 +2,7 @@ env = Environment()
 
 env['APP_TARGET'] = 'Room'
 env['APP_SOURCES'] = ['Room.cpp', 'DualParaboloidShadowMap.cpp']
-env['ASSETS'] = ['model/chair.obj', 'shaders/DualParaboloidDepth.*', 'shaders/DualParaboloidShadow.*']
+env['ASSETS'] = ['model/hokedli.obj', 'shaders/DualParaboloidDepth.*', 'shaders/DualParaboloidShadow.*']
 env['DEBUG'] = 0
 
 env = SConscript('../../../../blocks/MndlKit/scons/SConscript', exports = 'env')
