@@ -15,6 +15,8 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
 */
 
+#include <algorithm>
+
 #include "cinder/app/AppBasic.h"
 
 #include "cinder/gl/gl.h"
@@ -42,6 +44,7 @@ class KecskeAr : public AppBasic
 
 		void resize();
 		void keyDown( KeyEvent event );
+		void keyUp( KeyEvent event );
 		void mouseDown( MouseEvent event );
 		void mouseDrag( MouseEvent event );
 
@@ -133,6 +136,8 @@ class KecskeAr : public AppBasic
 		float mLightness;
 
 		gl::Texture mLogo;
+
+		bool mKeysDown[ KeyEvent::KEY_LAST ];
 };
 
 void KecskeAr::prepareSettings( Settings *settings )
@@ -218,6 +223,8 @@ void KecskeAr::setup()
 		ce.mCam.setAspectRatio( mFbo.getAspectRatio() );
 
 	mLogo = loadImage( loadAsset( "logo.png" ) );
+
+	std::fill( &mKeysDown[ 0 ], &mKeysDown[ 0 ] + sizeof( mKeysDown ), false );
 
 	setFullScreen( true );
 	params::PInterfaceGl::showAllParams( false );
@@ -388,6 +395,49 @@ void KecskeAr::update()
 		mDisplayList.getModelMatrix().setToIdentity();
 	}
 	*/
+
+	const float ORIENTATION_STEP = .005f;
+	const float FOW_STEP = .2f;
+
+	if ( mKeysDown[ KeyEvent::KEY_LEFT ] )
+	{
+		Quatf ori = mCurrentCamera.mCam.getOrientation();
+		Quatf pitchStep( Vec3f::yAxis(), ORIENTATION_STEP );
+		mCurrentCamera.mCam.setOrientation( ori * pitchStep );
+	}
+
+	if ( mKeysDown[ KeyEvent::KEY_RIGHT ] )
+	{
+		Quatf ori = mCurrentCamera.mCam.getOrientation();
+		Quatf pitchStep( Vec3f::yAxis(), -ORIENTATION_STEP );
+		mCurrentCamera.mCam.setOrientation( ori * pitchStep );
+	}
+
+	if ( mKeysDown[ KeyEvent::KEY_UP ] )
+	{
+		Quatf ori = mCurrentCamera.mCam.getOrientation();
+		Quatf yawStep( Vec3f::xAxis(), ORIENTATION_STEP );
+		mCurrentCamera.mCam.setOrientation( yawStep * ori );
+	}
+
+	if ( mKeysDown[ KeyEvent::KEY_DOWN ] )
+	{
+		Quatf ori = mCurrentCamera.mCam.getOrientation();
+		Quatf yawStep( Vec3f::xAxis(), -ORIENTATION_STEP );
+		mCurrentCamera.mCam.setOrientation( yawStep * ori );
+	}
+
+	if ( mKeysDown[ KeyEvent::KEY_a ] )
+	{
+		if ( mFov > 10.f )
+			mFov -= FOW_STEP;
+	}
+
+	if ( mKeysDown[ KeyEvent::KEY_z ] )
+	{
+		if ( mFov < 80.f )
+			mFov += FOW_STEP;
+	}
 }
 
 void KecskeAr::enableLights()
@@ -706,8 +756,7 @@ void KecskeAr::resize()
 
 void KecskeAr::keyDown( KeyEvent event )
 {
-	const float ORIENTATION_STEP = .02f;
-	const float FOW_STEP = .5f;
+	mKeysDown[ event.getCode() ] = true;
 
 	switch ( event.getCode() )
 	{
@@ -742,52 +791,14 @@ void KecskeAr::keyDown( KeyEvent event )
 			quit();
 			break;
 
-		case KeyEvent::KEY_LEFT:
-		{
-				Quatf ori = mCurrentCamera.mCam.getOrientation();
-				Quatf pitchStep( Vec3f::yAxis(), ORIENTATION_STEP );
-				mCurrentCamera.mCam.setOrientation( ori * pitchStep );
-				break;
-		}
-
-		case KeyEvent::KEY_RIGHT:
-		{
-			Quatf ori = mCurrentCamera.mCam.getOrientation();
-			Quatf pitchStep( Vec3f::yAxis(), -ORIENTATION_STEP );
-			mCurrentCamera.mCam.setOrientation( ori * pitchStep );
-
-			break;
-		}
-
-		case KeyEvent::KEY_UP:
-		{
-				Quatf ori = mCurrentCamera.mCam.getOrientation();
-				Quatf yawStep( Vec3f::xAxis(), ORIENTATION_STEP );
-				mCurrentCamera.mCam.setOrientation( yawStep * ori );
-				break;
-		}
-
-		case KeyEvent::KEY_DOWN:
-		{
-			Quatf ori = mCurrentCamera.mCam.getOrientation();
-			Quatf yawStep( Vec3f::xAxis(), -ORIENTATION_STEP );
-			mCurrentCamera.mCam.setOrientation( yawStep * ori );
-			break;
-		}
-
-		case KeyEvent::KEY_a:
-			if ( mFov > 10.f )
-				mFov -= FOW_STEP;
-			break;
-
-		case KeyEvent::KEY_z:
-			if ( mFov < 80.f )
-				mFov += FOW_STEP;
-			break;
-
 		default:
 			break;
 	}
+}
+
+void KecskeAr::keyUp( KeyEvent event )
+{
+	mKeysDown[ event.getCode() ] = false;
 }
 
 CINDER_APP_BASIC( KecskeAr, RendererGl )
