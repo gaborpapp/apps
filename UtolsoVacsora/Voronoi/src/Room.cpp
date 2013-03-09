@@ -1,5 +1,4 @@
 /*
- Copyright (C) 2013 Gabor Papp
 
  This program is free software; you can redistribute it and/or modify
  it under the terms of the GNU General Public License as published by
@@ -184,6 +183,12 @@ void Room::setup()
 		mParams.addPersistentParam( "Position " + toString( j ),
 				mEntities[ j ].getPositionRef(), Vec3f( ( i - (float)NUM_DANCERS / 2.f ) * 2.f, 2.5f, 0.f ),
 				"group='Dancer " + toString( i ) + "'" );
+		mParams.addPersistentParam( "Rotation " + toString( j ),
+				mEntities[ j ].getPitchRef(), 0.f,
+				"group='Dancer " + toString( i ) + "'" );
+		mParams.addPersistentParam( "Scale " + toString( j ),
+				mEntities[ j ].getScaleRef(), .1f,
+				"group='Dancer " + toString( i ) + "'" );
 		mParams.setOptions( "Dancer " + toString( i ), "opened=false" );
 	}
 	mParams.addText( "Camera" );
@@ -348,7 +353,21 @@ void Room::update()
 	for ( int i = 0; i < NUM_DANCERS; i++ )
 	{
 		Vec2d p = mEntities[ NUM_CHAIRS + i ].getPosition().xz();
-		mVoronoi.addPoint( Vec2d( p ) * norm + Vec2d( .5, .5 ) );
+		float s = mEntities[ NUM_CHAIRS + i ].getScale();
+		if ( s > .1f )
+		{
+			float r = mEntities[ NUM_CHAIRS + i ].getPitch();
+			Vec2d d( s * .5, 0. );
+			d.rotate( -r );
+			Vec2d p0 = p + d;
+			Vec2d p1 = p - d;
+			mVoronoi.addSegment( p0 * norm + Vec2d( .5, .5 ),
+								 p1 * norm + Vec2d( .5, .5 ) );
+		}
+		else
+		{
+			mVoronoi.addPoint( Vec2d( p ) * norm + Vec2d( .5, .5 ) );
+		}
 	}
 }
 

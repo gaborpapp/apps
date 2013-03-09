@@ -10,19 +10,50 @@
 
 #include "mndlkit/params/PParams.h"
 
+class Segment2d
+{
+	public:
+		Segment2d( const ci::Vec2d &a, const ci::Vec2d &b ) : p0( a ), p1( b ) {}
+
+		bool intersects( const Segment2d &other )
+		{
+			return ( ccw( p0, other.p0, other.p1 ) != ccw( p1, other.p0, other.p1 ) ) &&
+				   ( ccw( p0, p1, other.p0 ) != ccw( p0, p1, other.p1 ) );
+		}
+
+		ci::Vec2d p0, p1;
+
+	protected:
+		bool ccw( const ci::Vec2d &p0, const ci::Vec2d &p1, const ci::Vec2d &p2 )
+		{
+			return ( p2.y - p0.y ) * ( p1.x - p0.x ) > ( p1.y - p0.y ) * ( p2.x - p0.x );
+		}
+};
+
 class Voronoi
 {
 	public:
 		void setup();
 
-		void clear() { mPoints.clear(); }
+		void clear() { mPoints.clear(); mSegments.clear(); }
 
 		//! Adds point with normalized coordinates to the diagram.
 		template< typename T >
-		void addPoint( const ci::Vec2< T >& p )
+		void addPoint( const ci::Vec2< T > &p )
 		{
-			ci::Vec2< T > size( FBO_RESOLUTION, FBO_RESOLUTION );
-			mPoints.push_back( p * size );
+			mPoints.push_back( p * ci::Vec2d( mFbo.getSize() ) );
+		}
+
+		/** Adds segment with normalized coordinates to the diagram. The segment is rejected
+		 *  if it intersects previous segments. **/
+		void addSegment( const Segment2d &s );
+
+		/** Adds two points as a segment with normalized coordinates to the diagram. The
+		 *  segment is rejected if it intersects previous segments. **/
+		template< typename T >
+		void addSegment( const ci::Vec2< T > &p0, const ci::Vec2< T > &p1 )
+		{
+			addSegment( Segment2d( p0, p1 ) );
 		}
 
 		void draw();
@@ -32,8 +63,24 @@ class Voronoi
 		void unbindTexture() { mFbo.unbindTexture(); }
 
 	private:
-		boost::polygon::voronoi_diagram< double > mVd;
+		typedef double CoordinateType;
+		typedef boost::polygon::point_data< CoordinateType > PointType;
+		typedef boost::polygon::segment_data< CoordinateType > SegmentType;
+		typedef boost::polygon::voronoi_diagram< CoordinateType > VoronoiDiagram;
+		typedef VoronoiDiagram::cell_type CellType;
+		typedef VoronoiDiagram::cell_type::source_index_type SourceIndexType;
+		typedef VoronoiDiagram::cell_type::source_category_type SourceCategoryType;
+		typedef VoronoiDiagram::edge_type EdgeType;
+		typedef VoronoiDiagram::vertex_type VertexType;
+
+		VoronoiDiagram mVd;
 		std::vector< ci::Vec2d > mPoints;
+		std::vector< Segment2d > mSegments;
+
+		ci::Vec2d retrievePoint( const CellType &cell );
+		Segment2d retrieveSegment( const CellType &cell );
+		void clipInfiniteEdge( const EdgeType &edge, ci::Vec2f *e0, ci::Vec2f *e1 );
+		void sampleCurvedEdge( const EdgeType &edge, std::vector< ci::Vec2d > *sampledEdge );
 
 		static const int FBO_RESOLUTION = 2048;
 		ci::gl::Fbo mFbo;
