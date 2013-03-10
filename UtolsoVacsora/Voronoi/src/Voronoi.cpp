@@ -5,32 +5,32 @@
 
 using namespace ci;
 
-// register ci::Vec2d as a point with boost polygon
+// register ci::Vec2i as a point with boost polygon
 namespace boost { namespace polygon {
     template <>
-    struct geometry_concept< ci::Vec2d > { typedef point_concept type; };
+    struct geometry_concept< ci::Vec2i > { typedef point_concept type; };
 
     template <>
-    struct point_traits< ci::Vec2d >
+    struct point_traits< ci::Vec2i >
     {
         typedef int coordinate_type;
 
-        static inline coordinate_type get( const ci::Vec2d &point, orientation_2d orient )
+        static inline coordinate_type get( const ci::Vec2i &point, orientation_2d orient )
         {
             return ( orient == HORIZONTAL ) ? point.x : point.y;
         }
     };
 
 	template <>
-	struct geometry_concept< Segment2d > { typedef segment_concept type; };
+	struct geometry_concept< Segment2i > { typedef segment_concept type; };
 
 	template <>
-	struct segment_traits< Segment2d >
+	struct segment_traits< Segment2i >
 	{
 		typedef double coordinate_type;
-		typedef ci::Vec2d point_type;
+		typedef ci::Vec2i point_type;
 
-		static inline point_type get( const Segment2d &segment, direction_1d dir )
+		static inline point_type get( const Segment2i &segment, direction_1d dir )
 		{
 			return dir.to_int() ? segment.p1 : segment.p0;
 		}
@@ -48,24 +48,22 @@ void Voronoi::setup()
 	mFbo = gl::Fbo( FBO_RESOLUTION, FBO_RESOLUTION, false, true, false );
 }
 
-void Voronoi::addSegment( const Segment2d &s )
+void Voronoi::addSegment( const Segment2i &s )
 {
-	const ci::Vec2d size( mFbo.getSize() );
-	Segment2d newSegment( s.p0 * size, s.p1 * size );
 	bool foundIntersecting = false;
 	for ( auto &segment : mSegments )
 	{
-		if ( newSegment.intersects( segment ) )
+		if ( s.intersects( segment ) )
 		{
 			foundIntersecting = true;
 			break;
 		}
 	}
 	if ( !foundIntersecting )
-		mSegments.push_back( newSegment );
+		mSegments.push_back( s );
 }
 
-Vec2d Voronoi::retrievePoint( const CellType &cell )
+Vec2i Voronoi::retrievePoint( const CellType &cell )
 {
 	SourceIndexType index = cell.source_index();
 	SourceCategoryType category = cell.source_category();
@@ -85,7 +83,7 @@ Vec2d Voronoi::retrievePoint( const CellType &cell )
 	}
 }
 
-Segment2d Voronoi::retrieveSegment( const CellType &cell )
+Segment2i Voronoi::retrieveSegment( const CellType &cell )
 {
 	SourceIndexType index = cell.source_index() - mPoints.size();
 	return mSegments[ index ];
@@ -96,23 +94,23 @@ void Voronoi::clipInfiniteEdge( const EdgeType &edge, Vec2f *e0, Vec2f *e1 )
 	const CellType &cell1 = *edge.cell();
 	const CellType &cell2 = *edge.twin()->cell();
 
-	Vec2d origin, direction;
+	Vec2f origin, direction;
 
 	// Infinite edges could not be created by two segment sites.
 	if ( cell1.contains_point() && cell2.contains_point() )
 	{
-		Vec2d p1 = retrievePoint( cell1 );
-		Vec2d p2 = retrievePoint( cell2 );
+		Vec2i p1 = retrievePoint( cell1 );
+		Vec2i p2 = retrievePoint( cell2 );
 		origin = ( p1 + p2 ) * 0.5;
-		direction= Vec2d( p1.y - p2.y, p2.x - p1.x );
+		direction= Vec2f( p1.y - p2.y, p2.x - p1.x );
 	}
 	else
 	{
 		origin = cell1.contains_segment() ?
 						retrievePoint( cell2 ) : retrievePoint( cell1 );
-		Segment2d segment = cell1.contains_segment() ?
+		Segment2i segment = cell1.contains_segment() ?
 						retrieveSegment( cell1 ) : retrieveSegment( cell2 );
-		Vec2d dseg = segment.p1 - segment.p0;
+		Vec2i dseg = segment.p1 - segment.p0;
 		if ( ( segment.p0 == origin ) ^ cell1.contains_point() )
 		{
 			direction.x = dseg.y;
@@ -125,8 +123,8 @@ void Voronoi::clipInfiniteEdge( const EdgeType &edge, Vec2f *e0, Vec2f *e1 )
 		}
 	}
 
-	double side = mFbo.getWidth();
-	double coef = side / math< double >::max(
+	float side = mFbo.getWidth();
+	float coef = side / math< double >::max(
 			math< double >::abs( direction.x ),
 			math< double >::abs( direction.y ) );
 	if ( edge.vertex0() == NULL )
@@ -142,10 +140,10 @@ void Voronoi::clipInfiniteEdge( const EdgeType &edge, Vec2f *e0, Vec2f *e1 )
 
 void Voronoi::sampleCurvedEdge( const EdgeType &edge, std::vector< Vec2d > *sampledEdge )
 {
-	Vec2d point = edge.cell()->contains_point() ?
+	Vec2i point = edge.cell()->contains_point() ?
 		retrievePoint( *edge.cell() ) :
 		retrievePoint( *edge.twin()->cell() );
-	Segment2d segment = edge.cell()->contains_point() ?
+	Segment2i segment = edge.cell()->contains_point() ?
 		retrieveSegment( *edge.twin()->cell() ) :
 		retrieveSegment( *edge.cell() );
 
@@ -209,40 +207,39 @@ void Voronoi::draw()
 	// voronoi_diagram< double >::const_vertex_iterator it = mVd.begin()
 	for ( auto &edge : mVd.edges() )
 	{
-		if ( edge.is_secondary() )
+		if ( !edge.is_primary() )
 			continue;
 
-		if ( edge.is_linear() )
+		std::vector< Vec2d > se;
+		if ( !edge.is_finite() )
 		{
-			const VertexType *v0 = edge.vertex0();
-			const VertexType *v1 = edge.vertex1();
-
 			Vec2f p0, p1;
-			if ( edge.is_infinite() )
+			clipInfiniteEdge( edge, &p0, &p1 );
+			se.push_back( p0 );
+			se.push_back( p1 );
+		}
+		else
+		{
+			if ( edge.is_curved() )
 			{
-				clipInfiniteEdge( edge, &p0, &p1 );
+				sampleCurvedEdge( edge, &se );
 			}
 			else
 			{
-				p0 = Vec2f( v0->x(), v0->y() );
-				p1 = Vec2f( v1->x(), v1->y() );
-			}
+				const VertexType *v0 = edge.vertex0();
+				const VertexType *v1 = edge.vertex1();
 
-			gl::drawLine( p0, p1 );
+				se.push_back( Vec2d( v0->x(), v0->y() ) );
+				se.push_back( Vec2d( v1->x(), v1->y() ) );
+			}
 		}
-		else
-		if ( edge.is_finite() )
+
+		gl::begin( GL_LINE_STRIP );
+		for ( auto &pt : se )
 		{
-			std::vector< Vec2d > se;
-			sampleCurvedEdge( edge, &se );
-
-			gl::begin( GL_LINE_STRIP );
-			for ( auto &pt : se )
-			{
-				gl::vertex( pt );
-			}
-			gl::end();
+			gl::vertex( pt );
 		}
+		gl::end();
 	}
 
 	glPointSize( 1.f );

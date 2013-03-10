@@ -10,21 +10,21 @@
 
 #include "mndlkit/params/PParams.h"
 
-class Segment2d
+class Segment2i
 {
 	public:
-		Segment2d( const ci::Vec2d &a, const ci::Vec2d &b ) : p0( a ), p1( b ) {}
+		Segment2i( const ci::Vec2i &a, const ci::Vec2i &b ) : p0( a ), p1( b ) {}
 
-		bool intersects( const Segment2d &other )
+		bool intersects( const Segment2i &other ) const
 		{
 			return ( ccw( p0, other.p0, other.p1 ) != ccw( p1, other.p0, other.p1 ) ) &&
 				   ( ccw( p0, p1, other.p0 ) != ccw( p0, p1, other.p1 ) );
 		}
 
-		ci::Vec2d p0, p1;
+		ci::Vec2i p0, p1;
 
 	protected:
-		bool ccw( const ci::Vec2d &p0, const ci::Vec2d &p1, const ci::Vec2d &p2 )
+		bool ccw( const ci::Vec2i &p0, const ci::Vec2i &p1, const ci::Vec2i &p2 ) const
 		{
 			return ( p2.y - p0.y ) * ( p1.x - p0.x ) > ( p1.y - p0.y ) * ( p2.x - p0.x );
 		}
@@ -41,19 +41,21 @@ class Voronoi
 		template< typename T >
 		void addPoint( const ci::Vec2< T > &p )
 		{
-			mPoints.push_back( p * ci::Vec2d( mFbo.getSize() ) );
+			mPoints.push_back( p * ci::Vec2< T >( mFbo.getSize() ) );
 		}
 
-		/** Adds segment with normalized coordinates to the diagram. The segment is rejected
+		/** Adds segment with integer coordinates to the diagram. The segment is rejected
 		 *  if it intersects previous segments. **/
-		void addSegment( const Segment2d &s );
+		void addSegment( const Segment2i &s );
 
 		/** Adds two points as a segment with normalized coordinates to the diagram. The
 		 *  segment is rejected if it intersects previous segments. **/
 		template< typename T >
 		void addSegment( const ci::Vec2< T > &p0, const ci::Vec2< T > &p1 )
 		{
-			addSegment( Segment2d( p0, p1 ) );
+			const ci::Vec2d size( mFbo.getSize() );
+			Segment2i newSegment( p0 * size, p1 * size );
+			addSegment( newSegment );
 		}
 
 		void draw();
@@ -74,11 +76,11 @@ class Voronoi
 		typedef VoronoiDiagram::vertex_type VertexType;
 
 		VoronoiDiagram mVd;
-		std::vector< ci::Vec2d > mPoints;
-		std::vector< Segment2d > mSegments;
+		std::vector< ci::Vec2i > mPoints;
+		std::vector< Segment2i > mSegments;
 
-		ci::Vec2d retrievePoint( const CellType &cell );
-		Segment2d retrieveSegment( const CellType &cell );
+		ci::Vec2i retrievePoint( const CellType &cell );
+		Segment2i retrieveSegment( const CellType &cell );
 		void clipInfiniteEdge( const EdgeType &edge, ci::Vec2f *e0, ci::Vec2f *e1 );
 		void sampleCurvedEdge( const EdgeType &edge, std::vector< ci::Vec2d > *sampledEdge );
 
