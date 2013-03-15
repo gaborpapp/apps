@@ -2,6 +2,7 @@
 
 #include <vector>
 
+#include "boost/polygon/segment_data.hpp"
 #include "boost/polygon/voronoi.hpp"
 
 #include "cinder/Vector.h"

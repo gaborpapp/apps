@@ -23,6 +23,7 @@
 #include "cinder/params/Params.h"
 #include "cinder/Rand.h"
 
+#include "boost/polygon/segment_data.hpp"
 #include "boost/polygon/voronoi.hpp"
 #include "voronoi_visual_utils.hpp"
 
