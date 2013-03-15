@@ -37,22 +37,29 @@ class TemplateApp : public AppBasic
 
 	private:
 		params::InterfaceGl mParams;
+
+		float mFps;
+		bool mVerticalSyncEnabled = false;
 };
 
 void TemplateApp::prepareSettings( Settings *settings )
 {
-	settings->setWindowSize( 640, 480 );
+	settings->setWindowSize( 800, 600 );
 }
 
 void TemplateApp::setup()
 {
-	gl::disableVerticalSync();
-
 	mParams = params::InterfaceGl( "Parameters", Vec2i( 200, 300 ) );
+	mParams.addParam( "Fps", &mFps, "", true );
+	mParams.addParam( "Vertical sync", &mVerticalSyncEnabled );
 }
 
 void TemplateApp::update()
 {
+	mFps = getAverageFps();
+
+	if ( mVerticalSyncEnabled != gl::isVerticalSyncEnabled() )
+		gl::enableVerticalSync( mVerticalSyncEnabled );
 }
 
 void TemplateApp::draw()
@@ -92,6 +99,10 @@ void TemplateApp::keyDown( KeyEvent event )
 					hideCursor();
 			}
 			break;
+
+		case KeyEvent::KEY_v:
+			 mVerticalSyncEnabled = !mVerticalSyncEnabled;
+			 break;
 
 		case KeyEvent::KEY_ESCAPE:
 			quit();
