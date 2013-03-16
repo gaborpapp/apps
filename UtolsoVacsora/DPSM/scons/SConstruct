@@ -2,10 +2,13 @@ env = Environment()
 
 env['APP_TARGET'] = 'Room'
 env['APP_SOURCES'] = ['Room.cpp', 'DualParaboloidShadowMap.cpp']
+env['APP_SOURCES'] += ['NIBlobTracker.cpp']
 env['ASSETS'] = ['model/hokedli.obj', 'shaders/DualParaboloidDepth.*', 'shaders/DualParaboloidShadow.*']
 env['DEBUG'] = 0
 
 env = SConscript('../../../../blocks/MndlKit/scons/SConscript', exports = 'env')
+env = SConscript('../../../../blocks/Cinder-OpenCV/scons/SConscript', exports = 'env')
+env = SConscript('../../../../blocks/Cinder-NI/scons/SConscript', exports = 'env')
 
 SConscript('../../../../scons/SConscript', exports = 'env')
 

@@ -29,6 +29,7 @@
 #include "cinder/gl/gl.h"
 
 #include "DualParaboloidShadowMap.h"
+#include "NIBlobTracker.h"
 
 #include "mndlkit/params/PParams.h"
 
@@ -149,6 +150,9 @@ class Room : public AppBasic
 
 		float mFps;
 		bool mVerticalSyncEnabled;
+
+		mndl::NIBlobTracker mTracker;
+		bool mTrackerEnabled;
 };
 
 void Room::prepareSettings( Settings *settings )
@@ -166,6 +170,7 @@ void Room::setup()
 
 	mParams.addParam( "Fps", &mFps, "", true );
 	mParams.addPersistentParam( "Vertical sync", &mVerticalSyncEnabled, true );
+	mParams.addPersistentParam( "Tracker", &mTrackerEnabled, false );
 	mParams.addSeparator();
 	mParams.addText( "Light" );
 	mParams.addPersistentParam( "Constant attenuation", &mLightConstantAttenuation, .5f, "min=0 step=.01" );
@@ -221,6 +226,7 @@ void Room::setup()
 	mTrimeshPlane = createSquare( Vec2i( 64, 64 ) );
 
 	mShadowMap.setup();
+	mTracker.setup();
 }
 
 void Room::loadModel()
@@ -376,6 +382,21 @@ void Room::update()
 		mCameraCenterOfInterestPoint = mCamera.getCenterOfInterestPoint();
 	}
 
+	// tracker
+	mTracker.update();
+
+	if ( mTrackerEnabled )
+	{
+		int n = math< int >::min( mTracker.getBlobNum(), NUM_DANCERS );
+		const Vec2f normInv = Vec2f( PLANE_SIZE, PLANE_SIZE ) * .5f;
+		for ( int i = 0; i < n; i++ )
+		{
+			float y = mEntities[ NUM_CHAIRS + i ].getPosition().y;
+			Vec2f bp = ( mTracker.getBlobCentroid( i ) - Vec2f( .5f, .5f ) ) * normInv;
+			mEntities[ NUM_CHAIRS + i ].setPosition( Vec3f( bp.x, y, bp.y ) );
+		}
+	}
+
 	// update dancer 0 if autopilot is enabled
 	if ( mAutopilotEnabled )
 		mEntities[ NUM_CHAIRS ].setPosition( getAutopilotPosition( (float)getElapsedSeconds() ) );
@@ -447,6 +468,8 @@ void Room::draw()
 
 	gl::setMatricesWindow( getWindowSize() );
 	mShadowMap.draw();
+
+	mTracker.draw();
 
 	kit::params::PInterfaceGl::draw();
 }
@@ -604,6 +627,7 @@ void Room::keyDown( KeyEvent event )
 
 void Room::shutdown()
 {
+	mTracker.shutdown();
 	kit::params::PInterfaceGl::save();
 }
 
