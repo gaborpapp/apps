@@ -29,6 +29,7 @@
 
 #include "mndlkit/params/PParams.h"
 
+#include "NIBlobTracker.h"
 #include "Voronoi.h"
 
 using namespace ci;
@@ -141,6 +142,9 @@ class Room : public AppBasic
 
 		float mFps;
 		bool mVerticalSyncEnabled;
+
+		mndl::NIBlobTracker mTracker;
+		bool mTrackerEnabled;
 };
 
 void Room::prepareSettings( Settings *settings )
@@ -158,6 +162,7 @@ void Room::setup()
 
 	mParams.addParam( "Fps", &mFps, "", true );
 	mParams.addPersistentParam( "Vertical sync", &mVerticalSyncEnabled, true );
+	mParams.addPersistentParam( "Tracker", &mTrackerEnabled, false );
 	mParams.addSeparator();
 	mParams.addText( "Light" );
 	mParams.addPersistentParam( "Constant attenuation", &mLightConstantAttenuation, .5f, "min=0 step=.01" );
@@ -204,6 +209,7 @@ void Room::setup()
 	mTrimeshPlane = createSquare( Vec2i( 64, 64 ) );
 
 	mVoronoi.setup();
+	mTracker.setup();
 }
 
 void Room::loadModel()
@@ -348,6 +354,22 @@ void Room::update()
 		mCameraCenterOfInterestPoint = mCamera.getCenterOfInterestPoint();
 	}
 
+	// update tracker
+	mTracker.update();
+
+	if ( mTrackerEnabled )
+	{
+		int n = math< int >::min( mTracker.getBlobNum(), NUM_DANCERS );
+		const Vec2f normInv = Vec2f( PLANE_SIZE, PLANE_SIZE ) * .5f;
+		for ( int i = 0; i < n; i++ )
+		{
+			float y = mEntities[ NUM_CHAIRS + i ].getPosition().y;
+			Vec2f bp = ( mTracker.getBlobCentroid( i ) - Vec2f( .5f, .5f ) ) * normInv;
+			mEntities[ NUM_CHAIRS + i ].setPosition( Vec3f( bp.x, y, bp.y ) );
+		}
+	}
+
+	// voronoi
 	mVoronoi.clear();
 	Vec2d norm = Vec2d( 2. / PLANE_SIZE, 2. / PLANE_SIZE );
 	for ( int i = 0; i < NUM_DANCERS; i++ )
@@ -430,6 +452,8 @@ void Room::draw()
 	for ( int i = 0; i < NUM_DANCERS; i++ )
 		lights[ i ]->disable();
 	gl::disable( GL_LIGHTING );
+
+	mTracker.draw();
 
 	kit::params::PInterfaceGl::draw();
 }
@@ -575,6 +599,7 @@ void Room::keyDown( KeyEvent event )
 
 void Room::shutdown()
 {
+	mTracker.shutdown();
 	kit::params::PInterfaceGl::save();
 }
 
