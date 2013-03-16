@@ -230,6 +230,13 @@ void NIBlobTracker::update()
 
 				b->mBbox = mNormMapping.map( b->mBbox );
 				b->mCentroid = b->mPrevCentroid = mNormMapping.map( b->mCentroid );
+
+				cv::RotatedRect cvRotRect = cv::fitEllipse( pmat );
+				Vec2f center( fromOcv( cvRotRect.center ) );
+				Vec2f size( cvRotRect.size.width, cvRotRect.size.height );
+				b->mRotatedRect = mNormMapping.map( Rectf( center - size * .5f, center + size * .5f ) );
+				b->mAngle = cvRotRect.angle;
+
 				newBlobs.push_back( b );
 			}
 		}
@@ -474,6 +481,16 @@ Vec2f NIBlobTracker::getBlobCentroid( size_t i ) const
 	return mBlobs[ i ]->mCentroid;
 }
 
+Rectf NIBlobTracker::getBlobRotatedRect( size_t i ) const
+{
+	return mBlobs[ i ]->mRotatedRect;
+}
+
+float NIBlobTracker::getBlobRotation( size_t i ) const
+{
+	return mBlobs[ i ]->mAngle;
+}
+
 void NIBlobTracker::draw()
 {
 	gl::pushMatrices();
@@ -526,6 +543,15 @@ void NIBlobTracker::draw()
 			gl::drawSolidCircle( pos, 2 );
 			gl::drawString( toString< int32_t >( mBlobs[ i ]->mId ), pos + Vec2f( 3, -3 ),
 					ColorA( 1, 0, 0, .9 ) );
+
+			gl::color( ColorA( 1, 0, 1, .5 ) );
+			gl::pushModelView();
+			Vec2f center = blobMapping.map( mBlobs[ i ]->mRotatedRect.getCenter() );
+			gl::translate( center );
+			gl::rotate( mBlobs[ i ]->mAngle );
+			gl::translate( -center );
+			gl::drawStrokedRect( blobMapping.map( mBlobs[ i ]->mRotatedRect ) );
+			gl::popModelView();
 		}
 	}
 

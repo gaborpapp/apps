@@ -366,6 +366,9 @@ void Room::update()
 			float y = mEntities[ NUM_CHAIRS + i ].getPosition().y;
 			Vec2f bp = ( mTracker.getBlobCentroid( i ) - Vec2f( .5f, .5f ) ) * normInv;
 			mEntities[ NUM_CHAIRS + i ].setPosition( Vec3f( bp.x, y, bp.y ) );
+
+			mEntities[ NUM_CHAIRS + i ].setPitch( M_PI / 2 - toRadians( mTracker.getBlobRotation( i ) ) );
+			mEntities[ NUM_CHAIRS + i ].setScale( mTracker.getBlobRotatedRect( i ).getHeight() * normInv.x );
 		}
 	}
 

@@ -31,6 +31,9 @@ struct Blob
 	ci::Rectf mBbox;
 	ci::Vec2f mCentroid;
 	ci::Vec2f mPrevCentroid;
+
+	ci::Rectf mRotatedRect; // rectangle rotated by mAngle that fits the blob
+	float mAngle;
 };
 typedef std::shared_ptr< Blob > BlobRef;
 

@@ -90,6 +90,8 @@ class NIBlobTracker
 		size_t getBlobNum() const;
 		ci::Rectf getBlobBoundingRect( size_t i ) const;
 		ci::Vec2f getBlobCentroid( size_t i ) const;
+		ci::Rectf getBlobRotatedRect( size_t i ) const;
+		float getBlobRotation( size_t i ) const;
 
 	private:
 		enum {
