@@ -132,6 +132,8 @@ class NIBlobTracker
 		int mDrawCapture;
 
 		bool mFlip;
+		bool mFlipBlobX;
+		bool mFlipBlobY;
 		int mThreshold;
 		int mBlurSize;
 		float mMinArea;

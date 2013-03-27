@@ -30,7 +30,6 @@
 
 #include "NIBlobTracker.h"
 #include "CinderOpenCV.h"
-//#include "Utils.h"
 
 using namespace ci;
 using namespace std;
@@ -72,7 +71,9 @@ void NIBlobTracker::setupGui()
 	mParams.addSeparator();
 
 	mParams.addText( "Tracking parameters" );
-	mParams.addPersistentParam( "Flip", &mFlip, true );
+	mParams.addPersistentParam( "Flip camera", &mFlip, true );
+	mParams.addPersistentParam( "Flip blob X", &mFlipBlobX, false );
+	mParams.addPersistentParam( "Flip blob Y", &mFlipBlobY, false );
 
 	mParams.addPersistentParam( "Threshold", &mThreshold, 150, "min=0 max=255");
 	mParams.addPersistentParam( "Blur size", &mBlurSize, 10, "min=1 max=15" );
@@ -229,7 +230,12 @@ void NIBlobTracker::update()
 				b->mCentroid = Vec2f( m.m10 / m.m00, m.m01 / m.m00 );
 
 				b->mBbox = mNormMapping.map( b->mBbox );
-				b->mCentroid = b->mPrevCentroid = mNormMapping.map( b->mCentroid );
+				b->mCentroid = mNormMapping.map( b->mCentroid );
+				if ( mFlipBlobX )
+					b->mCentroid.x = 1.f - b->mCentroid.x;
+				if ( mFlipBlobY )
+					b->mCentroid.y = 1.f - b->mCentroid.y;
+				b->mPrevCentroid = b->mCentroid;
 
 				cv::RotatedRect cvRotRect = cv::fitEllipse( pmat );
 				Vec2f center( fromOcv( cvRotRect.center ) );
