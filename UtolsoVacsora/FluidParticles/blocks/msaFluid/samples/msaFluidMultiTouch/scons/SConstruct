@@ -1,0 +1,10 @@
+env = Environment()
+
+env['APP_TARGET'] = 'msaFluidMultiTouchApp'
+env['APP_SOURCES'] = ['msaFluidMultiTouchApp.cpp']
+env['PLIST'] = '../xcode/msaFluidMultiTouch.plist'
+
+# msaFluid block
+env = SConscript('../../../scons/SConscript', exports = 'env')
+
+SConscript('../../../../../scons/SConscript', exports = 'env')

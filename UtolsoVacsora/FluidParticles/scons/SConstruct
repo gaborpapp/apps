@@ -1,0 +1,10 @@
+env = Environment()
+
+env['APP_TARGET'] = 'FluidParticlesApp'
+env['APP_SOURCES'] = ['FluidParticlesApp.cpp', 'Capture1394PParams.cpp', 'CaptureSource.cpp']
+env['DEBUG'] = 1
+
+SConscript('../../../../blocks/MndlKit/scons/SConscript', exports = 'env')
+SConscript('../../../../blocks/Cinder-Capture1394/scons/SConscript', exports = 'env')
+SConscript('../../../../scons/SConscript', exports = 'env')
+

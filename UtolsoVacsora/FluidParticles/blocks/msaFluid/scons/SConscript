@@ -1,0 +1,13 @@
+Import('*')
+
+_INCLUDES = [Dir('../include').abspath]
+
+_SOURCES = ['ciMsaFluidDrawerGl.cpp',
+			'ciMsaFluidSolver.cpp']
+_SOURCES = [Dir('../src').abspath + '/' + s for s in _SOURCES]
+
+env.Append(CPPPATH = _INCLUDES)
+env.Append(APP_SOURCES = _SOURCES)
+
+Return('env')
+
