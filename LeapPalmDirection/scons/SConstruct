@@ -1,0 +1,9 @@
+env = Environment()
+
+env['APP_TARGET'] = 'LeapPalmDirectionApp'
+env['APP_SOURCES'] = ['LeapPalmDirectionApp.cpp']
+env['DEBUG'] = 1
+
+env = SConscript('../../../blocks/Cinder-LeapSdk/scons/SConscript', exports = 'env')
+SConscript('../../../scons/SConscript', exports = 'env')
+
