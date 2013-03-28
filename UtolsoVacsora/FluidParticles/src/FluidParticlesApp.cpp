@@ -19,7 +19,9 @@
 #include "cinder/app/AppBasic.h"
 #include "cinder/gl/gl.h"
 #include "cinder/gl/Texture.h"
+#include "cinder/ip/Resize.h"
 
+#include "CinderOpenCV.h"
 #include "mndlkit/params/PParams.h"
 
 #include "CaptureSource.h"
@@ -48,6 +50,18 @@ class FludParticlesApp : public AppBasic
 
 		mndl::CaptureSource mCaptureSource;
 		gl::Texture mCaptureTexture;
+
+		// optflow
+		bool mFlip;
+		bool mDrawFlow;
+		bool mDrawCapture;
+		float mFlowMultiplier;
+
+		cv::Mat mPrevFrame;
+		cv::Mat mFlow;
+
+		int mOptFlowWidth;
+		int mOptFlowHeight;
 };
 
 void FludParticlesApp::prepareSettings( Settings *settings )
@@ -62,6 +76,16 @@ void FludParticlesApp::setup()
 	mParams.addPersistentSizeAndPosition();
 	mParams.addParam( "Fps", &mFps, "", true );
 	mParams.addPersistentParam( "Vertical sync", &mVerticalSyncEnabled, false );
+	mParams.addSeparator();
+
+	mParams.addPersistentParam( "Flip", &mFlip, true );
+	mParams.addPersistentParam( "Draw flow", &mDrawFlow, false );
+	mParams.addPersistentParam( "Draw capture", &mDrawCapture, true );
+	mParams.addPersistentParam( "Flow multiplier", &mFlowMultiplier, .02, "min=.001 max=2 step=.001" );
+	mParams.addPersistentParam( "Flow width", &mOptFlowWidth, 80, "min=20 max=640" );
+	mParams.addPersistentParam( "Flow height", &mOptFlowHeight, 60, "min=20 max=480" );
+	mParams.addSeparator();
+
 
 	mCaptureSource.setup();
 }
@@ -75,9 +99,36 @@ void FludParticlesApp::update()
 
 	mCaptureSource.update();
 
+	// optical flow
 	if ( mCaptureSource.isCapturing() && mCaptureSource.checkNewFrame() )
 	{
-		mCaptureTexture = mCaptureSource.getSurface();
+		Surface8u captSurf( Channel8u( mCaptureSource.getSurface() ) );
+
+		Surface8u smallSurface( mOptFlowWidth, mOptFlowHeight, false );
+		if ( ( captSurf.getWidth() != mOptFlowWidth ) ||
+				( captSurf.getHeight() != mOptFlowHeight ) )
+		{
+			ip::resize( captSurf, &smallSurface );
+		}
+		else
+		{
+			smallSurface = captSurf;
+		}
+
+		mCaptureTexture = gl::Texture( captSurf );
+
+		cv::Mat currentFrame( toOcv( Channel( smallSurface ) ) );
+		if ( mFlip )
+			cv::flip( currentFrame, currentFrame, 1 );
+		if ( ( mPrevFrame.data ) &&
+			 ( mPrevFrame.size() == cv::Size( mOptFlowWidth, mOptFlowHeight ) ) )
+		{
+			cv::calcOpticalFlowFarneback(
+					mPrevFrame, currentFrame,
+					mFlow,
+					.5, 5, 13, 5, 5, 1.1, 0 );
+		}
+		mPrevFrame = currentFrame;
 	}
 }
 
@@ -88,10 +139,46 @@ void FludParticlesApp::draw()
 	gl::setViewport( getWindowBounds() );
 	gl::setMatricesWindow( getWindowSize() );
 
-	if ( mCaptureTexture )
+	// draw output to window
+    gl::color( Color::white() );
+
+	if ( mDrawCapture && mCaptureTexture )
 	{
+		gl::enableAdditiveBlending();
+		gl::color( ColorA( 1, 1, 1, .4 ) );
+		mCaptureTexture.enableAndBind();
+
+		gl::pushModelView();
+		if ( mFlip )
+		{
+			gl::translate( getWindowWidth(), 0 );
+			gl::scale( -1, 1 );
+		}
+		gl::drawSolidRect( getWindowBounds() );
+		gl::popModelView();
+		mCaptureTexture.unbind();
 		gl::color( Color::white() );
-		gl::draw( mCaptureTexture, getWindowBounds() );
+		gl::disableAlphaBlending();
+	}
+
+	// flow vectors, TODO: make this faster using Vbo
+	gl::disable( GL_TEXTURE_2D );
+	if ( mDrawFlow && mFlow.data )
+	{
+		RectMapping ofToWin( Area( 0, 0, mFlow.cols, mFlow.rows ),
+				getWindowBounds() );
+		float ofScale = mFlowMultiplier * getWindowWidth() / (float)mOptFlowWidth;
+		gl::color( Color::white() );
+		for ( int y = 0; y < mFlow.rows; y++ )
+		{
+			for ( int x = 0; x < mFlow.cols; x++ )
+			{
+				Vec2f v = fromOcv( mFlow.at< cv::Point2f >( y, x ) );
+				Vec2f p( x + .5, y + .5 );
+				gl::drawLine( ofToWin.map( p ),
+						ofToWin.map( p + ofScale * v ) );
+			}
+		}
 	}
 
 	mndl::kit::params::PInterfaceGl::draw();
@@ -124,7 +211,7 @@ void FludParticlesApp::keyDown( KeyEvent event )
 			break;
 
 		case KeyEvent::KEY_s:
-			mParams.show( !mParams.isVisible() );
+			mndl::kit::params::PInterfaceGl::showAllParams( !mParams.isVisible() );
 			if ( isFullScreen() )
 			{
 				if ( mParams.isVisible() )

@@ -5,11 +5,11 @@
 
 #include "ciMsaFluidSolver.h"
 
-class Particle
+class FluidParticle
 {
 	public:
-		Particle();
-		Particle( const ci::Vec2f &pos );
+		FluidParticle();
+		FluidParticle( const ci::Vec2f &pos );
 
 		void update( double time, const ciMsaFluidSolver *solver, const ci::Vec2f &windowSize, const ci::Vec2f &invWindowSize, float *positions, float *colors );
 		bool isAlive() { return mLifeSpan > 0; }
@@ -27,10 +27,10 @@ class Particle
 		static const float sFluidForce;
 };
 
-class ParticleManager
+class FluidParticleManager
 {
 	public:
-		ParticleManager();
+		FluidParticleManager();
 
 		void setWindowSize( ci::Vec2i winSize );
 		void setFluidSolver( const ciMsaFluidSolver *aSolver ) { mSolver = aSolver; }
@@ -57,7 +57,7 @@ class ParticleManager
 
 		float mPositions[ MAX_PARTICLES * 2 * 2 ];
 		float mColors[ MAX_PARTICLES * 4 * 2 ];
-		Particle mParticles[ MAX_PARTICLES ];
+		FluidParticle mParticles[ MAX_PARTICLES ];
 };
 
 

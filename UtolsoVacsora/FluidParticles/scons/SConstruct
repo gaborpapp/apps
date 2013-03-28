@@ -1,9 +1,12 @@
 env = Environment()
 
 env['APP_TARGET'] = 'FluidParticlesApp'
-env['APP_SOURCES'] = ['FluidParticlesApp.cpp', 'Capture1394PParams.cpp', 'CaptureSource.cpp']
-env['DEBUG'] = 1
+env['APP_SOURCES'] = ['FluidParticlesApp.cpp', 'Capture1394PParams.cpp', 'CaptureSource.cpp',
+		'FluidParticles.cpp']
+env['DEBUG'] = 0
 
+SConscript('../blocks/msaFluid/scons/SConscript', exports = 'env')
+env = SConscript('../../../../blocks/Cinder-OpenCV/scons/SConscript', exports = 'env')
 SConscript('../../../../blocks/MndlKit/scons/SConscript', exports = 'env')
 SConscript('../../../../blocks/Cinder-Capture1394/scons/SConscript', exports = 'env')
 SConscript('../../../../scons/SConscript', exports = 'env')

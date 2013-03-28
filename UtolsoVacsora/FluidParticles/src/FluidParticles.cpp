@@ -3,20 +3,20 @@
 #include "cinder/gl/gl.h"
 #include "cinder/Rand.h"
 
-#include "Particles.h"
+#include "FluidParticles.h"
 
 using namespace ci;
 using namespace std;
 
-const float Particle::sMomentum = 0.6f;
-const float Particle::sFluidForce = 0.9f;
+const float FluidParticle::sMomentum = 0.6f;
+const float FluidParticle::sFluidForce = 0.9f;
 
-Particle::Particle()
+FluidParticle::FluidParticle()
 	: mLifeSpan( 0 )
 {
 }
 
-Particle::Particle( const Vec2f &pos )
+FluidParticle::FluidParticle( const Vec2f &pos )
 {
 	mPos = pos;
 	mVel = Vec2f( 0, 0 );
@@ -25,18 +25,18 @@ Particle::Particle( const Vec2f &pos )
 	mMass = Rand::randFloat( 0.1f, 1 );
 }
 
-void Particle::update( double time, const ciMsaFluidSolver *solver, const Vec2f &windowSize, const Vec2f &invWindowSize, float *positions, float *colors )
+void FluidParticle::update( double time, const ciMsaFluidSolver *solver, const Vec2f &windowSize, const Vec2f &invWindowSize, float *positions, float *colors )
 {
 	mVel = solver->getVelocityAtPos( mPos * invWindowSize ) * (mMass * sFluidForce ) * windowSize + mVel * sMomentum;
 
-	//if ( mVel.lengthSquared() < 10 )
+	if ( mVel.lengthSquared() < 10 )
 	{
 		mVel += Rand::randVec2f() * 3.;
 	}
 
 	mPos += mVel;
 
-	mLifeSpan *= ParticleManager::getAging();
+	mLifeSpan *= FluidParticleManager::getAging();
 	if ( mLifeSpan < 0.01f )
 		mLifeSpan = 0;
 
@@ -58,22 +58,22 @@ void Particle::update( double time, const ciMsaFluidSolver *solver, const Vec2f 
 	colors[7] = mLifeSpan;
 }
 
-float ParticleManager::sAging = 0.995f;
+float FluidParticleManager::sAging = 0.995f;
 
-ParticleManager::ParticleManager()
+FluidParticleManager::FluidParticleManager()
 	: mCurrent( 0 ),
 	  mActive( 0 )
 {
 	setWindowSize( Vec2i( 1, 1 ) );
 }
 
-void ParticleManager::setWindowSize( Vec2i winSize )
+void FluidParticleManager::setWindowSize( Vec2i winSize )
 {
 	mWindowSize = winSize;
 	mInvWindowSize = Vec2f( 1.0f / winSize.x, 1.0f / winSize.y );
 }
 
-void ParticleManager::update( double seconds )
+void FluidParticleManager::update( double seconds )
 {
 	int j = 0;
 	mActive = 0;
@@ -91,7 +91,7 @@ void ParticleManager::update( double seconds )
 	}
 }
 
-void ParticleManager::draw()
+void FluidParticleManager::draw()
 {
 	gl::disable( GL_TEXTURE_2D );
 	gl::enable( GL_LINE_SMOOTH );
@@ -108,13 +108,13 @@ void ParticleManager::draw()
 	glDisableClientState( GL_COLOR_ARRAY );
 }
 
-void ParticleManager::addParticle( const Vec2f &pos, int count /* = 1 */ )
+void FluidParticleManager::addParticle( const Vec2f &pos, int count /* = 1 */ )
 {
-	mParticles[ mCurrent ] = Particle( pos );
+	mParticles[ mCurrent ] = FluidParticle( pos );
 	for (int i = count - 1; i > 0; i--)
 	{
 		mCurrent = (mCurrent + 1) & (MAX_PARTICLES - 1);
-		mParticles[ mCurrent ] = Particle( pos + Rand::randVec2f() * 10 );
+		mParticles[ mCurrent ] = FluidParticle( pos + Rand::randVec2f() * 10 );
 	}
 	mCurrent = (mCurrent + 1) & (MAX_PARTICLES - 1);
 }
