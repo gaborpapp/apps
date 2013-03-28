@@ -21,10 +21,13 @@
 #include "cinder/gl/Texture.h"
 #include "cinder/ip/Resize.h"
 
+#include "ciMsaFluidDrawerGl.h"
+#include "ciMsaFluidSolver.h"
 #include "CinderOpenCV.h"
 #include "mndlkit/params/PParams.h"
 
 #include "CaptureSource.h"
+#include "FluidParticles.h"
 
 using namespace ci;
 using namespace ci::app;
@@ -35,6 +38,7 @@ class FludParticlesApp : public AppBasic
 	public:
 		void prepareSettings( Settings *settings );
 		void setup();
+		void resize();
 		void shutdown();
 
 		void keyDown( KeyEvent event );
@@ -54,6 +58,7 @@ class FludParticlesApp : public AppBasic
 		// optflow
 		bool mFlip;
 		bool mDrawFlow;
+		bool mDrawFluid;
 		bool mDrawCapture;
 		float mFlowMultiplier;
 
@@ -62,6 +67,22 @@ class FludParticlesApp : public AppBasic
 
 		int mOptFlowWidth;
 		int mOptFlowHeight;
+
+		// fluid
+		ciMsaFluidSolver mFluidSolver;
+		static const int sFluidSizeX = 128;
+		ciMsaFluidDrawerGl mFluidDrawer;
+
+		// particles
+		FluidParticleManager mParticles;
+		int mParticleMin;
+		int mParticleMax;
+		float mMaxVelocity;
+		float mVelParticleMult;
+		float mVelParticleMin;
+		float mVelParticleMax;
+
+		void addToFluid( Vec2f pos, Vec2f vel, bool addParticles = true, bool addForce = true, bool addColor = true );
 };
 
 void FludParticlesApp::prepareSettings( Settings *settings )
@@ -78,16 +99,40 @@ void FludParticlesApp::setup()
 	mParams.addPersistentParam( "Vertical sync", &mVerticalSyncEnabled, false );
 	mParams.addSeparator();
 
+	mParams.addText("Optical flow");
 	mParams.addPersistentParam( "Flip", &mFlip, true );
 	mParams.addPersistentParam( "Draw flow", &mDrawFlow, false );
+	mParams.addPersistentParam( "Draw fluid", &mDrawFluid, false );
 	mParams.addPersistentParam( "Draw capture", &mDrawCapture, true );
 	mParams.addPersistentParam( "Flow multiplier", &mFlowMultiplier, .02, "min=.001 max=2 step=.001" );
 	mParams.addPersistentParam( "Flow width", &mOptFlowWidth, 80, "min=20 max=640" );
 	mParams.addPersistentParam( "Flow height", &mOptFlowHeight, 60, "min=20 max=480" );
 	mParams.addSeparator();
 
+	mParams.addText("Particles");
+	mParams.addPersistentParam("Particle min", &mParticleMin, 0, "min=0 max=50");
+	mParams.addPersistentParam("Particle max", &mParticleMax, 40, "min=0 max=50");
+	mParams.addPersistentParam("Velocity max", &mMaxVelocity, 40.f, "min=1 max=100");
+	mParams.addPersistentParam("Velocity particle multiplier", &mVelParticleMult, .26f, "min=0 max=2 step=.01");
+	mParams.addPersistentParam("Velocity particle min", &mVelParticleMin, 1.f, "min=1 max=100 step=.5");
+	mParams.addPersistentParam("Velocity particle max", &mVelParticleMax, 60.f, "min=1 max=100 step=.5");
+	mParams.addSeparator();
 
 	mCaptureSource.setup();
+
+	// fluid
+	mFluidSolver.setup( sFluidSizeX, sFluidSizeX );
+	mFluidSolver.enableRGB( true ).setFadeSpeed( 0.002f ).setDeltaT( .5f ).setVisc( 0.00015f ).setColorDiffusion( 0 );
+	mFluidSolver.setWrap( false, true );
+	mFluidDrawer.setup( &mFluidSolver );
+
+    mParticles.setFluidSolver( &mFluidSolver );
+}
+
+void FludParticlesApp::resize()
+{
+	mParticles.setWindowSize( getWindowSize() );
+
 }
 
 void FludParticlesApp::update()
@@ -129,8 +174,68 @@ void FludParticlesApp::update()
 					.5, 5, 13, 5, 5, 1.1, 0 );
 		}
 		mPrevFrame = currentFrame;
+
+		// fluid update
+		if ( mFlow.data )
+		{
+			RectMapping ofNorm( Area( 0, 0, mFlow.cols, mFlow.rows ),
+					Rectf( 0.f, 0.f, 1.f, 1.f ) );
+			for ( int y = 0; y < mFlow.rows; y++ )
+			{
+				for ( int x = 0; x < mFlow.cols; x++ )
+				{
+					Vec2f v = fromOcv( mFlow.at< cv::Point2f >( y, x ) );
+					Vec2f p( x + .5, y + .5 );
+					addToFluid( ofNorm.map( p ), ofNorm.map( v ) * mFlowMultiplier );
+				}
+			}
+		}
+	}
+
+	// fluid & particles
+	mFluidSolver.update();
+
+	mParticles.setAging( 0.9 );
+	mParticles.update( getElapsedSeconds() );
+}
+
+void FludParticlesApp::addToFluid( Vec2f pos, Vec2f vel, bool addParticles, bool addForce, bool addColor )
+{
+	// balance the x and y components of speed with the screen aspect ratio
+	float speed = vel.x * vel.x +
+		vel.y * vel.y * getWindowAspectRatio() * getWindowAspectRatio();
+
+	if ( speed > 0 )
+	{
+		pos.x = constrain( pos.x, 0.0f, 1.0f );
+		pos.y = constrain( pos.y, 0.0f, 1.0f );
+
+		const float velocityMult = 30;
+
+		if ( addParticles )
+		{
+			int count = static_cast<int>(
+					lmap<float>( vel.length() * mVelParticleMult * getWindowWidth(),
+						mVelParticleMin, mVelParticleMax,
+						mParticleMin, mParticleMax ) );
+			if (count > 0)
+			{
+				mParticles.addParticle( pos * Vec2f( getWindowSize() ), count);
+			}
+		}
+		if ( addForce )
+			mFluidSolver.addForceAtPos( pos, vel * velocityMult );
+
+		const float colorMult = .1f;
+
+		if ( addColor )
+		{
+			float hue = ( getElapsedFrames() % 360 ) / 360.0f;
+			mFluidSolver.addColorAtPos( pos, Color( CM_HSV, hue, 1, 1 ) * colorMult );
+		}
 	}
 }
+
 
 void FludParticlesApp::draw()
 {
@@ -139,8 +244,14 @@ void FludParticlesApp::draw()
 	gl::setViewport( getWindowBounds() );
 	gl::setMatricesWindow( getWindowSize() );
 
+	if ( mDrawFluid )
+	{
+		gl::color( Color::white() );
+		mFluidDrawer.draw( 0, 0, getWindowWidth(), getWindowHeight() );
+	}
+	mParticles.draw();
+
 	// draw output to window
-    gl::color( Color::white() );
 
 	if ( mDrawCapture && mCaptureTexture )
 	{
