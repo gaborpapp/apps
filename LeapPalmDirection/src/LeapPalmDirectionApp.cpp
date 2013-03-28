@@ -89,7 +89,7 @@ void LeapPalmDirectionApp::draw()
 		gl::color( Color::white() );
 		const LeapSdk::Hand &hand = handIter->second;
 
-		Quatf normToDir( math< float >::sqrt( .5f ), math< float >::sqrt( .5f), 0.f, 0.f ); // 90 degree rotation around x
+		Quatf normToDir( Vec3f( 1, 0, 0 ), M_PI / 2.f ); // 90 degree rotation around x
 		Vec3f dir0 = hand.getNormal() * normToDir; // direction from normal
 		Quatf dirQuat( dir0, hand.getDirection() ); // rotation from calculated direction to actual one
 		Quatf normQuat( Vec3f( 0, -1, 0 ), hand.getNormal() ); // rotation to actual normal
