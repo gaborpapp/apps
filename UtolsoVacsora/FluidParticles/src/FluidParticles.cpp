@@ -93,6 +93,7 @@ void FluidParticleManager::update( double seconds )
 
 void FluidParticleManager::draw()
 {
+	gl::enableAdditiveBlending();
 	gl::disable( GL_TEXTURE_2D );
 	gl::enable( GL_LINE_SMOOTH );
 
@@ -106,6 +107,7 @@ void FluidParticleManager::draw()
 
 	glDisableClientState( GL_VERTEX_ARRAY );
 	glDisableClientState( GL_COLOR_ARRAY );
+	gl::disableAlphaBlending();
 }
 
 void FluidParticleManager::addParticle( const Vec2f &pos, int count /* = 1 */ )

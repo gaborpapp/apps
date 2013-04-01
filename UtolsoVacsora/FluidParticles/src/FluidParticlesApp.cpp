@@ -60,6 +60,7 @@ class FludParticlesApp : public AppBasic
 		bool mDrawFlow;
 		bool mDrawFluid;
 		bool mDrawCapture;
+		float mCaptureAlpha;
 		float mFlowMultiplier;
 
 		cv::Mat mPrevFrame;
@@ -70,11 +71,21 @@ class FludParticlesApp : public AppBasic
 
 		// fluid
 		ciMsaFluidSolver mFluidSolver;
-		static const int sFluidSizeX = 128;
 		ciMsaFluidDrawerGl mFluidDrawer;
+
+		int mFluidWidth, mFluidHeight;
+		float mFluidFadeSpeed;
+		float mFluidDeltaT;
+		float mFluidViscosity;
+		bool mFluidVorticityConfinement;
+		bool mFluidWrapX, mFluidWrapY;
+		float mFluidVelocityMult;
+		float mFluidColorMult;
+		Color mFluidColor;
 
 		// particles
 		FluidParticleManager mParticles;
+		float mParticleAging;
 		int mParticleMin;
 		int mParticleMax;
 		float mMaxVelocity;
@@ -104,27 +115,43 @@ void FludParticlesApp::setup()
 	mParams.addPersistentParam( "Draw flow", &mDrawFlow, false );
 	mParams.addPersistentParam( "Draw fluid", &mDrawFluid, false );
 	mParams.addPersistentParam( "Draw capture", &mDrawCapture, true );
-	mParams.addPersistentParam( "Flow multiplier", &mFlowMultiplier, .02, "min=.001 max=2 step=.001" );
-	mParams.addPersistentParam( "Flow width", &mOptFlowWidth, 80, "min=20 max=640" );
-	mParams.addPersistentParam( "Flow height", &mOptFlowHeight, 60, "min=20 max=480" );
+	mParams.addPersistentParam( "Capture alpha", &mCaptureAlpha, .1f, "min=0 max=1 step=0.05" );
+	mParams.addPersistentParam( "Flow multiplier", &mFlowMultiplier, .105, "min=.001 max=2 step=.001" );
+	mParams.addPersistentParam( "Flow width", &mOptFlowWidth, 160, "min=20 max=640", true );
+	mParams.addPersistentParam( "Flow height", &mOptFlowHeight, 120, "min=20 max=480", true );
 	mParams.addSeparator();
 
-	mParams.addText("Particles");
-	mParams.addPersistentParam("Particle min", &mParticleMin, 0, "min=0 max=50");
-	mParams.addPersistentParam("Particle max", &mParticleMax, 40, "min=0 max=50");
-	mParams.addPersistentParam("Velocity max", &mMaxVelocity, 40.f, "min=1 max=100");
-	mParams.addPersistentParam("Velocity particle multiplier", &mVelParticleMult, .26f, "min=0 max=2 step=.01");
-	mParams.addPersistentParam("Velocity particle min", &mVelParticleMin, 1.f, "min=1 max=100 step=.5");
-	mParams.addPersistentParam("Velocity particle max", &mVelParticleMax, 60.f, "min=1 max=100 step=.5");
+	mParams.addText( "Particles" );
+	mParams.addPersistentParam( "Particle aging", &mParticleAging, 0.97f, "min=0 max=1 step=0.001" );
+	mParams.addPersistentParam( "Particle min", &mParticleMin, 0, "min=0 max=50" );
+	mParams.addPersistentParam( "Particle max", &mParticleMax, 25, "min=0 max=50" );
+	mParams.addPersistentParam( "Velocity max", &mMaxVelocity, 7.f, "min=1 max=100" );
+	mParams.addPersistentParam( "Velocity particle multiplier", &mVelParticleMult, .57, "min=0 max=2 step=.01" );
+	mParams.addPersistentParam( "Velocity particle min", &mVelParticleMin, 1.f, "min=1 max=100 step=.5" );
+	mParams.addPersistentParam( "Velocity particle max", &mVelParticleMax, 60.f, "min=1 max=100 step=.5" );
 	mParams.addSeparator();
 
 	mCaptureSource.setup();
 
 	// fluid
-	mFluidSolver.setup( sFluidSizeX, sFluidSizeX );
-	mFluidSolver.enableRGB( true ).setFadeSpeed( 0.002f ).setDeltaT( .5f ).setVisc( 0.00015f ).setColorDiffusion( 0 );
-	mFluidSolver.setWrap( false, true );
+	mParams.addText("Fluid");
+	mParams.addPersistentParam( "Fluid width", &mFluidWidth, 160, "min=16 max=512", true );
+	mParams.addPersistentParam( "Fluid height", &mFluidHeight, 120, "min=16 max=512", true );
+	mParams.addPersistentParam( "Fade speed", &mFluidFadeSpeed, 0.012f, "min=0 max=1 step=0.0005" );
+	mParams.addPersistentParam( "Viscosity", &mFluidViscosity, 0.00003f, "min=0 max=1 step=0.00001" );
+	mParams.addPersistentParam( "Delta t", &mFluidDeltaT, 0.4f, "min=0 max=10 step=0.05" );
+	mParams.addPersistentParam( "Vorticity confinement", &mFluidVorticityConfinement, false );
+	mParams.addPersistentParam( "Wrap x", &mFluidWrapX, false );
+	mParams.addPersistentParam( "Wrap y", &mFluidWrapY, false );
+	mParams.addPersistentParam( "Fluid color", &mFluidColor, Color( 1.f, 0.05f, 0.01f ) );
+	mParams.addPersistentParam( "Fluid velocity mult", &mFluidVelocityMult, 10.f, "min=1 max=50 step=0.5" );
+	mParams.addPersistentParam( "Fluid color mult", &mFluidColorMult, .5f, "min=0.05 max=10 step=0.05" );
+
+	mFluidSolver.setup( mFluidWidth, mFluidHeight );
+	mFluidSolver.enableRGB( false );
+	mFluidSolver.setColorDiffusion( 0 );
 	mFluidDrawer.setup( &mFluidSolver );
+	mParams.addButton( "Reset fluid", [&]() { mFluidSolver.reset(); } );
 
     mParticles.setFluidSolver( &mFluidSolver );
 }
@@ -168,10 +195,46 @@ void FludParticlesApp::update()
 		if ( ( mPrevFrame.data ) &&
 			 ( mPrevFrame.size() == cv::Size( mOptFlowWidth, mOptFlowHeight ) ) )
 		{
+			/*
+
+			   void calcOpticalFlowFarneback( const Mat& prevImg, const Mat& nextImg, Mat& flow,
+					double pyrScale, int levels, int winsize, int iterations, int polyN, double polySigma, int flags)
+
+				pyrScale – Specifies the image scale (<1) to build the pyramids
+					for each image. pyrScale=0.5 means the classical pyramid, where
+					each next layer is twice smaller than the previous
+				levels – The number of pyramid layers, including the initial
+					image. levels=1 means that no extra layers are created and only
+					the original images are used
+				winsize – The averaging window size; The larger values increase
+					the algorithm robustness to image noise and give more chances
+					for fast motion detection, but yield more blurred motion field
+				iterations – The number of iterations the algorithm does at
+					each pyramid level
+				polyN – Size of the pixel neighborhood used to find polynomial
+					expansion in each pixel. The larger values mean that the image
+					will be approximated with smoother surfaces, yielding more
+					robust algorithm and more blurred motion field. Typically,
+					polyN =5 or 7
+				polySigma – Standard deviation of the Gaussian that is used to
+					smooth derivatives that are used as a basis for the polynomial
+					expansion. For polyN=5 you can set polySigma=1.1 , for polyN=7
+					a good value would be polySigma=1.5
+				flags – The operation flags; can be a combination of the
+					following:
+					OPTFLOW_USE_INITIAL_FLOW Use the input flow as the initial
+						flow approximation
+					OPTFLOW_FARNEBACK_GAUSSIAN Use a Gaussian filter instead of box
+						filter of the same size for optical flow estimation. Usually, this option gives
+						more accurate flow than with a box filter, at the cost of lower speed (and
+						normally winsize for a Gaussian window should be set to a larger value to
+						achieve the same level of robustness)
+			*/
+
 			cv::calcOpticalFlowFarneback(
 					mPrevFrame, currentFrame,
 					mFlow,
-					.5, 5, 13, 5, 5, 1.1, 0 );
+					.5, 5, 13, 5, 5, 1.1, cv::OPTFLOW_FARNEBACK_GAUSSIAN );
 		}
 		mPrevFrame = currentFrame;
 
@@ -193,24 +256,23 @@ void FludParticlesApp::update()
 	}
 
 	// fluid & particles
+	mFluidSolver.setFadeSpeed( mFluidFadeSpeed );
+	mFluidSolver.setDeltaT( mFluidDeltaT  );
+	mFluidSolver.setVisc( mFluidViscosity );
+	mFluidSolver.enableVorticityConfinement( mFluidVorticityConfinement );
+	mFluidSolver.setWrap( mFluidWrapX, mFluidWrapY );
 	mFluidSolver.update();
 
-	mParticles.setAging( 0.9 );
+	mParticles.setAging( mParticleAging );
 	mParticles.update( getElapsedSeconds() );
 }
 
 void FludParticlesApp::addToFluid( Vec2f pos, Vec2f vel, bool addParticles, bool addForce, bool addColor )
 {
-	// balance the x and y components of speed with the screen aspect ratio
-	float speed = vel.x * vel.x +
-		vel.y * vel.y * getWindowAspectRatio() * getWindowAspectRatio();
-
-	if ( speed > 0 )
+	if ( vel.lengthSquared() > 0.000001f )
 	{
 		pos.x = constrain( pos.x, 0.0f, 1.0f );
 		pos.y = constrain( pos.y, 0.0f, 1.0f );
-
-		const float velocityMult = 30;
 
 		if ( addParticles )
 		{
@@ -224,14 +286,11 @@ void FludParticlesApp::addToFluid( Vec2f pos, Vec2f vel, bool addParticles, bool
 			}
 		}
 		if ( addForce )
-			mFluidSolver.addForceAtPos( pos, vel * velocityMult );
-
-		const float colorMult = .1f;
+			mFluidSolver.addForceAtPos( pos, vel * mFluidVelocityMult );
 
 		if ( addColor )
 		{
-			float hue = ( getElapsedFrames() % 360 ) / 360.0f;
-			mFluidSolver.addColorAtPos( pos, Color( CM_HSV, hue, 1, 1 ) * colorMult );
+			mFluidSolver.addColorAtPos( pos, Color::white() * mFluidColorMult );
 		}
 	}
 }
@@ -246,7 +305,7 @@ void FludParticlesApp::draw()
 
 	if ( mDrawFluid )
 	{
-		gl::color( Color::white() );
+		gl::color( mFluidColor );
 		mFluidDrawer.draw( 0, 0, getWindowWidth(), getWindowHeight() );
 	}
 	mParticles.draw();
@@ -256,7 +315,7 @@ void FludParticlesApp::draw()
 	if ( mDrawCapture && mCaptureTexture )
 	{
 		gl::enableAdditiveBlending();
-		gl::color( ColorA( 1, 1, 1, .4 ) );
+		gl::color( ColorA( 1, 1, 1, mCaptureAlpha ) );
 		mCaptureTexture.enableAndBind();
 
 		gl::pushModelView();
