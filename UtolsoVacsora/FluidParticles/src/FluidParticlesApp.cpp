@@ -18,6 +18,7 @@
 #include "cinder/Cinder.h"
 #include "cinder/app/AppBasic.h"
 #include "cinder/gl/gl.h"
+#include "cinder/gl/Fbo.h"
 #include "cinder/gl/Texture.h"
 #include "cinder/ip/Resize.h"
 
@@ -25,6 +26,7 @@
 #include "ciMsaFluidSolver.h"
 #include "CinderOpenCV.h"
 #include "mndlkit/params/PParams.h"
+#include "KawaseStreak.h"
 
 #include "CaptureSource.h"
 #include "FluidParticles.h"
@@ -47,7 +49,7 @@ class FludParticlesApp : public AppBasic
 		void draw();
 
 	private:
-		mndl::kit::params::PInterfaceGl mParams;
+		mndl::params::PInterfaceGl mParams;
 
 		float mFps;
 		bool mVerticalSyncEnabled;
@@ -59,6 +61,7 @@ class FludParticlesApp : public AppBasic
 		bool mFlip;
 		bool mDrawFlow;
 		bool mDrawFluid;
+		bool mDrawParticles;
 		bool mDrawCapture;
 		float mCaptureAlpha;
 		float mFlowMultiplier;
@@ -84,6 +87,7 @@ class FludParticlesApp : public AppBasic
 		Color mFluidColor;
 
 		// particles
+		gl::Fbo mParticlesFbo;
 		FluidParticleManager mParticles;
 		float mParticleAging;
 		int mParticleMin;
@@ -94,6 +98,12 @@ class FludParticlesApp : public AppBasic
 		float mVelParticleMax;
 
 		void addToFluid( Vec2f pos, Vec2f vel, bool addParticles = true, bool addForce = true, bool addColor = true );
+
+		mndl::gl::fx::KawaseStreak mKawaseStreak;
+
+		float mStreakAttenuation;
+		int mStreakIterations;
+		float mStreakStrength;
 };
 
 void FludParticlesApp::prepareSettings( Settings *settings )
@@ -103,8 +113,8 @@ void FludParticlesApp::prepareSettings( Settings *settings )
 
 void FludParticlesApp::setup()
 {
-	mndl::kit::params::PInterfaceGl::load( "params.xml" );
-	mParams = mndl::kit::params::PInterfaceGl( "Parameters", Vec2i( 310, 300 ), Vec2i( 16, 16 ) );
+	mndl::params::PInterfaceGl::load( "params.xml" );
+	mParams = mndl::params::PInterfaceGl( "Parameters", Vec2i( 310, 300 ), Vec2i( 16, 16 ) );
 	mParams.addPersistentSizeAndPosition();
 	mParams.addParam( "Fps", &mFps, "", true );
 	mParams.addPersistentParam( "Vertical sync", &mVerticalSyncEnabled, false );
@@ -114,6 +124,7 @@ void FludParticlesApp::setup()
 	mParams.addPersistentParam( "Flip", &mFlip, true );
 	mParams.addPersistentParam( "Draw flow", &mDrawFlow, false );
 	mParams.addPersistentParam( "Draw fluid", &mDrawFluid, false );
+	mParams.addPersistentParam( "Draw particles", &mDrawParticles, true );
 	mParams.addPersistentParam( "Draw capture", &mDrawCapture, true );
 	mParams.addPersistentParam( "Capture alpha", &mCaptureAlpha, .1f, "min=0 max=1 step=0.05" );
 	mParams.addPersistentParam( "Flow multiplier", &mFlowMultiplier, .105, "min=.001 max=2 step=.001" );
@@ -134,15 +145,15 @@ void FludParticlesApp::setup()
 	mCaptureSource.setup();
 
 	// fluid
-	mParams.addText("Fluid");
+	mParams.addText( "Fluid" );
 	mParams.addPersistentParam( "Fluid width", &mFluidWidth, 160, "min=16 max=512", true );
 	mParams.addPersistentParam( "Fluid height", &mFluidHeight, 120, "min=16 max=512", true );
 	mParams.addPersistentParam( "Fade speed", &mFluidFadeSpeed, 0.012f, "min=0 max=1 step=0.0005" );
 	mParams.addPersistentParam( "Viscosity", &mFluidViscosity, 0.00003f, "min=0 max=1 step=0.00001" );
 	mParams.addPersistentParam( "Delta t", &mFluidDeltaT, 0.4f, "min=0 max=10 step=0.05" );
 	mParams.addPersistentParam( "Vorticity confinement", &mFluidVorticityConfinement, false );
-	mParams.addPersistentParam( "Wrap x", &mFluidWrapX, false );
-	mParams.addPersistentParam( "Wrap y", &mFluidWrapY, false );
+	mParams.addPersistentParam( "Wrap x", &mFluidWrapX, true );
+	mParams.addPersistentParam( "Wrap y", &mFluidWrapY, true );
 	mParams.addPersistentParam( "Fluid color", &mFluidColor, Color( 1.f, 0.05f, 0.01f ) );
 	mParams.addPersistentParam( "Fluid velocity mult", &mFluidVelocityMult, 10.f, "min=1 max=50 step=0.5" );
 	mParams.addPersistentParam( "Fluid color mult", &mFluidColorMult, .5f, "min=0.05 max=10 step=0.05" );
@@ -153,13 +164,25 @@ void FludParticlesApp::setup()
 	mFluidDrawer.setup( &mFluidSolver );
 	mParams.addButton( "Reset fluid", [&]() { mFluidSolver.reset(); } );
 
+	mParams.addSeparator();
+	mParams.addText("Post process");
+	mParams.addPersistentParam( "Streak attenuation", &mStreakAttenuation, .9f, "min=0 max=.999 step=.001" );
+	mParams.addPersistentParam( "Streak iterations", &mStreakIterations, 8, "min=1 max=32" );
+	mParams.addPersistentParam( "Streak strength", &mStreakStrength, .8f, "min=0 max=1 step=.05" );
+
     mParticles.setFluidSolver( &mFluidSolver );
+
+	gl::Fbo::Format format;
+	format.enableDepthBuffer( false );
+	format.setSamples( 4 );
+	mParticlesFbo = gl::Fbo( 1024, 768, format );
+	mParticles.setWindowSize( mParticlesFbo.getSize() );
+
+	mKawaseStreak = mndl::gl::fx::KawaseStreak( mParticlesFbo.getWidth(), mParticlesFbo.getHeight() );
 }
 
 void FludParticlesApp::resize()
 {
-	mParticles.setWindowSize( getWindowSize() );
-
 }
 
 void FludParticlesApp::update()
@@ -277,12 +300,12 @@ void FludParticlesApp::addToFluid( Vec2f pos, Vec2f vel, bool addParticles, bool
 		if ( addParticles )
 		{
 			int count = static_cast<int>(
-					lmap<float>( vel.length() * mVelParticleMult * getWindowWidth(),
+					lmap<float>( vel.length() * mVelParticleMult * mParticlesFbo.getWidth(),
 						mVelParticleMin, mVelParticleMax,
 						mParticleMin, mParticleMax ) );
 			if (count > 0)
 			{
-				mParticles.addParticle( pos * Vec2f( getWindowSize() ), count);
+				mParticles.addParticle( pos * Vec2f( mParticlesFbo.getSize() ), count );
 			}
 		}
 		if ( addForce )
@@ -294,7 +317,6 @@ void FludParticlesApp::addToFluid( Vec2f pos, Vec2f vel, bool addParticles, bool
 		}
 	}
 }
-
 
 void FludParticlesApp::draw()
 {
@@ -308,7 +330,52 @@ void FludParticlesApp::draw()
 		gl::color( mFluidColor );
 		mFluidDrawer.draw( 0, 0, getWindowWidth(), getWindowHeight() );
 	}
-	mParticles.draw();
+
+	if ( mDrawParticles )
+	{
+		mParticlesFbo.bindFramebuffer();
+		// FIXME: particles overwrite fluid
+		//gl::clear( ColorA::gray( 0, 0 ) );
+		gl::clear();
+
+		gl::setViewport( mParticlesFbo.getBounds() );
+		gl::setMatricesWindow( mParticlesFbo.getSize(), false );
+
+		//gl::color( Color( .9f, .5f, .1f ) );
+		//gl::drawSolidCircle( mParticlesFbo.getSize() / 2.f, 10 );
+		mParticles.draw();
+		mParticlesFbo.unbindFramebuffer();
+
+		gl::Texture output = mKawaseStreak.process( mParticlesFbo.getTexture(), mStreakAttenuation, mStreakIterations, mStreakStrength );
+		//if ( mCaptureTexture )
+		{
+			//gl::Texture output = mKawaseStreak.process( mCaptureTexture, 8, mBloomStrength );
+
+			gl::setViewport( getWindowBounds() );
+			gl::setMatricesWindow( getWindowSize() );
+			if ( mDrawFluid )
+				gl::enableAlphaBlending();
+			gl::color( Color::white() );
+			gl::draw( output, getWindowBounds() );
+		}
+		if ( mDrawFluid )
+			gl::disableAlphaBlending();
+	}
+
+	/*
+	{
+		Rectf rect( getWindowBounds() );
+		rect /= 4.f;
+
+		for ( int i = 1; i < 2; i++ )
+		{
+			gl::Texture output = mKawaseStreak.getTexture( i );
+			int x = i / 4;
+			int y = i & 3;
+			gl::draw( output, rect.getOffset( Vec2f( x * rect.getWidth(), y * rect.getHeight() ) ) );
+		}
+	}
+	*/
 
 	// draw output to window
 
@@ -351,13 +418,13 @@ void FludParticlesApp::draw()
 		}
 	}
 
-	mndl::kit::params::PInterfaceGl::draw();
+	mndl::params::PInterfaceGl::draw();
 }
 
 void FludParticlesApp::shutdown()
 {
 	mCaptureSource.shutdown();
-	mndl::kit::params::PInterfaceGl::save();
+	mndl::params::PInterfaceGl::save();
 }
 
 void FludParticlesApp::keyDown( KeyEvent event )
@@ -381,7 +448,7 @@ void FludParticlesApp::keyDown( KeyEvent event )
 			break;
 
 		case KeyEvent::KEY_s:
-			mndl::kit::params::PInterfaceGl::showAllParams( !mParams.isVisible() );
+			mndl::params::PInterfaceGl::showAllParams( !mParams.isVisible() );
 			if ( isFullScreen() )
 			{
 				if ( mParams.isVisible() )

@@ -54,7 +54,7 @@ Capture1394PParams::Obj::Obj() :
         mCaptures.push_back( Capture1394Ref() );
 		mDeviceNames.push_back( "Camera not available" );
 	}
-	mParams = mndl::kit::params::PInterfaceGl( "Capture1394", ci::Vec2i( 348, 506 ), ci::Vec2i( 336, 16 ) );
+	mParams = mndl::params::PInterfaceGl( "Capture1394", ci::Vec2i( 348, 506 ), ci::Vec2i( 336, 16 ) );
 	mParams.addPersistentSizeAndPosition();
 	setupParams();
 }

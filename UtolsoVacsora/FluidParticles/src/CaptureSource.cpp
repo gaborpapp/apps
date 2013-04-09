@@ -72,9 +72,9 @@ void CaptureSource::setup()
 		mCaptures.push_back( ci::CaptureRef() );
 	}
 
-	mParams = mndl::kit::params::PInterfaceGl( "Capture Source", ci::Vec2i( 310, 90 ), ci::Vec2i( 16, 326 ) );
+	mParams = mndl::params::PInterfaceGl( "Capture Source", ci::Vec2i( 310, 90 ), ci::Vec2i( 16, 326 ) );
 	mParams.addPersistentSizeAndPosition();
-	mCaptureParams = mndl::kit::params::PInterfaceGl( "Capture", ci::Vec2i( 310, 90 ), ci::Vec2i( 16, 432 ) );
+	mCaptureParams = mndl::params::PInterfaceGl( "Capture", ci::Vec2i( 310, 90 ), ci::Vec2i( 16, 432 ) );
 	mCaptureParams.addPersistentSizeAndPosition();
 	mCaptureParams.addPersistentParam( "Camera", mDeviceNames, &mCurrentCapture, 0 );
 	if ( mCurrentCapture >= (int)mCaptures.size() )
@@ -85,7 +85,7 @@ void CaptureSource::setup()
 
 void CaptureSource::setupParams()
 {
-	mndl::kit::params::PInterfaceGl::save();
+	mndl::params::PInterfaceGl::save();
 	mParams.clear();
 
 	vector< string > enumNames = { "Recording", "Capture", "Capture1394" };

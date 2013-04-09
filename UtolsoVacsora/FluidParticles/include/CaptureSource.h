@@ -74,8 +74,8 @@ class CaptureSource
 		mndl::Capture1394PParamsRef mCapture1394PParams;
 
 		// params
-		mndl::kit::params::PInterfaceGl mParams;
-		mndl::kit::params::PInterfaceGl mCaptureParams;
+		mndl::params::PInterfaceGl mParams;
+		mndl::params::PInterfaceGl mCaptureParams;
 };
 
 } // namespace mndl;

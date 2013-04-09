@@ -51,7 +51,7 @@ class FluidParticleManager
 
 		static float sAging;
 
-#define MAX_PARTICLES 16384 // pow 2!
+#define MAX_PARTICLES 32768 // pow 2!
 		int mCurrent;
 		int mActive;
 

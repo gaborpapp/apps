@@ -2,7 +2,7 @@ env = Environment()
 
 env['APP_TARGET'] = 'FluidParticlesApp'
 env['APP_SOURCES'] = ['FluidParticlesApp.cpp', 'Capture1394PParams.cpp', 'CaptureSource.cpp',
-		'FluidParticles.cpp']
+		'FluidParticles.cpp', 'KawaseStreak.cpp']
 env['DEBUG'] = 0
 
 SConscript('../blocks/msaFluid/scons/SConscript', exports = 'env')

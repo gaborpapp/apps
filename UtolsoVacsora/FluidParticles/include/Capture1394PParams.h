@@ -74,7 +74,7 @@ class Capture1394PParams
 			int mVideoMode;
 
 			void setupParams();
-			mndl::kit::params::PInterfaceGl mParams;
+			mndl::params::PInterfaceGl mParams;
 
 			dc1394featureset_t mFeatureSet;
 			Capture1394PParams::Feature mFeatures[ DC1394_FEATURE_NUM ];
