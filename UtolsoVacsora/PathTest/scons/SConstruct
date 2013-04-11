@@ -1,0 +1,8 @@
+env = Environment()
+
+env['APP_TARGET'] = 'PathTest'
+env['APP_SOURCES'] = ['PathTest.cpp']
+env['DEBUG'] = 1
+
+SConscript('../../../../scons/SConscript', exports = 'env')
+
