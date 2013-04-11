@@ -8,7 +8,7 @@
 
  This program is distributed in the hope that it will be useful,
  but WITHOUT ANY WARRANTY; without even the implied warranty of
- MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  GNU General Public License for more details.
 
  You should have received a copy of the GNU General Public License
@@ -20,6 +20,9 @@
 #include "cinder/gl/gl.h"
 #include "cinder/params/Params.h"
 #include "cinder/Path2d.h"
+#include "cinder/Rand.h"
+
+#include "mndlkit/params/PParams.h"
 
 using namespace ci;
 using namespace ci::app;
@@ -30,22 +33,30 @@ class PathTestApp : public AppBasic
 	public:
 		void prepareSettings( Settings *settings );
 		void setup();
+		void shutdown();
 
 		void keyDown( KeyEvent event );
 		void mouseDown( MouseEvent event );
+		void mouseDrag( MouseEvent event );
 
 		void update();
 		void draw();
 
 	private:
-		params::InterfaceGl mParams;
+		mndl::params::PInterfaceGl mParams;
 
 		float mFps;
-		bool mVerticalSyncEnabled = false;
+		bool mVerticalSyncEnabled;
+		bool mDrawSegmentPositions;
 
 		Path2d mPath;
 		void addArc( Vec2f p1 );
-		float mCurvature;
+		float mCurvatureMin, mCurvatureMax;
+		float mStemLengthMin, mStemLengthMax;
+		Vec2f mLastCenter, mLastBisector, mLastNormal;
+		Vec2f mLastEndPoint, mLastTangent;
+		bool mLastDist;
+		Path2d mLastPath;
 };
 
 void PathTestApp::prepareSettings( Settings *settings )
@@ -55,13 +66,18 @@ void PathTestApp::prepareSettings( Settings *settings )
 
 void PathTestApp::setup()
 {
-	mParams = params::InterfaceGl( "Parameters", Vec2i( 200, 300 ) );
+	mndl::params::PInterfaceGl::load( "params.xml" );
+	mParams = mndl::params::PInterfaceGl( "Parameters", Vec2i( 200, 300 ), Vec2i( 16, 16 ) );
+	mParams.addPersistentSizeAndPosition();
 	mParams.addParam( "Fps", &mFps, "", true );
-	mParams.addParam( "Vertical sync", &mVerticalSyncEnabled );
+	mParams.addPersistentParam( "Vertical sync", &mVerticalSyncEnabled, false );
+	mParams.addPersistentParam( "Draw segment positions", &mDrawSegmentPositions, false );
 	mParams.addSeparator();
 
-	mCurvature = .5f;
-	mParams.addParam( "Curvature", &mCurvature, "min=-1 max=1 step=.01" );
+	mParams.addPersistentParam( "Curvature min", &mCurvatureMin, .5f, "min=0 max=1 step=.01" );
+	mParams.addPersistentParam( "Curvature max", &mCurvatureMax, .7f, "min=0 max=1 step=.01" );
+	mParams.addPersistentParam( "Stem length min", &mStemLengthMin, .3f, "min=0 max=1 step=.01" );
+	mParams.addPersistentParam( "Stem length max", &mStemLengthMax, .5f, "min=0 max=1 step=.01" );
 }
 
 void PathTestApp::update()
@@ -79,14 +95,44 @@ void PathTestApp::draw()
 	gl::color( Color::white() );
 	gl::draw( mPath );
 
-	gl::color( Color( 1, 0, 0 ) );
-	if ( !mPath.empty() )
-		gl::drawSolidCircle( mPath.getPosition( 0.f ), 3.f );
-	for ( size_t i = 0; i < mPath.getNumSegments(); i++ )
+	if ( mDrawSegmentPositions )
 	{
-		gl::drawSolidCircle( mPath.getSegmentPosition( i, 1.f ), 3.f );
+		gl::color( Color( 1, 0, 0 ) );
+		if ( !mPath.empty() )
+			gl::drawSolidCircle( mPath.getPosition( 0.f ), 3.f );
+		/*
+		for ( size_t i = 0; i < mPath.getNumSegments(); i++ )
+		{
+			gl::color( Color( 1, 0, 0 ) );
+			Vec2f p = mPath.getSegmentPosition( i, 1.f );
+			gl::drawSolidCircle( p, 3.f );
+			Vec2f tangent = p - mPath.getSegmentPosition( i, .98f );
+			tangent.normalize();
+			gl::drawLine( p, p + 30.f * tangent );
+
+			gl::color( Color( 1, 1, 0 ) );
+			p = mPath.getSegmentPosition( i, .0f );
+			tangent = mPath.getSegmentPosition( i, .02f ) - p;
+			tangent.normalize();
+			gl::drawLine( p, p + 30.f * tangent );
+		}
+		*/
+		gl::color( Color( 1, 0, 0 ) );
+		gl::drawSolidCircle( mLastEndPoint, 3.f );
+
+		if ( mLastDist )
+			gl::color( Color( 1, 1, 0 ) );
+		else
+			gl::color( Color( 0, 1, 0 ) );
+		gl::drawSolidCircle( mLastCenter, 3.f );
+		gl::color( Color( 1, 0, 1 ) );
+		gl::drawSolidCircle( mLastBisector, 3.f );
+		gl::color( Color( 0, 0, 1 ) );
+		gl::drawLine( mLastEndPoint, mLastEndPoint + 30.f * mLastNormal );
+		gl::color( Color( 0, 1, 1 ) );
+		gl::drawLine( mLastEndPoint, mLastEndPoint + 30.f * mLastTangent );
 	}
-	params::InterfaceGl::draw();
+	mndl::params::PInterfaceGl::draw();
 }
 
 void PathTestApp::addArc( Vec2f p1 )
@@ -97,33 +143,75 @@ void PathTestApp::addArc( Vec2f p1 )
 	}
 	else
 	{
-		Vec2f p0 = mPath.getCurrentPoint();
+		Vec2f p0;
 
-		if ( math< float >::abs( mCurvature ) < EPSILON )
-			mCurvature = 0.f;
-		float sign = math< float >::signum( mCurvature );
-		if ( sign != 0.f )
+		// FIXME: use curvature
+		//float curvature = Rand::randFloat( mCurvatureMin, mCurvatureMax );
+
+		// segment tangent
+		Vec2f tangent;
+		size_t segmentNum = mPath.getNumSegments();
+		if ( segmentNum ) // direction of the last segment
 		{
-			// curvature 0 results in a far center, so the arc looks like a line
-			float centerDistance = sign * lerp( 4.f, 0.f, math< float >::abs( mCurvature ) );
-			Vec2f d( p1 - p0 );
-			Vec2f c( ( p0 + p1 ) * .5f - Vec2f( -d.y, d.x ) * centerDistance );
-			Vec2f d0( p0 - c );
-			float a0 = math< float >::atan2( d0.y, d0.x );
-			Vec2f d1( p1 - c );
-			float a1 = math< float >::atan2( d1.y, d1.x );
-			mPath.arc( c, d0.length(), a0, a1, sign > 0.f ? false : true );
+			p0 = mPath.getSegmentPosition( segmentNum - 1, 1.f );
+			tangent = p0 - mPath.getSegmentPosition( segmentNum - 1, .98f );
 		}
-		else
+		else // this is the first segment
 		{
-			mPath.lineTo( p1 );
+			// TODO: start with a line
+			p0 = mPath.getCurrentPoint();
+			tangent = p1 - p0;
+			tangent = Vec2f( -tangent.y, tangent.x );
 		}
+
+		Vec2f n( -tangent.y, tangent.x ); // segment normal
+		Vec2f d( p1 - p0 ); // distance of the arc center and the last path point
+		d *= .5f;
+		Vec2f b( -d.y, d.x ); // arc bisector
+
+		// the arc center is the intersection of the segment normal and the bisector
+		float s = ( d.y - d.x * n.y / n.x ) / ( b.x * n.y / n.x - b.y );
+		Vec2f c( ( p0 + p1 ) *.5f + s * b ); // arc center
+		// debug
+		mLastCenter = c;
+		mLastBisector = ( p1 + p0 ) * .5f;
+		mLastNormal = n.normalized();
+		mLastEndPoint = p0;
+		mLastTangent = tangent.normalized();
+
+		Vec2f d0( p0 - c );
+
+		//float length = 2 * M_PI * Rand::randFloat( mStemLengthMin, mStemLengthMax );
+		float a0 = math< float >::atan2( d0.y, d0.x );
+		Vec2f d1( p1 - c );
+		float a1 = math< float >::atan2( d1.y, d1.x );
+
+		// segment normal line and segment bisector distance
+		tangent.normalize();
+		float C = tangent.dot( p0 );
+		float dist = tangent.dot( ( p0 + p1 ) * .5f ) - C;
+		// debug
+		mLastDist = ( dist < 0.f );
+
+		// arc direction depends on the quadrant the new point resides
+		bool forward = ( s > 0.f ) ^ ( dist < 0.f );
+		mPath.arc( c, d0.length(), a0, a1, forward );
+
+		// FIXME: use a line if the new point lies on the tangent
+		// mPath.lineTo( p1 );
 	}
 }
 
 void PathTestApp::mouseDown( MouseEvent event )
 {
+	mLastPath = mPath;
 	addArc( event.getPos() );
+}
+
+void PathTestApp::mouseDrag( MouseEvent event )
+{
+	mPath = mLastPath;
+	mouseDown( event );
 }
 
 void PathTestApp::keyDown( KeyEvent event )
@@ -172,6 +260,11 @@ void PathTestApp::keyDown( KeyEvent event )
 		default:
 			break;
 	}
+}
+
+void PathTestApp::shutdown()
+{
+	mndl::params::PInterfaceGl::save();
 }
 
 CINDER_APP_BASIC( PathTestApp, RendererGl )

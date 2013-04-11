@@ -4,5 +4,6 @@ env['APP_TARGET'] = 'PathTest'
 env['APP_SOURCES'] = ['PathTest.cpp']
 env['DEBUG'] = 1
 
+env = SConscript('../../../../blocks/MndlKit/scons/SConscript', exports = 'env')
 SConscript('../../../../scons/SConscript', exports = 'env')
 
