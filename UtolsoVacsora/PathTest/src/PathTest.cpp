@@ -51,8 +51,10 @@ class PathTestApp : public AppBasic
 
 		Path2d mPath;
 		void addArc( Vec2f p1 );
+		/*
 		float mCurvatureMin, mCurvatureMax;
 		float mStemLengthMin, mStemLengthMax;
+		*/
 		Vec2f mLastCenter, mLastBisector, mLastNormal;
 		Vec2f mLastEndPoint, mLastTangent;
 		bool mLastDist;
@@ -74,10 +76,12 @@ void PathTestApp::setup()
 	mParams.addPersistentParam( "Draw segment positions", &mDrawSegmentPositions, false );
 	mParams.addSeparator();
 
+	/*
 	mParams.addPersistentParam( "Curvature min", &mCurvatureMin, .5f, "min=0 max=1 step=.01" );
 	mParams.addPersistentParam( "Curvature max", &mCurvatureMax, .7f, "min=0 max=1 step=.01" );
 	mParams.addPersistentParam( "Stem length min", &mStemLengthMin, .3f, "min=0 max=1 step=.01" );
 	mParams.addPersistentParam( "Stem length max", &mStemLengthMax, .5f, "min=0 max=1 step=.01" );
+	*/
 }
 
 void PathTestApp::update()
@@ -140,66 +144,59 @@ void PathTestApp::addArc( Vec2f p1 )
 	if ( mPath.empty() )
 	{
 		mPath.moveTo( p1 );
+		return;
 	}
-	else
+
+	size_t segmentNum = mPath.getNumSegments();
+	if ( segmentNum == 0 )
 	{
-		Vec2f p0;
-
-		// FIXME: use curvature
-		//float curvature = Rand::randFloat( mCurvatureMin, mCurvatureMax );
-
-		// segment tangent
-		Vec2f tangent;
-		size_t segmentNum = mPath.getNumSegments();
-		if ( segmentNum ) // direction of the last segment
-		{
-			p0 = mPath.getSegmentPosition( segmentNum - 1, 1.f );
-			tangent = p0 - mPath.getSegmentPosition( segmentNum - 1, .98f );
-		}
-		else // this is the first segment
-		{
-			// TODO: start with a line
-			p0 = mPath.getCurrentPoint();
-			tangent = p1 - p0;
-			tangent = Vec2f( -tangent.y, tangent.x );
-		}
-
-		Vec2f n( -tangent.y, tangent.x ); // segment normal
-		Vec2f d( p1 - p0 ); // distance of the arc center and the last path point
-		d *= .5f;
-		Vec2f b( -d.y, d.x ); // arc bisector
-
-		// the arc center is the intersection of the segment normal and the bisector
-		float s = ( d.y - d.x * n.y / n.x ) / ( b.x * n.y / n.x - b.y );
-		Vec2f c( ( p0 + p1 ) *.5f + s * b ); // arc center
-		// debug
-		mLastCenter = c;
-		mLastBisector = ( p1 + p0 ) * .5f;
-		mLastNormal = n.normalized();
-		mLastEndPoint = p0;
-		mLastTangent = tangent.normalized();
-
-		Vec2f d0( p0 - c );
-
-		//float length = 2 * M_PI * Rand::randFloat( mStemLengthMin, mStemLengthMax );
-		float a0 = math< float >::atan2( d0.y, d0.x );
-		Vec2f d1( p1 - c );
-		float a1 = math< float >::atan2( d1.y, d1.x );
-
-		// segment normal line and segment bisector distance
-		tangent.normalize();
-		float C = tangent.dot( p0 );
-		float dist = tangent.dot( ( p0 + p1 ) * .5f ) - C;
-		// debug
-		mLastDist = ( dist < 0.f );
-
-		// arc direction depends on the quadrant the new point resides
-		bool forward = ( s > 0.f ) ^ ( dist < 0.f );
-		mPath.arc( c, d0.length(), a0, a1, forward );
-
-		// FIXME: use a line if the new point lies on the tangent
-		// mPath.lineTo( p1 );
+		mPath.lineTo( p1 );
+		return;
 	}
+
+	// last point
+	Vec2f p0 = mPath.getSegmentPosition( segmentNum - 1, 1.f );
+	// same point as the last one -> skip
+	if ( p0.distanceSquared( p1 ) < EPSILON )
+		return;
+
+	// segment tangent - direction of the last segment
+	Vec2f tangent = p0 - mPath.getSegmentPosition( segmentNum - 1, .98f );
+
+	Vec2f n( -tangent.y, tangent.x ); // segment normal
+	Vec2f d( p1 - p0 ); // distance of the arc center and the last path point
+	d *= .5f;
+	Vec2f b( -d.y, d.x ); // arc bisector
+
+	// the arc center is the intersection of the segment normal and the bisector
+	float s = ( d.y - d.x * n.y / n.x ) / ( b.x * n.y / n.x - b.y );
+	Vec2f c( ( p0 + p1 ) *.5f + s * b ); // arc center
+	// debug
+	mLastCenter = c;
+	mLastBisector = ( p1 + p0 ) * .5f;
+	mLastNormal = n.normalized();
+	mLastEndPoint = p0;
+	mLastTangent = tangent.normalized();
+
+	Vec2f d0( p0 - c );
+
+	float a0 = math< float >::atan2( d0.y, d0.x );
+	Vec2f d1( p1 - c );
+	float a1 = math< float >::atan2( d1.y, d1.x );
+
+	// segment normal line and segment bisector distance
+	tangent.normalize();
+	float C = tangent.dot( p0 );
+	float dist = tangent.dot( ( p0 + p1 ) * .5f ) - C;
+	// debug
+	mLastDist = ( dist < 0.f );
+
+	// arc direction depends on the quadrant, in which the new point resides
+	bool forward = ( s > 0.f ) ^ ( dist < 0.f );
+	mPath.arc( c, d0.length(), a0, a1, forward );
+
+	// TODO: use a line if the new point lies on the tangent
+	// mPath.lineTo( p1 );
 }
 
 void PathTestApp::mouseDown( MouseEvent event )
