@@ -1,0 +1,8 @@
+env = Environment()
+
+env['APP_TARGET'] = 'BearingTest'
+env['APP_SOURCES'] = ['BearingTest.cpp']
+env['DEBUG'] = 1
+
+SConscript('../../../scons/SConscript', exports = 'env')
+

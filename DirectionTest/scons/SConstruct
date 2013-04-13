@@ -1,0 +1,8 @@
+env = Environment()
+
+env['APP_TARGET'] = 'DirectionTest'
+env['APP_SOURCES'] = ['DirectionTest.cpp']
+env['DEBUG'] = 1
+
+SConscript('../../../scons/SConscript', exports = 'env')
+
