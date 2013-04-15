@@ -30,7 +30,7 @@ class Branch
 	public:
 		static BranchRef create( const ci::Vec2f &start, const ci::Vec2f &target ) { return BranchRef( new Branch( start, target ) ); }
 
-		void setStemBearingAngle( float angleMin, float angleMax ) { mStemBearingAngleMin = angleMin; mStemBearingAngleMax = angleMax; }
+		void setStemBearingDelta( float angleDelta ) { mStemBearingDelta = angleDelta; }
 		void setStemLength( float lengthMin, float lengthMax ) { mStemLengthMin = lengthMin; mStemLengthMax = lengthMax; }
 
 		void update();
@@ -41,8 +41,8 @@ class Branch
 
 		void addArc( const ci::Vec2f &point );
 
-		float mStemBearingAngleMin = 0.f, mStemBearingAngleMax = M_PI * .25f;
-		float mStemLengthMin = 10.f, mStemLengthMax = 32.f;
+		float mStemBearingDelta = M_PI * .2f;
+		float mStemLengthMin = 10.f, mStemLengthMax = 64.f;
 
 		ci::Vec2f mCurrentPosition;
 		ci::Vec2f mTargetPosition;

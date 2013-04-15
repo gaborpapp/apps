@@ -30,7 +30,6 @@ void Branch::update()
 	for ( int i = 0; i < maxIterations; i++ )
 	{
 		Vec2f targetDir = mTargetPosition - mCurrentPosition;
-		float stemDistance = Rand::randFloat( mStemLengthMin, mStemLengthMax );
 
 		if ( i == 0 )
 		{
@@ -38,14 +37,6 @@ void Branch::update()
 			float stemDistance = Rand::randFloat( mStemLengthMin, mStemLengthMax );
 			mCurrentPosition += stemDistance * targetDir.normalized();
 			addArc( mCurrentPosition );
-		}
-		else
-		if ( targetDir.length() < stemDistance )
-		{
-			// TODO: connect this only if it's in direction
-			mCurrentPosition = mTargetPosition;
-			addArc( mCurrentPosition );
-			break;
 		}
 		else
 		{
@@ -64,21 +55,60 @@ void Branch::update()
 			if ( angle < -M_PI )
 				angle += 2 * M_PI;
 
-			// TODO: try using only the target dir instead of the range if the target is outside
-			// direction range towards the target
-			float angleMin = math< float >::clamp( angle - mStemBearingAngleMax, -mStemBearingAngleMax, mStemBearingAngleMax );
-			float angleMax = math< float >::clamp( angle + mStemBearingAngleMax, -mStemBearingAngleMax, mStemBearingAngleMax );
+#if 0
+			/* direction range towards the target is the intersection of the bearing angle interval around the target and
+			   the current direction, if the intersecion is empty, the maximum angle is used in that direction */
+			float angleMin = math< float >::clamp( angle - mStemBearingDelta, -mStemBearingDelta, mStemBearingDelta );
+			float angleMax = math< float >::clamp( angle + mStemBearingDelta, -mStemBearingDelta, mStemBearingDelta );
+#endif
+			// FIXME: bearing delta .25 breaks continuity?
+			// this algorithm tends to keep the target in sight better
+			float angleMin, angleMax;
+			// the angle is the maximum if the target is outside the range
+			if ( angle <= -mStemBearingDelta )
+			{
+				angleMin = angleMax = -mStemBearingDelta;
+			}
+			else
+			if ( angle >= mStemBearingDelta )
+			{
+				angleMin = angleMax = mStemBearingDelta;
+			}
+			else // inside the range on the left handside, allow leftward movements only
+			if ( angle < 0 )
+			{
+				angleMin = -mStemBearingDelta;
+				angleMax = 0.f;
+			}
+			else // inside the range on the right handside, allow rightward movements only
+			if ( angle > 0 )
+			{
+				angleMin = 0.f;
+				angleMax = mStemBearingDelta;
+			}
+			else // angle = 0, turn is allowed to either side
+			{
+				angleMin = -mStemBearingDelta;
+				angleMax = mStemBearingDelta;
+			}
+
 			float bearingMin = angleDir + angleMin;
 			float bearingMax = angleDir + angleMax;
 
+			float stemDistance = Rand::randFloat( mStemLengthMin, mStemLengthMax );
 			float stemBearingAngle = Rand::randFloat( bearingMin, bearingMax );
+
 			Vec2f bearing( math< float >::cos( stemBearingAngle ), math< float >::sin( stemBearingAngle ) );
 			mCurrentPosition += stemDistance * bearing;
 			addArc( mCurrentPosition );
+
+			if ( mCurrentPosition.distanceSquared( mTargetPosition ) < ( mStemLengthMax * mStemLengthMax ) )
+				break;
 		}
 	}
 #endif
 #if 0
+	// simple algorithm with big curly movements
 	const int maxIterations = 64;
 	for ( int i = 0; i < maxIterations; i++ )
 	{
@@ -93,7 +123,7 @@ void Branch::update()
 		}
 		else
 		{
-			float stemBearingAngle = Rand::randFloat( mStemBearingAngleMin, mStemBearingAngleMax );
+			float stemBearingAngle = Rand::randFloat( mStemBearingDelta );
 			Vec2f bearing( d.normalized() );
 			bearing.rotate( ( ( i & 1 ) ? 1 : -1 ) * stemBearingAngle );
 			mCurrentPosition += stemDistance * bearing;
@@ -105,7 +135,16 @@ void Branch::update()
 
 void Branch::draw()
 {
+	gl::color( Color::white() );
 	gl::draw( mPath );
+
+	//const std::vector< Vec2f > &points = mPath.subdivide( .001f );
+	const std::vector< Vec2f > &points = mPath.getPoints();
+	gl::color( Color( 1, 0, 0 ) );
+	for ( auto p : points )
+	{
+		gl::drawSolidCircle( p, 2 );
+	}
 }
 
 void Branch::addArc( const Vec2f &p1 )
@@ -137,6 +176,16 @@ void Branch::addArc( const Vec2f &p1 )
 	d *= .5f;
 	Vec2f b( -d.y, d.x ); // arc bisector
 
+	// parallel vectors, p1 lies on the tangent
+	float dot = b.dot( n );
+	float sqrLength = b.lengthSquared() * n.lengthSquared();
+	// does not seem to be a very precise test, hence the .1f limit instead of EPSILON
+	if ( math< float >::abs( dot * dot - sqrLength ) < .1f )
+	{
+		mPath.lineTo( p1 );
+		return;
+	}
+
 	// the arc center is the intersection of the segment normal and the bisector
 	float s = ( d.y - d.x * n.y / n.x ) / ( b.x * n.y / n.x - b.y );
 	Vec2f c( ( p0 + p1 ) *.5f + s * b ); // arc center
@@ -154,8 +203,5 @@ void Branch::addArc( const Vec2f &p1 )
 	// arc direction depends on the quadrant, in which the new point resides
 	bool forward = ( s > 0.f ) ^ ( dist < 0.f );
 	mPath.arc( c, d0.length(), a0, a1, forward );
-
-	// TODO: use a line if the new point lies on the tangent
-	// mPath.lineTo( p1 );
 }
 

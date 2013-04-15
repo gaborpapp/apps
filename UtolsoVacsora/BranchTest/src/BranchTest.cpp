@@ -48,7 +48,7 @@ class BranchTestApp : public AppBasic
 		float mFps;
 		bool mVerticalSyncEnabled;
 
-		float mBearingMin, mBearingMax;
+		float mBearingDelta;
 		float mLengthMin, mLengthMax;
 
 		vector< BranchRef > mBranches;
@@ -70,8 +70,7 @@ void BranchTestApp::setup()
 	mParams.addPersistentParam( "Vertical sync", &mVerticalSyncEnabled, false );
 	mParams.addSeparator();
 
-	mParams.addPersistentParam( "Bearing min", &mBearingMin, .0f, "min=0 max=1 step=.01" );
-	mParams.addPersistentParam( "Bearing max", &mBearingMax, .12, "min=0 max=1 step=.01" );
+	mParams.addPersistentParam( "Bearing delta", &mBearingDelta, .12, "min=0 max=1 step=.01" );
 	mParams.addPersistentParam( "Length min", &mLengthMin, 10, "min=1 max=512 step=1" );
 	mParams.addPersistentParam( "Length max", &mLengthMax, 64, "min=1 max=512 step=1" );
 }
@@ -107,7 +106,7 @@ void BranchTestApp::mouseDown( MouseEvent event )
 	if ( mPointNum == 2 )
 	{
 		mBranches.push_back( Branch::create( mPoints[ 0 ], mPoints[ 1 ] ) );
-		mBranches.back()->setStemBearingAngle( mBearingMin * 2 * M_PI, mBearingMax * 2 * M_PI );
+		mBranches.back()->setStemBearingDelta( mBearingDelta * 2 * M_PI );
 		mBranches.back()->setStemLength( mLengthMin, mLengthMax );
 		mBranches.back()->update();
 		mPointNum = 0;

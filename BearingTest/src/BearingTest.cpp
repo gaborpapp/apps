@@ -84,15 +84,50 @@ void BearingTest::draw()
 	gl::drawLine( c, c + getWindowHeight() * .4f * Vec2f( cos( t0 ), sin( t0 ) ) );
 	gl::drawLine( c, c + getWindowHeight() * .4f * Vec2f( cos( t1 ), sin( t1 ) ) );
 
+#if 0
 	float angle = minimumAngle( mDirection, mTarget );
 	float angleMin = math< float >::clamp( angle - mAngleDelta, -mAngleDelta, mAngleDelta );
 	float angleMax = math< float >::clamp( angle + mAngleDelta, -mAngleDelta, mAngleDelta );
 	float d0 = angleDir + angleMin;
 	float d1 = angleDir + angleMax;
+#endif
+	float angle = minimumAngle( mDirection, mTarget );
+	float angleMin, angleMax;
+	if ( angle <= -mAngleDelta )
+	{
+		angleMin = angleMax = -mAngleDelta;
+	}
+	else
+	if ( angle >= mAngleDelta )
+	{
+		angleMin = angleMax = mAngleDelta;
+	}
+	else
+	if ( angle < 0 )
+	{
+		angleMin = -mAngleDelta;
+		angleMax = 0.f;
+	}
+	else
+	if ( angle > 0 )
+	{
+		angleMin = 0.f;
+		angleMax = mAngleDelta;
+	}
+	else // angle = 0
+	{
+		angleMin = -mAngleDelta;
+		angleMax = mAngleDelta;
+	}
+
+	float d0 = angleDir + angleMin;
+	float d1 = angleDir + angleMax;
+
 	gl::color( Color( 0, 1, 0 ) );
 	gl::drawSolidTriangle( c,
 			c + getWindowHeight() * .2f * Vec2f( cos( d0 ), sin( d0 ) ),
 			c + getWindowHeight() * .2f * Vec2f( cos( d1 ), sin( d1 ) ) );
+
 }
 
 void BearingTest::mouseDown( MouseEvent event )
