@@ -169,8 +169,28 @@ void PathTestApp::addArc( Vec2f p1 )
 	Vec2f b( -d.y, d.x ); // arc bisector
 
 	// the arc center is the intersection of the segment normal and the bisector
-	float s = ( d.y - d.x * n.y / n.x ) / ( b.x * n.y / n.x - b.y );
+	float s;
+	if ( n.x == 0.f )
+	{
+		if ( b.x == 0.f ) // parallel
+		{
+			mPath.lineTo( p1 );
+			return;
+		}
+		s = -d.x / b.x;
+	}
+	else
+	{
+		float den = b.x * n.y / n.x - b.y;
+		if ( den == 0.f ) // parallel
+		{
+			mPath.lineTo( p1 );
+			return;
+		}
+		s = ( d.y - d.x * n.y / n.x ) / ( b.x * n.y / n.x - b.y );
+	}
 	Vec2f c( ( p0 + p1 ) *.5f + s * b ); // arc center
+
 	// debug
 	mLastCenter = c;
 	mLastBisector = ( p1 + p0 ) * .5f;

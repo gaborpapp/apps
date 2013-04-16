@@ -187,7 +187,26 @@ void Branch::addArc( const Vec2f &p1 )
 	}
 
 	// the arc center is the intersection of the segment normal and the bisector
-	float s = ( d.y - d.x * n.y / n.x ) / ( b.x * n.y / n.x - b.y );
+	float s;
+	if ( n.x == 0.f )
+	{
+		if ( b.x == 0.f ) // parallel
+		{
+			mPath.lineTo( p1 );
+			return;
+		}
+		s = -d.x / b.x;
+	}
+	else
+	{
+		float den = b.x * n.y / n.x - b.y;
+		if ( den == 0.f ) // parallel
+		{
+			mPath.lineTo( p1 );
+			return;
+		}
+		s = ( d.y - d.x * n.y / n.x ) / ( b.x * n.y / n.x - b.y );
+	}
 	Vec2f c( ( p0 + p1 ) *.5f + s * b ); // arc center
 
 	Vec2f d0( p0 - c );
