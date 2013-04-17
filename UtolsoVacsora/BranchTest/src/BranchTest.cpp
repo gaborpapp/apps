@@ -95,7 +95,7 @@ void BranchTestApp::draw()
 		b->draw();
 	}
 
-	mndl::params::PInterfaceGl::draw();
+	mParams.draw();
 }
 
 

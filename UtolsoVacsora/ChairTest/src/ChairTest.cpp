@@ -48,7 +48,7 @@ class ChairTest : public AppBasic
 		void shutdown();
 
 	private:
-		kit::params::PInterfaceGl mParams;
+		mndl::params::PInterfaceGl mParams;
 
 		void loadModel();
 		TriMesh mTriMesh;
@@ -73,8 +73,8 @@ void ChairTest::setup()
 {
 	gl::disableVerticalSync();
 
-	kit::params::PInterfaceGl::load( "params.xml" );
-	mParams = kit::params::PInterfaceGl( "Parameters", Vec2i( 200, 300 ) );
+	mndl::params::PInterfaceGl::load( "params.xml" );
+	mParams = mndl::params::PInterfaceGl( "Parameters", Vec2i( 200, 300 ) );
 	mParams.addParam( "Fps", &mFps, "", true );
 	mParams.addPersistentParam( "Radius", &mEffectRadius, .1f, "min=.01 max=5 step=.01" );
 	mParams.addPersistentParam( "Max Radius", &mEffectMaxRadius, .1f, "min=.01 max=5 step=.01" );
@@ -181,7 +181,7 @@ void ChairTest::draw()
 		gl::drawSphere( mEffectCenter, .1f );
 	}
 
-	kit::params::PInterfaceGl::draw();
+	mParams.draw();
 }
 
 void ChairTest::keyDown( KeyEvent event )
@@ -205,7 +205,7 @@ void ChairTest::keyDown( KeyEvent event )
 			break;
 
 		case KeyEvent::KEY_s:
-			kit::params::PInterfaceGl::showAllParams( !mParams.isVisible() );
+			mndl::params::PInterfaceGl::showAllParams( !mParams.isVisible() );
 			if ( isFullScreen() )
 			{
 				if ( mParams.isVisible() )
@@ -226,7 +226,7 @@ void ChairTest::keyDown( KeyEvent event )
 
 void ChairTest::shutdown()
 {
-	kit::params::PInterfaceGl::save();
+	mndl::params::PInterfaceGl::save();
 	CameraPersp cam = mMayaCam.getCamera();
 	console() << cam.getEyePoint() << " " << cam.getCenterOfInterestPoint() << endl;
 }

@@ -53,7 +53,7 @@ class Room : public AppBasic
 		void shutdown();
 
 	private:
-		kit::params::PInterfaceGl mParams;
+		mndl::params::PInterfaceGl mParams;
 		float mLightConstantAttenuation;
 		float mLightLinearAttenuation;
 		float mLightQuadraticAttenuation;
@@ -145,8 +145,8 @@ void Room::setup()
 {
 	gl::disableVerticalSync();
 
-	kit::params::PInterfaceGl::load( "params.xml" );
-	mParams = kit::params::PInterfaceGl( "Parameters", Vec2i( 200, 300 ) );
+	mndl::params::PInterfaceGl::load( "params.xml" );
+	mParams = mndl::params::PInterfaceGl( "Parameters", Vec2i( 200, 300 ) );
 
 	mParams.addParam( "Fps", &mFps, "", true );
 	mParams.addPersistentParam( "Vertical sync", &mVerticalSyncEnabled, true );
@@ -378,7 +378,7 @@ void Room::draw()
 	light.disable();
 	gl::disable( GL_LIGHTING );
 
-	kit::params::PInterfaceGl::draw();
+	mParams.draw();
 }
 
 bool Room::performPicking()
@@ -513,7 +513,7 @@ void Room::keyDown( KeyEvent event )
 			break;
 
 		case KeyEvent::KEY_s:
-			kit::params::PInterfaceGl::showAllParams( !mParams.isVisible() );
+			mndl::params::PInterfaceGl::showAllParams( !mParams.isVisible() );
 			if ( isFullScreen() )
 			{
 				if ( mParams.isVisible() )
@@ -534,7 +534,7 @@ void Room::keyDown( KeyEvent event )
 
 void Room::shutdown()
 {
-	kit::params::PInterfaceGl::save();
+	mndl::params::PInterfaceGl::save();
 }
 
 void Room::mouseDown( MouseEvent event )
