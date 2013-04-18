@@ -29,12 +29,21 @@ void Branch::setup()
 	mLength = 0.f;
 	for ( int i = 0; i < mMaxIterations; i++ )
 	{
+		bool lastArc = false;
 		Vec2f targetDir = mTargetPosition - mCurrentPosition;
+		if ( mCurrentPosition.distanceSquared( mTargetPosition ) < ( mStemLengthMax * mStemLengthMax ) )
+		{
+			// add the target if it is in the direction range in the next step
+			lastArc = true;
+		}
 
 		if ( i == 0 )
 		{
 			addArc( mCurrentPosition );
-			mCurrentPosition += mStemLengthMin * targetDir.normalized();
+			if ( lastArc )
+				mCurrentPosition = mTargetPosition;
+			else
+				mCurrentPosition += mStemLengthMin * targetDir.normalized();
 			addArc( mCurrentPosition );
 			mLength += mStemLengthMin;
 		}
@@ -64,8 +73,20 @@ void Branch::setup()
 			// FIXME: bearing delta .25 breaks continuity?
 			// this algorithm tends to keep the target in sight better
 			float angleMin, angleMax;
-			// the angle is the maximum if the target is outside the range
-			if ( angle <= -mStemBearingDelta )
+			if ( lastArc )
+			{
+				// get as close to the target as possible with the last arc
+				if ( ( angle > -mStemBearingDelta ) && ( angle < mStemBearingDelta ) )
+					angleMin = angleMax = angle;
+				else
+				if ( angle <= -mStemBearingDelta )
+					angleMin = angleMax = -mStemBearingDelta;
+				else
+				if ( angle >= mStemBearingDelta )
+					angleMin = angleMax = mStemBearingDelta;
+			}
+			else
+			if ( angle <= -mStemBearingDelta ) // the angle is the maximum if the target is outside the range
 			{
 				angleMin = angleMax = -mStemBearingDelta;
 			}
@@ -75,13 +96,13 @@ void Branch::setup()
 				angleMin = angleMax = mStemBearingDelta;
 			}
 			else // inside the range on the left handside, allow leftward movements only
-			if ( angle < 0 )
+			if ( angle < 0.f )
 			{
 				angleMin = -mStemBearingDelta;
 				angleMax = 0.f;
 			}
 			else // inside the range on the right handside, allow rightward movements only
-			if ( angle > 0 )
+			if ( angle > 0.f )
 			{
 				angleMin = 0.f;
 				angleMax = mStemBearingDelta;
@@ -95,18 +116,20 @@ void Branch::setup()
 			float bearingMin = angleDir + angleMin;
 			float bearingMax = angleDir + angleMax;
 
-			float stemDistance = Rand::randFloat( mStemLengthMin, mStemLengthMax );
+			float stemDistance;
+			if ( lastArc )
+				stemDistance = targetDir.length();
+			else
+				stemDistance = Rand::randFloat( mStemLengthMin, mStemLengthMax );
 			float stemBearingAngle = Rand::randFloat( bearingMin, bearingMax );
 
 			Vec2f bearing( math< float >::cos( stemBearingAngle ), math< float >::sin( stemBearingAngle ) );
 			mCurrentPosition += stemDistance * bearing;
 			addArc( mCurrentPosition );
 			mLength += stemDistance;
-
-			// TODO: add the target if it is in the direction range
-			if ( mCurrentPosition.distanceSquared( mTargetPosition ) < ( mStemLengthMax * mStemLengthMax ) )
-				break;
 		}
+		if ( lastArc )
+			break;
 	}
 #endif
 #if 0
