@@ -22,21 +22,21 @@
 
 using namespace ci;
 
-void Branch::update()
+void Branch::setup()
 {
 	// TODO: build this up sequentially
 #if 1
-	const int maxIterations = 128;
-	for ( int i = 0; i < maxIterations; i++ )
+	mLength = 0.f;
+	for ( int i = 0; i < mMaxIterations; i++ )
 	{
 		Vec2f targetDir = mTargetPosition - mCurrentPosition;
 
 		if ( i == 0 )
 		{
 			addArc( mCurrentPosition );
-			float stemDistance = Rand::randFloat( mStemLengthMin, mStemLengthMax );
-			mCurrentPosition += stemDistance * targetDir.normalized();
+			mCurrentPosition += mStemLengthMin * targetDir.normalized();
 			addArc( mCurrentPosition );
+			mLength += mStemLengthMin;
 		}
 		else
 		{
@@ -101,7 +101,9 @@ void Branch::update()
 			Vec2f bearing( math< float >::cos( stemBearingAngle ), math< float >::sin( stemBearingAngle ) );
 			mCurrentPosition += stemDistance * bearing;
 			addArc( mCurrentPosition );
+			mLength += stemDistance;
 
+			// TODO: add the target if it is in the direction range
 			if ( mCurrentPosition.distanceSquared( mTargetPosition ) < ( mStemLengthMax * mStemLengthMax ) )
 				break;
 		}
@@ -133,11 +135,40 @@ void Branch::update()
 #endif
 }
 
+void Branch::start()
+{
+	mPoints = mPath.subdivide( mApproximationScale );
+	mGrowPosition = 0;
+	mGrown = false;
+	if ( mGrowSpeed != 0.f )
+	{
+		float duration = mLength / ( 1000.f * mGrowSpeed );
+		app::timeline().apply( &mGrowPosition, mPoints.size(), duration ).finishFn( [ & ]() { mGrown = true; } );
+	}
+	else
+	{
+		mGrowPosition = mPoints.size();
+		mGrown = true;
+	}
+}
+
+void Branch::update()
+{
+}
+
 void Branch::draw()
 {
-	gl::color( Color::white() );
-	gl::draw( mPath );
+	//gl::color( Color::white() );
+	//gl::color( Color( 0, 1, 0 ) );
+	//gl::draw( mPath );
 
+	gl::color( Color::white() );
+	glEnableClientState( GL_VERTEX_ARRAY );
+	glVertexPointer( 2, GL_FLOAT, 0, &( mPoints[ 0 ] ) );
+	glDrawArrays( GL_LINE_STRIP, 0, mGrowPosition );
+	glDisableClientState( GL_VERTEX_ARRAY );
+
+#if 0
 	//const std::vector< Vec2f > &points = mPath.subdivide( .001f );
 	const std::vector< Vec2f > &points = mPath.getPoints();
 	gl::color( Color( 1, 0, 0 ) );
@@ -145,6 +176,7 @@ void Branch::draw()
 	{
 		gl::drawSolidCircle( p, 2 );
 	}
+#endif
 }
 
 void Branch::addArc( const Vec2f &p1 )

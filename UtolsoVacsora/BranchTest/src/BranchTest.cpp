@@ -50,6 +50,7 @@ class BranchTestApp : public AppBasic
 
 		float mBearingDelta;
 		float mLengthMin, mLengthMax;
+		double mGrowSpeed;
 
 		vector< BranchRef > mBranches;
 		int mPointNum = 0;
@@ -73,6 +74,7 @@ void BranchTestApp::setup()
 	mParams.addPersistentParam( "Bearing delta", &mBearingDelta, .12, "min=0 max=1 step=.01" );
 	mParams.addPersistentParam( "Length min", &mLengthMin, 10, "min=1 max=512 step=1" );
 	mParams.addPersistentParam( "Length max", &mLengthMax, 64, "min=1 max=512 step=1" );
+	mParams.addPersistentParam( "Grow speed", &mGrowSpeed, 3., "min=0 step=.05" );
 }
 
 void BranchTestApp::update()
@@ -95,6 +97,10 @@ void BranchTestApp::draw()
 		b->draw();
 	}
 
+	gl::color( Color( 0, 0, 1 ) );
+	gl::drawSolidCircle( mPoints[ 0 ], 2 );
+	gl::drawSolidCircle( mPoints[ 1 ], 2 );
+
 	mParams.draw();
 }
 
@@ -108,7 +114,9 @@ void BranchTestApp::mouseDown( MouseEvent event )
 		mBranches.push_back( Branch::create( mPoints[ 0 ], mPoints[ 1 ] ) );
 		mBranches.back()->setStemBearingDelta( mBearingDelta * 2 * M_PI );
 		mBranches.back()->setStemLength( mLengthMin, mLengthMax );
-		mBranches.back()->update();
+		mBranches.back()->setGrowSpeed( mGrowSpeed );
+		mBranches.back()->setup();
+		mBranches.back()->start();
 		mPointNum = 0;
 	}
 }
