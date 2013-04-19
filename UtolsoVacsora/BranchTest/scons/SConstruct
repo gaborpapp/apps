@@ -2,6 +2,8 @@ env = Environment()
 
 env['APP_TARGET'] = 'BranchTest'
 env['APP_SOURCES'] = ['BranchTest.cpp', 'Branch.cpp']
+env['ASSETS'] = ['moppi_flower/*.png', 'moppi_tron/*.png']
+env['RESOURCES'] = ['shaders/*']
 env['DEBUG'] = 1
 
 env = SConscript('../../../../blocks/MndlKit/scons/SConscript', exports = 'env')

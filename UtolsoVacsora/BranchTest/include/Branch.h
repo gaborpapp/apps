@@ -21,9 +21,12 @@
 
 #include "cinder/Cinder.h"
 #include "cinder/CinderMath.h"
+#include "cinder/Filesystem.h"
 #include "cinder/Path2d.h"
 #include "cinder/Timeline.h"
 #include "cinder/Vector.h"
+#include "cinder/gl/GlslProg.h"
+#include "cinder/gl/Texture.h"
 
 class Branch;
 typedef std::shared_ptr< Branch > BranchRef;
@@ -31,7 +34,7 @@ typedef std::shared_ptr< Branch > BranchRef;
 class Branch
 {
 	public:
-		static BranchRef create( const ci::Vec2f &start, const ci::Vec2f &target ) { return BranchRef( new Branch( start, target ) ); }
+		static BranchRef create() { return BranchRef( new Branch() ); }
 
 		void setStemBearingDelta( float angleDelta ) { mStemBearingDelta = angleDelta; }
 		void setStemLength( float lengthMin, float lengthMax ) { mStemLengthMin = lengthMin; mStemLengthMax = lengthMax; }
@@ -43,16 +46,31 @@ class Branch
 		//! Sets approximation scale used in the subdivision of the path.
 		void setApproximationScale( float approximationScale ) { mApproximationScale = approximationScale; }
 
-		void setup();
+		//! Sets the thickness of the branch in pixels.
+		void setThickness( float thickness ) { mThickness = thickness; }
+
+		void setup( const ci::Vec2f &start, const ci::Vec2f &target );
 
 		void start();
 
 		void update();
 		void draw();
 
+		void loadTextures( const ci::fs::path &textureFolder );
+		void setTextures( const ci::gl::Texture &stemTexture, const ci::gl::Texture &branchTexture, const std::vector< ci::gl::Texture > &leafTextures, const std::vector< ci::gl::Texture > &flowerTextures )
+		{ mBranchTexture = branchTexture; mStemTexture = stemTexture; mLeafTextures = leafTextures; mFlowerTextures = flowerTextures; }
+
+		ci::gl::Texture getStemTexture() { return mStemTexture; }
+		ci::gl::Texture getBranchTexture() { return mBranchTexture; }
+		std::vector< ci::gl::Texture > & getLeafTextures() { return mLeafTextures; }
+		std::vector< ci::gl::Texture > & getFlowerTextures() { return mFlowerTextures; }
+
+		void resize( const ci::Vec2i &size ) { mWindowSize = size; }
+
 	private:
-		Branch( const ci::Vec2f &start, int32_t maxIterations ) : mCurrentPosition( start ), mMaxIterations( maxIterations ) {}
-		Branch( const ci::Vec2f &start, const ci::Vec2f &target ) : mCurrentPosition( start ), mTargetPosition( target ) {}
+		Branch();
+
+		void calcPath();
 
 		void addArc( const ci::Vec2f &point );
 
@@ -66,9 +84,22 @@ class Branch
 		float mGrowSpeed = 1.f;
 		bool mGrown = true;
 		ci::Anim< size_t > mGrowPosition = 0;
-		float mApproximationScale = 1.f;
+		float mApproximationScale = 100.f;
 
 		ci::Path2d mPath;
 		std::vector< ci::Vec2f > mPoints; //< points to draw while growing
+
+		ci::gl::Texture mStemTexture;
+		ci::gl::Texture mBranchTexture;
+		std::vector< ci::gl::Texture > mFlowerTextures;
+		std::vector< ci::gl::Texture > mLeafTextures;
+
+		float mThickness = 50.f;
+		float mLimit = .75f;
+		ci::ColorA mColor = ci::ColorA::white();
+
+		static ci::gl::GlslProg sShader;
+
+		ci::Vec2f mWindowSize;
 };
 

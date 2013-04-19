@@ -16,13 +16,42 @@
 */
 #include "cinder/app/App.h"
 #include "cinder/gl/gl.h"
+#include "cinder/gl/Vbo.h"
 #include "cinder/Rand.h"
 
+#include "Resources.h"
 #include "Branch.h"
 
 using namespace ci;
 
-void Branch::setup()
+ci::gl::GlslProg Branch::sShader;
+
+Branch::Branch()
+{
+	if ( sShader )
+		return;
+
+	try
+	{
+		sShader = gl::GlslProg( app::loadResource( RES_BRANCH_VERT ),
+				app::loadResource( RES_BRANCH_FRAG ),
+				app::loadResource( RES_BRANCH_GEOM ),
+				GL_LINES_ADJACENCY_EXT, GL_TRIANGLE_STRIP, 7 );
+	}
+	catch( const gl::GlslProgCompileExc &e )
+	{
+		app::console() << e.what() << std::endl;
+	}
+}
+
+void Branch::setup( const ci::Vec2f &start, const ci::Vec2f &target )
+{
+	mCurrentPosition = start;
+	mTargetPosition = target;
+	calcPath();
+}
+
+void Branch::calcPath()
 {
 	// TODO: build this up sequentially
 #if 1
@@ -134,8 +163,7 @@ void Branch::setup()
 #endif
 #if 0
 	// simple algorithm with big curly movements
-	const int maxIterations = 64;
-	for ( int i = 0; i < maxIterations; i++ )
+	for ( int i = 0; i < mMaxIterations; i++ )
 	{
 		Vec2f d = mTargetPosition - mCurrentPosition;
 
@@ -156,6 +184,33 @@ void Branch::setup()
 		}
 	}
 #endif
+}
+
+void Branch::loadTextures( const ci::fs::path &textureFolder )
+{
+	fs::path dataPath = app::getAssetPath( textureFolder );
+
+	for ( fs::directory_iterator it( dataPath ); it != fs::directory_iterator(); ++it )
+	{
+		if ( fs::is_regular_file( *it ) && ( it->path().extension().string() == ".png" ) )
+		{
+			std::string basename( it->path().stem().string() );
+			gl::Texture t = loadImage( app::loadAsset( textureFolder / it->path().filename() ) );
+			if ( basename.find( "stem" ) != std::string::npos )
+			{
+				mStemTexture = t;
+			}
+			else
+			if ( basename.find( "branch" ) != std::string::npos )
+				mBranchTexture = t;
+			else
+			if ( basename.find( "leaf" ) != std::string::npos )
+				mLeafTextures.push_back( t );
+			else
+			if ( basename.find( "flower" ) != std::string::npos )
+				mFlowerTextures.push_back( t );
+		}
+	}
 }
 
 void Branch::start()
@@ -185,11 +240,91 @@ void Branch::draw()
 	//gl::color( Color( 0, 1, 0 ) );
 	//gl::draw( mPath );
 
-	gl::color( Color::white() );
+	/*
 	glEnableClientState( GL_VERTEX_ARRAY );
 	glVertexPointer( 2, GL_FLOAT, 0, &( mPoints[ 0 ] ) );
 	glDrawArrays( GL_LINE_STRIP, 0, mGrowPosition );
 	glDisableClientState( GL_VERTEX_ARRAY );
+	*/
+
+	// create a new vector that can contain 3D vertices
+	std::vector< Vec3f > vertices;
+
+	// to improve performance, make room for the vertices + 2 adjacency vertices
+	vertices.reserve( mGrowPosition + 2 );
+
+	// first, add an adjacency vertex at the beginning
+	vertices.push_back( 2.0f * Vec3f( mPoints[ 0 ] ) - Vec3f( mPoints[ 1 ] ) );
+
+	// next, add all 2D points as 3D vertices
+	for ( size_t i = 0; i < mGrowPosition; i++ )
+	{
+		//	vertices.push_back( Vec3f( mPoints[ i ] ) );
+		if ( vertices.empty() ||
+			 ( vertices.back().distanceSquared( Vec3f( mPoints[ i ] ) ) > 25.f ) )
+			vertices.push_back( Vec3f( mPoints[ i ] ) );
+	}
+
+	// next, add an adjacency vertex at the end
+	size_t n = mGrowPosition;
+	vertices.push_back( 2.0f * Vec3f( mPoints[ n - 1 ] ) - Vec3f( mPoints[ n - 2 ] ) );
+
+	// now that we have a list of vertices, create the index buffer
+	n = vertices.size() - 2;
+	std::vector< uint32_t > indices;
+
+	indices.reserve( n * 4 );
+	for ( size_t i = 1 ; i < vertices.size() - 2; ++i )
+	{
+		indices.push_back( i - 1 );
+		indices.push_back( i );
+		indices.push_back( i + 1 );
+		indices.push_back( i + 2 );
+	}
+
+	std::vector< Vec2f > texCoords;
+	n = vertices.size();
+	texCoords.reserve( n );
+	Vec2f uv( Vec2f::zero() );
+	Vec2f step( 0.0f, 1.f / n );
+	for ( size_t i = 0 ; i < n; ++i )
+	{
+		texCoords.push_back( uv );
+		uv += step;
+	}
+
+	// finally, create the mesh
+	gl::VboMesh::Layout layout;
+	layout.setStaticPositions();
+	layout.setStaticIndices();
+	layout.setStaticTexCoords2d();
+
+	gl::VboMesh mVboMesh = gl::VboMesh( vertices.size(), indices.size(), layout, GL_LINES_ADJACENCY_EXT );
+	mVboMesh.bufferPositions( &(vertices.front()), vertices.size() );
+	mVboMesh.bufferIndices( indices );
+	mVboMesh.bufferTexCoords2d( 0, texCoords );
+
+	// FIXME: the first line segment is not drawn
+	if ( sShader )
+	{
+		sShader.bind();
+
+		sShader.uniform( "WIN_SCALE", mWindowSize );
+		sShader.uniform( "MITER_LIMIT", mLimit );
+		sShader.uniform( "THICKNESS", mThickness );
+		sShader.uniform( "tex0", 0 );
+	}
+	gl::color( mColor );
+
+	if ( mStemTexture )
+		mStemTexture.bind();
+
+	gl::draw( mVboMesh );
+	if ( mStemTexture )
+		mStemTexture.unbind();
+
+	if ( sShader )
+		sShader.unbind();
 
 #if 0
 	//const std::vector< Vec2f > &points = mPath.subdivide( .001f );

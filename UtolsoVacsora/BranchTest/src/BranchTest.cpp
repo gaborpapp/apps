@@ -51,7 +51,9 @@ class BranchTestApp : public AppBasic
 		float mBearingDelta;
 		float mLengthMin, mLengthMax;
 		double mGrowSpeed;
+		float mThickness;
 
+		BranchRef mTextureBranch; //< branch for holding the textures
 		vector< BranchRef > mBranches;
 		int mPointNum = 0;
 		Vec2i mPoints[ 2 ];
@@ -75,6 +77,11 @@ void BranchTestApp::setup()
 	mParams.addPersistentParam( "Length min", &mLengthMin, 10, "min=1 max=512 step=1" );
 	mParams.addPersistentParam( "Length max", &mLengthMax, 64, "min=1 max=512 step=1" );
 	mParams.addPersistentParam( "Grow speed", &mGrowSpeed, 3., "min=0 step=.05" );
+	mParams.addPersistentParam( "Thickness", &mThickness, 16.f, "min=1 max=256" );
+
+	mTextureBranch = Branch::create();
+	mTextureBranch->loadTextures( "moppi_flower" );
+	//mTextureBranch->loadTextures( "moppi_tron" );
 }
 
 void BranchTestApp::update()
@@ -92,10 +99,12 @@ void BranchTestApp::draw()
 
 	gl::clear();
 	gl::color( Color::white() );
+	gl::enableAlphaBlending();
 	for ( auto &b : mBranches )
 	{
 		b->draw();
 	}
+	gl::disableAlphaBlending();
 
 	gl::color( Color( 0, 0, 1 ) );
 	gl::drawSolidCircle( mPoints[ 0 ], 2 );
@@ -104,19 +113,24 @@ void BranchTestApp::draw()
 	mParams.draw();
 }
 
-
 void BranchTestApp::mouseDown( MouseEvent event )
 {
 	mPoints[ mPointNum ] = event.getPos();
 	mPointNum++;
 	if ( mPointNum == 2 )
 	{
-		mBranches.push_back( Branch::create( mPoints[ 0 ], mPoints[ 1 ] ) );
-		mBranches.back()->setStemBearingDelta( mBearingDelta * 2 * M_PI );
-		mBranches.back()->setStemLength( mLengthMin, mLengthMax );
-		mBranches.back()->setGrowSpeed( mGrowSpeed );
-		mBranches.back()->setup();
-		mBranches.back()->start();
+		BranchRef b = Branch::create();
+		b->setStemBearingDelta( mBearingDelta * 2 * M_PI );
+		b->setStemLength( mLengthMin, mLengthMax );
+		b->setGrowSpeed( mGrowSpeed );
+		b->setThickness( mThickness );
+		b->setTextures( mTextureBranch->getStemTexture(),
+				mTextureBranch->getBranchTexture(), mTextureBranch->getLeafTextures(),
+				mTextureBranch->getFlowerTextures() );
+		b->setup( mPoints[ 0 ], mPoints[ 1 ] );
+		b->start();
+		b->resize( getWindowSize() );
+		mBranches.push_back( b );
 		mPointNum = 0;
 	}
 }
