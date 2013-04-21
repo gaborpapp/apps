@@ -49,6 +49,18 @@ class Branch
 		//! Sets the thickness of the branch in pixels.
 		void setThickness( float thickness ) { mThickness = thickness; }
 
+		//! Sets the spawn interval of leaves, flowers, branches in pixels.
+		void setSpawnInterval( float interval ) { mSpawnInterval = interval; }
+
+		//! Sets the branch angle of leaves, flowers, branches.
+		void setBranchAngle( float angle ) { mBranchAngle = angle; }
+
+		//! Sets the scale factor of leaf and flower textures;
+		void setItemScale( float scale ) { mItemScale = scale; }
+
+		//! Sets the main color of the branch.
+		void setColor( const ci::ColorA &color ) { mColor = color; }
+
 		void setup( const ci::Vec2f &start, const ci::Vec2f &target );
 
 		void start();
@@ -97,6 +109,25 @@ class Branch
 		float mThickness = 50.f;
 		float mLimit = .75f;
 		ci::ColorA mColor = ci::ColorA::white();
+		float mSpawnInterval = 32.f; //< spawn leaves,flowers,branches at every mSpawnInterval pixels
+		float mBranchAngle = M_PI * 25.f;
+
+		struct BranchItem
+		{
+			BranchItem( ci::gl::Texture texture, const ci::Vec2f &position, const ci::Vec2f &direction );
+
+			void draw();
+
+			ci::gl::Texture mTexture;
+			ci::Vec2f mPosition;
+			float mRotation;
+			float mScale = 1.f;
+		};
+
+		float mCurrentItemSide = 1.f; //< 1 for right, -1 for left
+		float mLastItemLength = 0.f;
+		float mItemScale = 1.f;
+		std::vector< BranchItem > mBranchItems;
 
 		static ci::gl::GlslProg sShader;
 

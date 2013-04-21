@@ -48,8 +48,12 @@ class BranchTestApp : public AppBasic
 		float mFps;
 		bool mVerticalSyncEnabled;
 
+		ColorA  mColor;
 		float mBearingDelta;
 		float mLengthMin, mLengthMax;
+		float mSpawnInterval;
+		float mBranchAngle;
+		float mBranchItemScale;
 		double mGrowSpeed;
 		float mThickness;
 
@@ -73,9 +77,13 @@ void BranchTestApp::setup()
 	mParams.addPersistentParam( "Vertical sync", &mVerticalSyncEnabled, false );
 	mParams.addSeparator();
 
+	mParams.addPersistentParam( "Color", &mColor, ColorA::white() );
 	mParams.addPersistentParam( "Bearing delta", &mBearingDelta, .12, "min=0 max=1 step=.01" );
-	mParams.addPersistentParam( "Length min", &mLengthMin, 10, "min=1 max=512 step=1" );
-	mParams.addPersistentParam( "Length max", &mLengthMax, 64, "min=1 max=512 step=1" );
+	mParams.addPersistentParam( "Length min", &mLengthMin, 10, "min=1 max=512" );
+	mParams.addPersistentParam( "Length max", &mLengthMax, 64, "min=1 max=512" );
+	mParams.addPersistentParam( "Spawn interval", &mSpawnInterval, 32.f, "min=1 max=512" );
+	mParams.addPersistentParam( "Branch angle", &mBranchAngle, .25f, "min=0 max=1. step=.01" );
+	mParams.addPersistentParam( "Item scale", &mBranchItemScale, .5f, "min=0 max=16 step=.05" );
 	mParams.addPersistentParam( "Grow speed", &mGrowSpeed, 3., "min=0 step=.05" );
 	mParams.addPersistentParam( "Thickness", &mThickness, 16.f, "min=1 max=256" );
 
@@ -106,9 +114,11 @@ void BranchTestApp::draw()
 	}
 	gl::disableAlphaBlending();
 
+	/*
 	gl::color( Color( 0, 0, 1 ) );
 	gl::drawSolidCircle( mPoints[ 0 ], 2 );
 	gl::drawSolidCircle( mPoints[ 1 ], 2 );
+	*/
 
 	mParams.draw();
 }
@@ -120,8 +130,12 @@ void BranchTestApp::mouseDown( MouseEvent event )
 	if ( mPointNum == 2 )
 	{
 		BranchRef b = Branch::create();
+		b->setColor( mColor );
 		b->setStemBearingDelta( mBearingDelta * 2 * M_PI );
 		b->setStemLength( mLengthMin, mLengthMax );
+		b->setSpawnInterval( mSpawnInterval );
+		b->setItemScale( mBranchItemScale );
+		b->setBranchAngle( mBranchAngle * M_PI );
 		b->setGrowSpeed( mGrowSpeed );
 		b->setThickness( mThickness );
 		b->setTextures( mTextureBranch->getStemTexture(),

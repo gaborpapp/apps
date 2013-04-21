@@ -247,6 +247,9 @@ void Branch::draw()
 	glDisableClientState( GL_VERTEX_ARRAY );
 	*/
 
+	if ( mPoints.size() < 2 )
+		return;
+
 	// create a new vector that can contain 3D vertices
 	std::vector< Vec3f > vertices;
 
@@ -257,12 +260,20 @@ void Branch::draw()
 	vertices.push_back( 2.0f * Vec3f( mPoints[ 0 ] ) - Vec3f( mPoints[ 1 ] ) );
 
 	// next, add all 2D points as 3D vertices
+	size_t endIndex = 0;
+	float currentLength = 0;
 	for ( size_t i = 0; i < mGrowPosition; i++ )
 	{
+		float d = 0;
+		if ( !vertices.empty() )
+			d = vertices.back().distance( Vec3f( mPoints[ i ] ) );
 		//	vertices.push_back( Vec3f( mPoints[ i ] ) );
-		if ( vertices.empty() ||
-			 ( vertices.back().distanceSquared( Vec3f( mPoints[ i ] ) ) > 25.f ) )
+		if ( vertices.empty() || d > 5.f )
+		{
 			vertices.push_back( Vec3f( mPoints[ i ] ) );
+			endIndex = i;
+			currentLength += d;
+		}
 	}
 
 	// next, add an adjacency vertex at the end
@@ -325,6 +336,48 @@ void Branch::draw()
 
 	if ( sShader )
 		sShader.unbind();
+
+	// current direction
+	Vec2f dir;
+	if ( endIndex == 0 )
+	{
+		dir = mPoints[ 1 ] - mPoints[ 0 ];
+	}
+	else
+	if ( endIndex < mPoints.size() - 1 )
+	{
+		dir = mPoints[ endIndex ] - mPoints[ endIndex - 1 ];
+	}
+	else
+	{
+		size_t n = mPoints.size() - 1;
+		dir = mPoints[ n ] - mPoints[ n - 1 ];
+	}
+	/*
+	dir.normalize();
+	gl::color( Color( 1, 0, 0 ) );
+	gl::drawLine( mPoints[ endIndex ], mPoints[ endIndex ] + 20 * dir );
+	*/
+
+	if ( ( currentLength - mLastItemLength ) > mSpawnInterval )
+	{
+		mLastItemLength = currentLength;
+		dir.rotate( mBranchAngle * mCurrentItemSide );
+		if ( Rand::randInt( 2 ) == 0 )
+			mBranchItems.push_back( BranchItem( mLeafTextures[ Rand::randInt( mLeafTextures.size() ) ],
+						mPoints[ endIndex ], dir ) );
+		else
+			mBranchItems.push_back( BranchItem( mFlowerTextures[ Rand::randInt( mFlowerTextures.size() ) ],
+						mPoints[ endIndex ], dir ) );
+		mBranchItems.back().mScale = mItemScale;
+		mCurrentItemSide *= -1.f;
+	}
+
+	gl::color( mColor );
+	for ( auto &item : mBranchItems )
+	{
+		item.draw();
+	}
 
 #if 0
 	//const std::vector< Vec2f > &points = mPath.subdivide( .001f );
@@ -412,5 +465,22 @@ void Branch::addArc( const Vec2f &p1 )
 	// arc direction depends on the quadrant, in which the new point resides
 	bool forward = ( s > 0.f ) ^ ( dist < 0.f );
 	mPath.arc( c, d0.length(), a0, a1, forward );
+}
+
+Branch::BranchItem::BranchItem( gl::Texture texture, const Vec2f &position, const Vec2f &direction ) :
+	mTexture( texture ), mPosition( position )
+{
+	mRotation = toDegrees( math< float >::atan2( direction.y, direction.x ) ) + 45.f;
+}
+
+void Branch::BranchItem::BranchItem::draw()
+{
+	gl::pushModelView();
+	gl::translate( mPosition );
+	gl::rotate( mRotation );
+	gl::scale( Vec2f( mScale, mScale ) );
+	gl::translate( Vec2f( 0, -mTexture.getHeight() ) );
+	gl::draw( mTexture );
+	gl::popModelView();
 }
 
