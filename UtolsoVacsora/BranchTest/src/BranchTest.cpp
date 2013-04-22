@@ -57,7 +57,8 @@ class BranchTestApp : public AppBasic
 		double mGrowSpeed;
 		float mThickness;
 
-		BranchRef mTextureBranch; //< branch for holding the textures
+		vector< BranchRef > mTextureBranches; //< branches for holding the texture collections
+		int mTextureCollectionId;
 		vector< BranchRef > mBranches;
 		int mPointNum = 0;
 		Vec2i mPoints[ 2 ];
@@ -87,9 +88,18 @@ void BranchTestApp::setup()
 	mParams.addPersistentParam( "Grow speed", &mGrowSpeed, 3., "min=0 step=.05" );
 	mParams.addPersistentParam( "Thickness", &mThickness, 16.f, "min=1 max=256" );
 
-	mTextureBranch = Branch::create();
-	mTextureBranch->loadTextures( "moppi_flower" );
-	//mTextureBranch->loadTextures( "moppi_tron" );
+	vector< string > textureFolderNames;
+	fs::path assetPath = app::getAssetPath( "." );
+	for ( fs::directory_iterator it( assetPath ); it != fs::directory_iterator(); ++it )
+	{
+		if ( fs::is_directory( *it ) )
+		{
+			textureFolderNames.push_back( it->path().filename().string() );
+			mTextureBranches.push_back( Branch::create() );
+			mTextureBranches.back()->loadTextures( it->path().filename() );
+		}
+	}
+	mParams.addPersistentParam( "Textures", textureFolderNames, &mTextureCollectionId, 0 );
 }
 
 void BranchTestApp::update()
@@ -138,9 +148,10 @@ void BranchTestApp::mouseDown( MouseEvent event )
 		b->setBranchAngle( mBranchAngle * M_PI );
 		b->setGrowSpeed( mGrowSpeed );
 		b->setThickness( mThickness );
-		b->setTextures( mTextureBranch->getStemTexture(),
-				mTextureBranch->getBranchTexture(), mTextureBranch->getLeafTextures(),
-				mTextureBranch->getFlowerTextures() );
+		BranchRef textureBranch = mTextureBranches[ mTextureCollectionId ];
+		b->setTextures( textureBranch->getStemTexture(),
+				textureBranch->getBranchTexture(), textureBranch->getLeafTextures(),
+				textureBranch->getFlowerTextures() );
 		b->setup( mPoints[ 0 ], mPoints[ 1 ] );
 		b->start();
 		b->resize( getWindowSize() );
