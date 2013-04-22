@@ -115,11 +115,12 @@ void GSRDApp::setup()
 	shader_envmap = gl::GlslProg(loadResource(RES_PASS_THRU_VERT), loadResource(RES_ENVMAP_FRAG));
 	envmap_tex = gl::Texture(loadImage(loadResource(RES_ENVMAP_TEX)));
 
-	enableVSync(false);
+	gl::disableVerticalSync();
 }
 
 void GSRDApp::shutdown()
 {
+	capture.stop();
 }
 
 void GSRDApp::update()
@@ -240,7 +241,7 @@ void GSRDApp::draw()
 	if (show_fps)
 		gl::drawString("FPS: " + toString(getAverageFps()), Vec2f(10.0f, 10.0f), Color::white(), font);
 
-	params::InterfaceGl::draw();
+	params.draw();
 }
 
 void GSRDApp::reset()
@@ -262,15 +263,6 @@ void GSRDApp::reset()
 	}
 	gl::disableAlphaBlending();
 }
-
-void GSRDApp::enableVSync(bool vs)
-{
-#if defined(CINDER_MAC)
-	GLint vsync = vs;
-	CGLSetParameter(CGLGetCurrentContext(), kCGLCPSwapInterval, &vsync);
-#endif
-}
-
 
 void GSRDApp::keyDown(KeyEvent event)
 {

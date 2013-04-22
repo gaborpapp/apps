@@ -1,21 +1,22 @@
-TARGET = 'GSRDApp'
-SOURCES  = ['GSRDApp.cpp']
-RESOURCES = ['gsrd_frag.glsl', 'passthru_vert.glsl', 'redlum_frag.glsl', 'seed_frag.glsl']
+env = Environment()
 
-SOURCES += ['GaussianBlur.cpp']
-RESOURCES += ['blurh11_vert.glsl', 'blurv11_vert.glsl', 
-		'blurh11_frag.glsl', 'blurv11_frag.glsl']
+env['APP_TARGET'] = 'GSRDApp'
+env['APP_SOURCES']  = ['GSRDApp.cpp']
+env['RESOURCES'] = ['gsrd_frag.glsl', 'passthru_vert.glsl', 'redlum_frag.glsl', 'seed_frag.glsl']
 
-SOURCES += ['Sobel.cpp']
-RESOURCES += ['sobel_frag.glsl']
+env['APP_SOURCES'] += ['GaussianBlur.cpp']
+env['RESOURCES'] += ['blurh11_vert.glsl', 'blurv11_vert.glsl',
+					'blurh11_frag.glsl', 'blurv11_frag.glsl']
 
-SOURCES += ['FreiChen.cpp']
-RESOURCES += ['freichen_frag.glsl']
+env['APP_SOURCES'] += ['Sobel.cpp']
+env['RESOURCES'] += ['sobel_frag.glsl']
 
-RESOURCES += ['envmap_frag.glsl', 'envmap.jpg']
+env['APP_SOURCES'] += ['FreiChen.cpp']
+env['RESOURCES'] += ['freichen_frag.glsl']
 
-DEBUG = 0
+env['RESOURCES'] += ['envmap_frag.glsl', 'envmap.jpg']
 
-SConscript('../../../scons/SConscript',
-	exports = ['TARGET', 'SOURCES', 'DEBUG', 'RESOURCES'])
+env['DEBUG'] = 0
+
+SConscript('../../../scons/SConscript', exports = 'env')
 
