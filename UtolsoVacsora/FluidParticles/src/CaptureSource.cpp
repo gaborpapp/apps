@@ -332,5 +332,12 @@ void CaptureSource::playVideoCB()
 	}
 }
 
+void CaptureSource::drawParams()
+{
+	mParams.draw();
+	mCaptureParams.draw();
+	mCapture1394PParams->drawParams();
+}
+
 } // namespace mndl
 

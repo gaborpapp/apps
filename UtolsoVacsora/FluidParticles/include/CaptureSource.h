@@ -34,6 +34,8 @@ class CaptureSource
 	public:
 		void setup();
 		void update();
+		void drawParams();
+
 		void shutdown();
 
 		bool isCapturing() const;

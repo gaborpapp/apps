@@ -225,5 +225,10 @@ void Capture1394PParams::Obj::update()
 	}
 }
 
+void Capture1394PParams::Obj::drawParams()
+{
+	mParams.draw();
+}
+
 } // namespace mndl
 

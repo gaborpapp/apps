@@ -34,6 +34,7 @@ class Capture1394PParams
 		~Capture1394PParams() {}
 
 		void update() { mObj->update(); }
+		void drawParams() { mObj->drawParams(); }
 
 		const Capture1394Ref getCurrentCaptureRef() const { return mObj->mCaptures[ mObj->mCurrentCapture ]; }
 
@@ -67,6 +68,7 @@ class Capture1394PParams
 			~Obj();
 
 			void update();
+			void drawParams();
 
 			std::vector< Capture1394Ref > mCaptures;
 			std::vector< std::string > mDeviceNames;

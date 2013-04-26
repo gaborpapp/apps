@@ -30,6 +30,7 @@
 
 #include "CaptureSource.h"
 #include "FluidParticles.h"
+#include "FluidLetters.h"
 
 using namespace ci;
 using namespace ci::app;
@@ -44,6 +45,8 @@ class FludParticlesApp : public AppBasic
 		void shutdown();
 
 		void keyDown( KeyEvent event );
+		void mouseMove( MouseEvent event );
+		void mouseDrag( MouseEvent event );
 
 		void update();
 		void draw();
@@ -97,7 +100,9 @@ class FludParticlesApp : public AppBasic
 		float mVelParticleMin;
 		float mVelParticleMax;
 
-		void addToFluid( Vec2f pos, Vec2f vel, bool addParticles = true, bool addForce = true, bool addColor = true );
+		void addToFluid( Vec2f pos, Vec2f vel, bool addParticles = true, bool addForce = true, bool addColor = true, bool addLetters = false );
+		LetterManagerRef mLetterManager;
+		Vec2i mMousePrev;
 
 		mndl::gl::fx::KawaseStreak mKawaseStreak;
 
@@ -171,6 +176,8 @@ void FludParticlesApp::setup()
 	mParams.addPersistentParam( "Streak strength", &mStreakStrength, .8f, "min=0 max=1 step=.05" );
 
     mParticles.setFluidSolver( &mFluidSolver );
+	mLetterManager = LetterManager::create();
+    mLetterManager->setFluidSolver( &mFluidSolver );
 
 	gl::Fbo::Format format;
 	format.enableDepthBuffer( false );
@@ -183,6 +190,7 @@ void FludParticlesApp::setup()
 
 void FludParticlesApp::resize()
 {
+	mLetterManager->setWindowSize( getWindowSize() );
 }
 
 void FludParticlesApp::update()
@@ -288,16 +296,18 @@ void FludParticlesApp::update()
 
 	mParticles.setAging( mParticleAging );
 	mParticles.update( getElapsedSeconds() );
+
+	mLetterManager->update( getElapsedSeconds() );
 }
 
-void FludParticlesApp::addToFluid( Vec2f pos, Vec2f vel, bool addParticles, bool addForce, bool addColor )
+void FludParticlesApp::addToFluid( Vec2f pos, Vec2f vel, bool addParticles, bool addForce, bool addColor, bool addLetters )
 {
 	if ( vel.lengthSquared() > 0.000001f )
 	{
 		pos.x = constrain( pos.x, 0.0f, 1.0f );
 		pos.y = constrain( pos.y, 0.0f, 1.0f );
 
-		if ( addParticles )
+		if ( addParticles || addLetters )
 		{
 			int count = static_cast<int>(
 					lmap<float>( vel.length() * mVelParticleMult * mParticlesFbo.getWidth(),
@@ -305,7 +315,10 @@ void FludParticlesApp::addToFluid( Vec2f pos, Vec2f vel, bool addParticles, bool
 						mParticleMin, mParticleMax ) );
 			if (count > 0)
 			{
-				mParticles.addParticle( pos * Vec2f( mParticlesFbo.getSize() ), count );
+				if ( addParticles )
+					mParticles.addParticle( pos * Vec2f( mParticlesFbo.getSize() ), count );
+				if ( addLetters )
+					mLetterManager->addLetter( pos * Vec2f( getWindowSize() ), count );
 			}
 		}
 		if ( addForce )
@@ -357,6 +370,9 @@ void FludParticlesApp::draw()
 				gl::enableAlphaBlending();
 			gl::color( Color::white() );
 			gl::draw( output, getWindowBounds() );
+			gl::enableAlphaBlending();
+			mLetterManager->draw();
+			gl::disableAlphaBlending();
 		}
 		if ( mDrawFluid )
 			gl::disableAlphaBlending();
@@ -418,7 +434,21 @@ void FludParticlesApp::draw()
 		}
 	}
 
-	mndl::params::PInterfaceGl::draw();
+	mParams.draw();
+	mCaptureSource.drawParams();
+}
+
+void FludParticlesApp::mouseMove( MouseEvent event )
+{
+	mMousePrev = event.getPos();
+}
+
+void FludParticlesApp::mouseDrag( MouseEvent event )
+{
+	Vec2f mouseNorm = Vec2f( event.getPos() ) / getWindowSize();
+	Vec2f mouseVel = Vec2f( event.getPos() - mMousePrev ) / getWindowSize();
+	addToFluid( mouseNorm, mouseVel, false, true, false, true );
+	mMousePrev = event.getPos();
 }
 
 void FludParticlesApp::shutdown()
