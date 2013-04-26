@@ -102,6 +102,9 @@ class FludParticlesApp : public AppBasic
 
 		void addToFluid( Vec2f pos, Vec2f vel, bool addParticles = true, bool addForce = true, bool addColor = true, bool addLetters = false );
 		LetterManagerRef mLetterManager;
+		string mLetters;
+		string mFontName;
+		float mFontSizeMin, mFontSizeMax;
 		Vec2i mMousePrev;
 
 		mndl::gl::fx::KawaseStreak mKawaseStreak;
@@ -147,6 +150,21 @@ void FludParticlesApp::setup()
 	mParams.addPersistentParam( "Velocity particle max", &mVelParticleMax, 60.f, "min=1 max=100 step=.5" );
 	mParams.addSeparator();
 
+	mParams.addText( "Letters" );
+	mParams.addPersistentParam( "Letter allowed", &mLetters, "Aa" );
+	mParams.addPersistentParam( "Font name", &mFontName, Font::getDefault().getName() );
+	mParams.addButton( "Set font", [ this ]() { mLetterManager->setFont( mFontName ); } );
+	mParams.addPersistentParam( "Font size min", &mFontSizeMin, 12, "min=1 step=.5" );
+	mParams.addPersistentParam( "Font size max", &mFontSizeMax, 24, "min=1 step=.5" );
+	mParams.addSeparator();
+
+	mParams.addPersistentParam( "Particle max", &mParticleMax, 25, "min=0 max=50" );
+	mParams.addPersistentParam( "Velocity max", &mMaxVelocity, 7.f, "min=1 max=100" );
+	mParams.addPersistentParam( "Velocity particle multiplier", &mVelParticleMult, .57, "min=0 max=2 step=.01" );
+	mParams.addPersistentParam( "Velocity particle min", &mVelParticleMin, 1.f, "min=1 max=100 step=.5" );
+	mParams.addPersistentParam( "Velocity particle max", &mVelParticleMax, 60.f, "min=1 max=100 step=.5" );
+	mParams.addSeparator();
+
 	mCaptureSource.setup();
 
 	// fluid
@@ -178,6 +196,7 @@ void FludParticlesApp::setup()
     mParticles.setFluidSolver( &mFluidSolver );
 	mLetterManager = LetterManager::create();
     mLetterManager->setFluidSolver( &mFluidSolver );
+	mLetterManager->setFont( mFontName );
 
 	gl::Fbo::Format format;
 	format.enableDepthBuffer( false );
@@ -297,6 +316,8 @@ void FludParticlesApp::update()
 	mParticles.setAging( mParticleAging );
 	mParticles.update( getElapsedSeconds() );
 
+	mLetterManager->setLetters( mLetters );
+	mLetterManager->setSize( mFontSizeMin, mFontSizeMax );
 	mLetterManager->update( getElapsedSeconds() );
 }
 
@@ -318,7 +339,7 @@ void FludParticlesApp::addToFluid( Vec2f pos, Vec2f vel, bool addParticles, bool
 				if ( addParticles )
 					mParticles.addParticle( pos * Vec2f( mParticlesFbo.getSize() ), count );
 				if ( addLetters )
-					mLetterManager->addLetter( pos * Vec2f( getWindowSize() ), count );
+					mLetterManager->addLetter( pos * Vec2f( getWindowSize() ) );
 			}
 		}
 		if ( addForce )
@@ -494,6 +515,10 @@ void FludParticlesApp::keyDown( KeyEvent event )
 
 		case KeyEvent::KEY_ESCAPE:
 			quit();
+			break;
+
+		case KeyEvent::KEY_m:
+			showCursor();
 			break;
 
 		default:

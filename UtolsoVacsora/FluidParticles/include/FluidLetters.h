@@ -1,6 +1,7 @@
 #pragma once
 
-#include <list>
+#include <vector>
+#include <string>
 
 #include "cinder/Vector.h"
 #include "cinder/gl/TextureFont.h"
@@ -10,12 +11,14 @@
 class Letter
 {
 	public:
-		Letter( const ci::Vec2f &pos, ci::gl::TextureFontRef textureFont );
+		Letter( const ci::Vec2f &pos, const std::string &letter, ci::gl::TextureFontRef textureFont );
 
 		void update( double time, const ciMsaFluidSolver *solver, const ci::Vec2f &windowSize, const ci::Vec2f &invWindowSize );
 
 		void draw();
 		bool isAlive() { return mLifeSpan > 0; }
+
+		static void setSize( float minSize, float maxSize ) { sSizeMin = minSize; sSizeMax = maxSize; }
 
 	protected:
 		ci::gl::TextureFontRef mTextureFont;
@@ -23,15 +26,13 @@ class Letter
 		ci::Vec2f mPos;
 		ci::Vec2f mVel;
 		float mSize;
-		float mLifeSpan;
+		float mLifeSpan, mMaxLife;
 		float mMass;
-
-		float mSlideAmplitude;
-		float mSlideFrequency;
-		float mSlideOffset;
+		std::string mLetter;
 
 		static const float sMomentum;
 		static const float sFluidForce;
+		static float sSizeMin, sSizeMax;
 };
 
 class LetterManager;
@@ -45,10 +46,14 @@ class LetterManager
 		void setWindowSize( ci::Vec2i winSize );
 		void setFluidSolver( const ciMsaFluidSolver *aSolver ) { mSolver = aSolver; }
 
+		void setFont( const std::string &fontName );
+		void setLetters( const std::string &letters ) { mAllowedLetters = letters; }
+		void setSize( float minSize, float maxSize );
+
 		void update( double seconds );
 		void draw();
 
-		void addLetter( const ci::Vec2f &pos, int32_t count );
+		void addLetter( const ci::Vec2f &pos );
 
 	private:
 		LetterManager();
@@ -57,9 +62,12 @@ class LetterManager
 
 		const ciMsaFluidSolver *mSolver;
 
-		std::list< Letter > mLetters;
+		std::vector< Letter > mLetters;
 		ci::Font mFont;
 		ci::gl::TextureFontRef mTextureFont;
+		std::string mAllowedLetters;
+
+		float mSizeMin, mSizeMax;
 };
 
 
