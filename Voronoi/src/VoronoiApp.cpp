@@ -306,7 +306,7 @@ void VoronoiApp::draw()
 		}
 	}
 
-	params::InterfaceGl::draw();
+	mParams.draw();
 }
 
 void VoronoiApp::mouseDown( MouseEvent event )
