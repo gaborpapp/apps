@@ -331,12 +331,9 @@ void FludParticlesApp::update()
 			if ( ( maskRectNorm.getWidth() > 0 ) && maskRectNorm.getHeight() > 0 )
 			{
 				Rectf maskRect = maskRectNorm.getOffset( -mPreviewRectNorm.getUpperLeft() );
-				console() << "offset: " << maskRect << endl;
 				maskRect.scale( Vec2f::one() / mPreviewRectNorm.getSize() );
-				console() << "scaled: " << maskRect << endl;
 				Area maskArea( maskRect.scaled( Vec2f( mFlow.cols, mFlow.rows ) ) );
 
-				console() << maskRectNorm << " " << mFlow.cols << ", " << mFlow.rows << endl;
 				for ( int y = maskArea.y1; y < maskArea.y2; y++ )
 				{
 					for ( int x = maskArea.x1; x < maskArea.x2; x++ )
