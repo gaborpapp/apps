@@ -54,6 +54,9 @@ class FludParticlesApp : public AppBasic
 	private:
 		mndl::params::PInterfaceGl mParams;
 
+		void drawOutput();
+		void drawControl();
+
 		float mFps;
 		bool mVerticalSyncEnabled;
 
@@ -102,6 +105,7 @@ class FludParticlesApp : public AppBasic
 
 		void addToFluid( Vec2f pos, Vec2f vel, bool addParticles = true, bool addForce = true, bool addColor = true, bool addLetters = false );
 		LetterManagerRef mLetterManager;
+		bool mLettersEnabled;
 		string mLetters;
 		string mFontName;
 		float mFontSizeMin, mFontSizeMax;
@@ -112,6 +116,9 @@ class FludParticlesApp : public AppBasic
 		float mStreakAttenuation;
 		int mStreakIterations;
 		float mStreakStrength;
+
+		app::WindowRef mOutputWindow;
+		app::WindowRef mControlWindow;
 };
 
 void FludParticlesApp::prepareSettings( Settings *settings )
@@ -121,8 +128,11 @@ void FludParticlesApp::prepareSettings( Settings *settings )
 
 void FludParticlesApp::setup()
 {
+	mOutputWindow = getWindow();
+	mControlWindow = createWindow( Window::Format().size( 600, 600 ) );
+
 	mndl::params::PInterfaceGl::load( "params.xml" );
-	mParams = mndl::params::PInterfaceGl( "Parameters", Vec2i( 310, 300 ), Vec2i( 16, 16 ) );
+	mParams = mndl::params::PInterfaceGl( mControlWindow, "Parameters", Vec2i( 310, 300 ), Vec2i( 16, 16 ) );
 	mParams.addPersistentSizeAndPosition();
 	mParams.addParam( "Fps", &mFps, "", true );
 	mParams.addPersistentParam( "Vertical sync", &mVerticalSyncEnabled, false );
@@ -151,6 +161,7 @@ void FludParticlesApp::setup()
 	mParams.addSeparator();
 
 	mParams.addText( "Letters" );
+	mParams.addPersistentParam( "Letters enabled", &mLettersEnabled, false );
 	mParams.addPersistentParam( "Letter allowed", &mLetters, "Aa" );
 	mParams.addPersistentParam( "Font name", &mFontName, Font::getDefault().getName() );
 	mParams.addButton( "Set font", [ this ]() { mLetterManager->setFont( mFontName ); } );
@@ -209,7 +220,8 @@ void FludParticlesApp::setup()
 
 void FludParticlesApp::resize()
 {
-	mLetterManager->setWindowSize( getWindowSize() );
+	if ( getWindow() == mOutputWindow )
+		mLetterManager->setWindowSize( getWindowSize() );
 }
 
 void FludParticlesApp::update()
@@ -354,6 +366,23 @@ void FludParticlesApp::addToFluid( Vec2f pos, Vec2f vel, bool addParticles, bool
 
 void FludParticlesApp::draw()
 {
+	if ( getWindow() == mControlWindow )
+		drawControl();
+	else
+		drawOutput();
+}
+
+void FludParticlesApp::drawControl()
+{
+	gl::clear();
+	gl::setViewport( getWindowBounds() );
+	gl::setMatricesWindow( getWindowSize() );
+	mParams.draw();
+	mCaptureSource.drawParams();
+}
+
+void FludParticlesApp::drawOutput()
+{
 	gl::clear();
 
 	gl::setViewport( getWindowBounds() );
@@ -391,9 +420,12 @@ void FludParticlesApp::draw()
 				gl::enableAlphaBlending();
 			gl::color( Color::white() );
 			gl::draw( output, getWindowBounds() );
-			gl::enableAlphaBlending();
-			mLetterManager->draw();
-			gl::disableAlphaBlending();
+			if ( mLettersEnabled )
+			{
+				gl::enableAlphaBlending();
+				mLetterManager->draw();
+				gl::disableAlphaBlending();
+			}
 		}
 		if ( mDrawFluid )
 			gl::disableAlphaBlending();
@@ -454,9 +486,6 @@ void FludParticlesApp::draw()
 			}
 		}
 	}
-
-	mParams.draw();
-	mCaptureSource.drawParams();
 }
 
 void FludParticlesApp::mouseMove( MouseEvent event )
@@ -468,7 +497,7 @@ void FludParticlesApp::mouseDrag( MouseEvent event )
 {
 	Vec2f mouseNorm = Vec2f( event.getPos() ) / getWindowSize();
 	Vec2f mouseVel = Vec2f( event.getPos() - mMousePrev ) / getWindowSize();
-	addToFluid( mouseNorm, mouseVel, false, true, false, true );
+	addToFluid( mouseNorm, mouseVel, false, true, false, mLettersEnabled );
 	mMousePrev = event.getPos();
 }
 
