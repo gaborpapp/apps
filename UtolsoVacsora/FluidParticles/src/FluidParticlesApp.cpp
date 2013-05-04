@@ -47,6 +47,8 @@ class FludParticlesApp : public AppBasic
 		void keyDown( KeyEvent event );
 		void mouseMove( MouseEvent event );
 		void mouseDrag( MouseEvent event );
+		void mouseDown( MouseEvent event );
+		void mouseUp( MouseEvent event );
 
 		void update();
 		void draw();
@@ -119,6 +121,10 @@ class FludParticlesApp : public AppBasic
 
 		app::WindowRef mOutputWindow;
 		app::WindowRef mControlWindow;
+
+		Rectf mPreviewRectNorm;
+		Rectf mOptFlowClipRectNorm;
+		Vec2f mMouseStartNorm, mMouseEndNorm;
 };
 
 void FludParticlesApp::prepareSettings( Settings *settings )
@@ -216,12 +222,26 @@ void FludParticlesApp::setup()
 	mParticles.setWindowSize( mParticlesFbo.getSize() );
 
 	mKawaseStreak = mndl::gl::fx::KawaseStreak( mParticlesFbo.getWidth(), mParticlesFbo.getHeight() );
+
+	mOptFlowClipRectNorm = Rectf( 0, 0, 1, 1 );
 }
 
 void FludParticlesApp::resize()
 {
 	if ( getWindow() == mOutputWindow )
+	{
 		mLetterManager->setWindowSize( getWindowSize() );
+	}
+	else
+	if ( getWindow() == mControlWindow )
+	{
+		const int b = 10;
+		const int pw = int( getWindowWidth() * .4f );
+		const int ph = int( pw / ( 4.f / 3.f ) ); //mCaptureTexture.getAspectRatio() );
+
+		mPreviewRectNorm = Rectf( getWindowWidth() - pw - b, b, getWindowWidth() - b, ph + b );
+		mPreviewRectNorm.scale( Vec2f::one() / Vec2f( getWindowSize() ) );
+	}
 }
 
 void FludParticlesApp::update()
@@ -305,13 +325,26 @@ void FludParticlesApp::update()
 		{
 			RectMapping ofNorm( Area( 0, 0, mFlow.cols, mFlow.rows ),
 					Rectf( 0.f, 0.f, 1.f, 1.f ) );
-			for ( int y = 0; y < mFlow.rows; y++ )
+
+			// calculate mask
+			Rectf maskRectNorm = mOptFlowClipRectNorm.getClipBy( mPreviewRectNorm );
+			if ( ( maskRectNorm.getWidth() > 0 ) && maskRectNorm.getHeight() > 0 )
 			{
-				for ( int x = 0; x < mFlow.cols; x++ )
+				Rectf maskRect = maskRectNorm.getOffset( -mPreviewRectNorm.getUpperLeft() );
+				console() << "offset: " << maskRect << endl;
+				maskRect.scale( Vec2f::one() / mPreviewRectNorm.getSize() );
+				console() << "scaled: " << maskRect << endl;
+				Area maskArea( maskRect.scaled( Vec2f( mFlow.cols, mFlow.rows ) ) );
+
+				console() << maskRectNorm << " " << mFlow.cols << ", " << mFlow.rows << endl;
+				for ( int y = maskArea.y1; y < maskArea.y2; y++ )
 				{
-					Vec2f v = fromOcv( mFlow.at< cv::Point2f >( y, x ) );
-					Vec2f p( x + .5, y + .5 );
-					addToFluid( ofNorm.map( p ), ofNorm.map( v ) * mFlowMultiplier );
+					for ( int x = maskArea.x1; x < maskArea.x2; x++ )
+					{
+						Vec2f v = fromOcv( mFlow.at< cv::Point2f >( y, x ) );
+						Vec2f p( x + .5, y + .5 );
+						addToFluid( ofNorm.map( p ), ofNorm.map( v ) * mFlowMultiplier );
+					}
 				}
 			}
 		}
@@ -377,6 +410,33 @@ void FludParticlesApp::drawControl()
 	gl::clear();
 	gl::setViewport( getWindowBounds() );
 	gl::setMatricesWindow( getWindowSize() );
+
+	if ( mCaptureTexture )
+	{
+		gl::color( Color::white() );
+		Rectf previewRect = mPreviewRectNorm.scaled( Vec2f( getWindowSize() ) );
+		gl::pushModelView();
+		if ( mFlip )
+		{
+			gl::translate( previewRect.getUpperLeft() + Vec2f( previewRect.getWidth(), 0.f ) );
+			gl::scale( -1, 1 );
+			gl::translate( -previewRect.getUpperLeft() );
+		}
+		mCaptureTexture.enableAndBind();
+		gl::drawSolidRect( previewRect );
+		mCaptureTexture.unbind();
+		mCaptureTexture.disable();
+		gl::popModelView();
+		gl::drawStrokedRect( previewRect );
+
+		Rectf maskRect = mOptFlowClipRectNorm.scaled( Vec2f( getWindowSize() ) );
+		maskRect.clipBy( previewRect );
+		gl::enableAlphaBlending();
+		gl::color( ColorA( 1.f, 0.f, 0.f, .2f ) );
+		gl::drawSolidRect( maskRect );
+		gl::disableAlphaBlending();
+	}
+
 	mParams.draw();
 	mCaptureSource.drawParams();
 }
@@ -485,6 +545,23 @@ void FludParticlesApp::drawOutput()
 						ofToWin.map( p + ofScale * v ) );
 			}
 		}
+	}
+}
+
+void FludParticlesApp::mouseDown( MouseEvent event )
+{
+	if ( getWindow() == mControlWindow )
+		mMouseStartNorm = Vec2f( event.getPos() ) / Vec2f( getWindowSize() );
+}
+
+void FludParticlesApp::mouseUp( MouseEvent event )
+{
+	if ( getWindow() == mControlWindow )
+	{
+		mMouseEndNorm = Vec2f( event.getPos() ) / Vec2f( getWindowSize() );
+		float x0 = math< float >::min( mMouseStartNorm.x, mMouseEndNorm.x );
+		float x1 = math< float >::max( mMouseStartNorm.x, mMouseEndNorm.x );
+		mOptFlowClipRectNorm = Rectf( x0, 0.f, x1, 1.f );
 	}
 }
 
