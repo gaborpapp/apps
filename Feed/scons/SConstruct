@@ -1,0 +1,10 @@
+env = Environment()
+
+env['APP_TARGET'] = 'FeedApp'
+env['APP_SOURCES'] = ['FeedApp.cpp']
+env['ASSETS'] = ['tx.jpg']
+env['RESOURCES'] = ['shaders/*']
+env['DEBUG'] = 1
+
+SConscript('../../../scons/SConscript', exports = 'env')
+
