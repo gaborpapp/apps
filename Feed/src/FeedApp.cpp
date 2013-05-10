@@ -96,7 +96,7 @@ void FeedApp::setup()
 		mParams.addParam( "Angle start " + strId , &mExpParams[ i ].start, "step=.00005 group='Angle " + strId +"'" );
 		mParams.addParam( "Angle offset " + strId , &mExpParams[ i ].offset, "step=.00005 group='Angle " + strId +"'" );
 		mParams.addParam( "Increment per frame " + strId , &mExpParams[ i ].addPerFrame, "step=.00005 group='Angle " + strId +"'" );
-		mParams.addParam( "Increment per pixel " + strId , &mExpParams[ i ].addPerPixel, "step=.0000 group='Angle " + strId +"'" );
+		mParams.addParam( "Increment per pixel " + strId , &mExpParams[ i ].addPerPixel, "step=.00005 group='Angle " + strId +"'" );
 		mParams.setOptions( "Angle " + strId, "opened=false" );
 	}
 	randomizeParams( 0x999c );
