@@ -21,9 +21,7 @@
 #include "cinder/gl/GlslProg.h"
 #include "cinder/gl/Texture.h"
 #include "cinder/params/Params.h"
-#include "cinder/Channel.h"
 #include "cinder/Cinder.h"
-#include "cinder/CinderMath.h"
 #include "cinder/ImageIo.h"
 #include "cinder/Rand.h"
 #include "cinder/Utilities.h"
@@ -70,9 +68,6 @@ class FeedApp : public AppBasic
 		bool mVerticalSyncEnabled;
 
 		static const int32_t DISP_SIZE = 512;
-		gl::Texture mDispX, mDispY;
-		Channel32f mDispXChan, mDispYChan;
-
 		gl::Texture mTexture;
 		gl::GlslProg mShader;
 
@@ -131,14 +126,6 @@ void FeedApp::setup()
 		console() << exc.what() << endl;
 	}
 
-	gl::Texture::Format format;
-	format.setWrapS( GL_REPEAT );
-	format.setInternalFormat( GL_R32F );
-	mDispX = gl::Texture( DISP_SIZE, 1, format );
-	mDispY = gl::Texture( DISP_SIZE, 1, format );
-	mDispXChan = Channel32f( DISP_SIZE, 1 );
-	mDispYChan = Channel32f( DISP_SIZE, 1 );
-
 	gl::Fbo::Format fboFormat;
 	fboFormat.enableColorBuffer( true, 2 );
 	fboFormat.enableDepthBuffer( false );
@@ -179,29 +166,6 @@ void FeedApp::update()
 	if ( mVerticalSyncEnabled != gl::isVerticalSyncEnabled() )
 		gl::enableVerticalSync( mVerticalSyncEnabled );
 
-	// update displacement
-	float t = (float)getElapsedSeconds() * mSpeed;
-
-	Channel32f::Iter it = mDispXChan.getIter();
-	float a0 = mExpParams[ 0 ].start + t * mExpParams[ 0 ].addPerFrame;
-	float amp0 = mExpParams[ 0 ].amplitude / DISP_SIZE;
-	while ( it.pixel() )
-	{
-		it.v() = amp0 * math< float >::sin( a0 + mExpParams[ 0 ].offset );
-		a0 += mExpParams[ 0 ].addPerPixel;
-	}
-
-	it = mDispYChan.getIter();
-	float a1 = mExpParams[ 1 ].start + t * mExpParams[ 1 ].addPerFrame;
-	float amp1 = mExpParams[ 1 ].amplitude / DISP_SIZE;
-	while ( it.pixel() )
-	{
-		it.v() = amp1 * ( math< float >::sin( a1 + mExpParams[ 1 ].offset ) );
-		a1 += mExpParams[ 1 ].addPerPixel;
-	}
-
-	mDispX.update( mDispXChan );
-	mDispY.update( mDispYChan );
 }
 
 void FeedApp::draw()
@@ -218,24 +182,29 @@ void FeedApp::draw()
 		mShader.bind();
 		mShader.uniform( "txt", 0 );
 		mShader.uniform( "ptxt", 1 );
-		mShader.uniform( "dispX", 2 );
-		mShader.uniform( "dispY", 3 );
 		mShader.uniform( "feed", mFeed );
 		mShader.uniform( "time", (float)( getElapsedSeconds() / 60. ) );
 		mShader.uniform( "noiseSpeed", mNoiseSpeed );
 		mShader.uniform( "noiseScale", mNoiseScale );
 		mShader.uniform( "noiseDisp", mNoiseDisp );
 		mShader.uniform( "noiseTwirl", mNoiseTwirl );
+
+		float t = (float)getElapsedSeconds() * mSpeed;
+		mShader.uniform( "dispXOffset", mExpParams[ 0 ].start +
+				t * mExpParams[ 0 ].addPerFrame + mExpParams[ 0 ].offset );
+		mShader.uniform( "dispXAddPerPixel", mExpParams[ 0 ].addPerPixel * DISP_SIZE );
+		mShader.uniform( "dispXAmplitude", mExpParams[ 0 ].amplitude / DISP_SIZE );
+		mShader.uniform( "dispYOffset", mExpParams[ 1 ].start +
+				t * mExpParams[ 1 ].addPerFrame + mExpParams[ 1 ].offset );
+		mShader.uniform( "dispYAddPerPixel", mExpParams[ 1 ].addPerPixel * DISP_SIZE );
+		mShader.uniform( "dispYAmplitude", mExpParams[ 1 ].amplitude / DISP_SIZE );
 	}
+
 	mTexture.bind();
 	mFbo.bindTexture( 1, pingPongId ^ 1 );
-	mDispX.bind( 2 );
-	mDispY.bind( 3 );
 	gl::drawSolidRect( mFbo.getBounds() );
 	mTexture.unbind();
 	mFbo.unbindTexture();
-	mDispX.unbind();
-	mDispY.unbind();
 
 	if ( mShader )
 		mShader.unbind();

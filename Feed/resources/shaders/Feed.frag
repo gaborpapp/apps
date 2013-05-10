@@ -1,7 +1,13 @@
 uniform sampler2D txt;
 uniform sampler2D ptxt;
-uniform sampler2D dispX;
-uniform sampler2D dispY;
+
+uniform float dispXAmplitude;
+uniform float dispXOffset;
+uniform float dispXAddPerPixel;
+
+uniform float dispYAmplitude;
+uniform float dispYOffset;
+uniform float dispYAddPerPixel;
 
 uniform float feed;
 uniform float time;
@@ -55,8 +61,8 @@ void main()
 	vec2 uv = gl_TexCoord[ 0 ].st;
 	vec2 puv = gl_TexCoord[ 0 ].st;
 
-	puv.y += texture2D( dispX, vec2( puv.x, .5 ) ).r;
-	puv.x += texture2D( dispY, vec2( puv.y, .5 ) ).r;
+	puv.y += dispYAmplitude * sin( dispYAddPerPixel * puv.x + dispYOffset );
+	puv.x += dispXAmplitude * sin( dispXAddPerPixel * puv.y + dispXOffset );
 
 	float n = noiseTwirl * M_PI * fbm( noiseScale * vec3( puv, noiseSpeed * time ) );
 	puv += noiseDisp * vec2( cos( n ), sin( n ) );
