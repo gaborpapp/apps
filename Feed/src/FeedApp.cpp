@@ -50,14 +50,20 @@ class FeedApp : public AppBasic
 
 		float mSpeed;
 		float mFeed;
+		float mNoiseSpeed;
+		float mNoiseScale;
+		float mNoiseDisp;
+		float mNoiseTwirl;
+
 		struct ExpParam
 		{
 			float start;
 			float offset;
 			float addPerFrame;
 			float addPerPixel;
+			float amplitude;
 		};
-		ExpParam mExpParams[ 4 ];
+		ExpParam mExpParams[ 2 ];
 		void randomizeParams( unsigned long seed = 0 );
 
 		float mFps;
@@ -88,17 +94,27 @@ void FeedApp::setup()
 	mParams.addText( "Feed" );
 	mSpeed = 30.f;
 	mParams.addParam( "Speed", &mSpeed, "min=0 step=.1" );
-	mFeed = 0.9f;
+	mFeed = 0.95f;
 	mParams.addParam( "Feed value", &mFeed, "min=0 max=1 step=.005" );
 	for ( int i = 0 ; i < sizeof( mExpParams ) / sizeof( mExpParams[ 0 ] ); i++ )
 	{
 		string strId = toString< int >( i );
+		mParams.addParam( "Amplitude " + strId , &mExpParams[ i ].amplitude, "step=.01 group='Angle " + strId +"'" );
 		mParams.addParam( "Angle start " + strId , &mExpParams[ i ].start, "step=.00005 group='Angle " + strId +"'" );
 		mParams.addParam( "Angle offset " + strId , &mExpParams[ i ].offset, "step=.00005 group='Angle " + strId +"'" );
 		mParams.addParam( "Increment per frame " + strId , &mExpParams[ i ].addPerFrame, "step=.00005 group='Angle " + strId +"'" );
 		mParams.addParam( "Increment per pixel " + strId , &mExpParams[ i ].addPerPixel, "step=.00005 group='Angle " + strId +"'" );
 		mParams.setOptions( "Angle " + strId, "opened=false" );
 	}
+	mNoiseSpeed = 10.f;
+	mParams.addParam( "Noise speed", &mNoiseSpeed, "step=.05" );
+	mNoiseScale = 2.f;
+	mParams.addParam( "Noise scale", &mNoiseScale, "step=.05" );
+	mNoiseDisp = .002f;
+	mParams.addParam( "Noise disp", &mNoiseDisp, "step=.001" );
+	mNoiseTwirl = 5.f;
+	mParams.addParam( "Noise twirl", &mNoiseTwirl, "step=.1" );
+
 	randomizeParams( 0x999c );
 	mParams.addButton( "Randomize feed", std::bind( &FeedApp::randomizeParams, this, 0 ) );
 	mParams.addSeparator();
@@ -127,8 +143,6 @@ void FeedApp::setup()
 	fboFormat.enableColorBuffer( true, 2 );
 	fboFormat.enableDepthBuffer( false );
 	fboFormat.setSamples( 4 );
-	fboFormat.setMinFilter( GL_NEAREST );
-	fboFormat.setMagFilter( GL_NEAREST );
 	mFbo = gl::Fbo( 1024, 1024, fboFormat );
 
 	mFbo.bindFramebuffer();
@@ -146,11 +160,16 @@ void FeedApp::randomizeParams( unsigned long seed )
 
 	for ( int i = 0 ; i < sizeof( mExpParams ) / sizeof( mExpParams[ 0 ] ); i++ )
 	{
+		mExpParams[ i ].amplitude = Rand::randFloat( -5.f, 5.f );
 		mExpParams[ i ].start = Rand::randFloat( -M_PI, M_PI );
 		mExpParams[ i ].offset = Rand::randFloat( -M_PI, M_PI );
 		mExpParams[ i ].addPerFrame = Rand::randFloat( -.1f, .1f );
-		mExpParams[ i ].addPerPixel = Rand::randFloat( -.1f, .1f );
+		mExpParams[ i ].addPerPixel = Rand::randFloat( -.05f, .05f );
 	}
+	mNoiseSpeed = Rand::randFloat( 0.f, 10.f );
+	mNoiseScale = Rand::randFloat( 0.f, 2.f );
+	mNoiseDisp = Rand::randFloat( 0.f, 0.01f );
+	mNoiseTwirl = Rand::randFloat( 0.f, 6.f );
 }
 
 void FeedApp::update()
@@ -165,25 +184,20 @@ void FeedApp::update()
 
 	Channel32f::Iter it = mDispXChan.getIter();
 	float a0 = mExpParams[ 0 ].start + t * mExpParams[ 0 ].addPerFrame;
-	float a1 = mExpParams[ 1 ].start + t * mExpParams[ 1 ].addPerFrame;
+	float amp0 = mExpParams[ 0 ].amplitude / DISP_SIZE;
 	while ( it.pixel() )
 	{
-		it.v() = ( 2.f * math< float >::sin( a0 + mExpParams[ 0 ].offset ) * math< float >::sin( a0 ) +
-				   3.5f * math< float >::cos( a1 + mExpParams[ 1 ].offset ) ) / DISP_SIZE;
+		it.v() = amp0 * math< float >::sin( a0 + mExpParams[ 0 ].offset );
 		a0 += mExpParams[ 0 ].addPerPixel;
-		a1 += mExpParams[ 1 ].addPerPixel;
 	}
 
 	it = mDispYChan.getIter();
-	float a2 = mExpParams[ 2 ].start + t * mExpParams[ 2 ].addPerFrame;
-	float a3 = mExpParams[ 3 ].start + t * mExpParams[ 3 ].addPerFrame;
+	float a1 = mExpParams[ 1 ].start + t * mExpParams[ 1 ].addPerFrame;
+	float amp1 = mExpParams[ 1 ].amplitude / DISP_SIZE;
 	while ( it.pixel() )
 	{
-		it.v() = ( -2.f * ( math< float >::sin( a2 ) + math< float >::cos( a2 + mExpParams[ 2 ].offset ) ) +
-					1.f * ( math< float >::sin( a3 + mExpParams[ 3 ].offset ) + math< float >::cos( a3 ) ) ) / DISP_SIZE;
-
-		a2 += mExpParams[ 2 ].addPerPixel;
-		a3 += mExpParams[ 3 ].addPerPixel;
+		it.v() = amp1 * ( math< float >::sin( a1 + mExpParams[ 1 ].offset ) );
+		a1 += mExpParams[ 1 ].addPerPixel;
 	}
 
 	mDispX.update( mDispXChan );
@@ -207,6 +221,11 @@ void FeedApp::draw()
 		mShader.uniform( "dispX", 2 );
 		mShader.uniform( "dispY", 3 );
 		mShader.uniform( "feed", mFeed );
+		mShader.uniform( "time", (float)( getElapsedSeconds() / 60. ) );
+		mShader.uniform( "noiseSpeed", mNoiseSpeed );
+		mShader.uniform( "noiseScale", mNoiseScale );
+		mShader.uniform( "noiseDisp", mNoiseDisp );
+		mShader.uniform( "noiseTwirl", mNoiseTwirl );
 	}
 	mTexture.bind();
 	mFbo.bindTexture( 1, pingPongId ^ 1 );
