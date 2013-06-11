@@ -1,0 +1,10 @@
+env = Environment()
+
+env['APP_TARGET'] = 'MultiAssimpTest'
+env['APP_SOURCES'] = ['MultiAssimpTest.cpp']
+env['ASSETS'] = ['models/*']
+env['DEBUG'] = 0
+
+env = SConscript('../../../blocks/Cinder-Assimp/scons/SConscript', exports = 'env')
+
+SConscript('../../../scons/SConscript', exports = 'env')
