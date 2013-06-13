@@ -1,0 +1,16 @@
+env = Environment()
+
+env['APP_TARGET'] = 'MidiFileApp'
+env['APP_SOURCES'] = ['MidiFileApp.cpp']
+env['ASSETS'] = ['mennyeihangok.mid', 'mennyeihangok.mp3']
+env['DEBUG'] = 1
+
+# stk midifile
+_STK_INCLUDES = [Dir('../include/stk').abspath]
+_STK_SOURCES = ['MidiFileIn.cpp', 'Stk.cpp']
+_STK_SOURCES = ['stk/' + s for s in _STK_SOURCES]
+env['APP_SOURCES'] += _STK_SOURCES
+env.Append(CPPPATH = _STK_INCLUDES)
+
+SConscript('../../../scons/SConscript', exports = 'env')
+
