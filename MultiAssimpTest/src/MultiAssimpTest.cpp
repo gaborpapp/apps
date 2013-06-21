@@ -52,6 +52,8 @@ class MultiAssimpTest : public AppBasic
 		{
 			assimp::AssimpLoaderRef mModel;
 			bool mEnabled;
+			bool mEnableSkinning;
+			bool mEnableAnimation;
 		};
 		typedef std::shared_ptr< ModelInfo > ModelInfoRef;
 
@@ -64,9 +66,11 @@ class MultiAssimpTest : public AppBasic
 		MayaCamUI mMayaCam;
 
 		params::InterfaceGl mParams;
-		bool mEnableTextures;
-		bool mEnableSkinning;
-		bool mEnableAnimation;
+		float mCurrentCameraFov;
+		float mCurrentCameraAspectRatio;
+		float mCurrentCameraNearClip;
+		float mCurrentCameraFarClip;
+		Vec3f mCurrentCameraLocation;
 
 		float mFps;
 		bool mVerticalSyncEnabled = false;
@@ -87,12 +91,6 @@ void MultiAssimpTest::setup()
 	loadModels( "models" );
 
 	mParams.addSeparator();
-	mEnableTextures = true;
-	mParams.addParam( "Textures", &mEnableTextures );
-	mEnableSkinning = false;
-	mParams.addParam( "Skinning", &mEnableSkinning );
-	mEnableAnimation = false;
-	mParams.addParam( "Animation", &mEnableAnimation );
 }
 
 void MultiAssimpTest::loadModels( const fs::path &relativeDir )
@@ -136,13 +134,18 @@ void MultiAssimpTest::loadModels( const fs::path &relativeDir )
 			if ( model )
 			{
 				model->setAnimation( 0 );
+				model->enableTextures( true );
 
 				ModelInfoRef mi = ModelInfoRef( new ModelInfo() );
 				mi->mModel = model;
 				mi->mEnabled = true;
+				mi->mEnableSkinning = false;
+				mi->mEnableAnimation = false;
 
 				string filename = it->path().filename().stem().string();
-				mParams.addParam( filename + " enabled", &mi->mEnabled, "group=" + filename );
+				mParams.addParam( filename + " visible", &mi->mEnabled, "group=" + filename );
+				mParams.addParam( filename + " skinning enabled", &mi->mEnableSkinning, "group=" + filename );
+				mParams.addParam( filename + " animation enabled", &mi->mEnableAnimation, "group=" + filename );
 
 				mModels.push_back( mi );
 
@@ -159,7 +162,12 @@ void MultiAssimpTest::loadModels( const fs::path &relativeDir )
 
 	mParams.addSeparator();
 	mCameraIndex = 0;
-	mParams.addParam( "Camera", cameraNames, &mCameraIndex );
+	mParams.addParam( "Cameras", cameraNames, &mCameraIndex );
+	mParams.addParam( "Fov", &mCurrentCameraFov );
+	mParams.addParam( "Aspect ratio", &mCurrentCameraAspectRatio, "", true );
+	mParams.addParam( "Near clip", &mCurrentCameraNearClip, "", true );
+	mParams.addParam( "Far clip", &mCurrentCameraFarClip, "", true );
+	mParams.addParam( "Location", &mCurrentCameraLocation, "", true );
 }
 
 void MultiAssimpTest::update()
@@ -176,9 +184,8 @@ void MultiAssimpTest::update()
 
 		assimp::AssimpLoaderRef model = mi->mModel;
 
-		model->enableTextures( mEnableTextures );
-		model->enableSkinning( mEnableSkinning );
-		model->enableAnimation( mEnableAnimation );
+		model->enableSkinning( mi->mEnableSkinning );
+		model->enableAnimation( mi->mEnableAnimation );
 
 		if ( model->getNumAnimations() )
 		{
@@ -189,10 +196,24 @@ void MultiAssimpTest::update()
 	}
 
 	static int lastCamera = -1;
+	static float lastFov = -1;
 	if ( lastCamera != mCameraIndex )
 	{
 		mMayaCam.setCurrentCam( mCameras[ mCameraIndex ] );
+		mCurrentCameraNearClip = mCameras[ mCameraIndex ].getNearClip();
+		mCurrentCameraFarClip = mCameras[ mCameraIndex ].getFarClip();
+		mCurrentCameraFov = mCameras[ mCameraIndex ].getFov();
 		lastCamera = mCameraIndex;
+		lastFov = -1;
+	}
+	mCurrentCameraAspectRatio = mMayaCam.getCamera().getAspectRatio();
+	mCurrentCameraLocation = mMayaCam.getCamera().getEyePoint();
+	if ( lastFov != mCurrentCameraFov )
+	{
+		CameraPersp cam = mMayaCam.getCamera();
+		cam.setFov( mCurrentCameraFov );
+		mMayaCam.setCurrentCam( cam );
+		lastFov = mCurrentCameraFov;
 	}
 }
 
