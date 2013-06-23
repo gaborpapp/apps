@@ -72,6 +72,8 @@ class MultiAssimpTest : public AppBasic
 		float mCurrentCameraFarClip;
 		Vec3f mCurrentCameraLocation;
 
+		Color mBackgroundColor;
+
 		float mFps;
 		bool mVerticalSyncEnabled = false;
 };
@@ -86,6 +88,8 @@ void MultiAssimpTest::setup()
 	mParams = params::InterfaceGl( "Parameters", Vec2i( 350, 400 ) );
 	mParams.addParam( "Fps", &mFps, "", true );
 	mParams.addParam( "Vertical sync", &mVerticalSyncEnabled );
+	mParams.addSeparator();
+	mParams.addParam( "Background color", &mBackgroundColor );
 	mParams.addSeparator();
 
 	loadModels( "models" );
@@ -219,7 +223,7 @@ void MultiAssimpTest::update()
 
 void MultiAssimpTest::draw()
 {
-	gl::clear();
+	gl::clear( mBackgroundColor );
 
 	gl::setViewport( getWindowBounds() );
 	gl::setMatrices( mMayaCam.getCamera() );
