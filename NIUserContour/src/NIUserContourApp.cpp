@@ -236,7 +236,7 @@ void NIUserMaskApp::draw()
 	gl::disableDepthRead();
 	gl::disableDepthWrite();
 
-	params::InterfaceGl::draw();
+	mParams.draw();
 }
 
 CINDER_APP_BASIC( NIUserMaskApp, RendererGl() )
