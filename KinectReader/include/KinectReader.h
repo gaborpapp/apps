@@ -14,7 +14,7 @@ class KinectReader : public ci::app::AppBasic
 		void setup();
 		void shutdown();
 
-		void resize(ci::app::ResizeEvent event);
+		void resize();
 		void keyDown(ci::app::KeyEvent event);
 		void keyUp(ci::app::KeyEvent event);
 		void mouseDown(ci::app::MouseEvent event);

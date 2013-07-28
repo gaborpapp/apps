@@ -20,18 +20,18 @@ void KinectReader::setup()
 {
 	string ui_files[] = {"flip", "zoom", "pan"};
 
-	string data_path = getAppPath();
+	fs::path data_path = getAppPath();
 #ifdef CINDER_MAC
-	data_path += "/Contents/Resources/";
+	data_path /= "/Contents/Resources/";
 #endif
-	logo = loadImage(data_path + "logo.png");
+	logo = loadImage(data_path / fs::path("logo.png"));
 
 	data_path += "ui/";
 
 	for (int i = 0; i < 3; i++)
 	{
-		ui_panels[i][0] = loadImage(data_path + ui_files[i] + "-0.png");
-		ui_panels[i][1] = loadImage(data_path + ui_files[i] + "-1.png");
+		ui_panels[i][0] = loadImage(data_path / fs::path( ui_files[i] + "-0.png" ));
+		ui_panels[i][1] = loadImage(data_path / fs::path( ui_files[i] + "-1.png" ));
 	}
 
 	load_samples();
@@ -101,10 +101,10 @@ void KinectReader::shutdown()
 	delete pc;
 }
 
-void KinectReader::resize(ResizeEvent event)
+void KinectReader::resize()
 {
-	Area book_area(0, 0, event.getWidth(), event.getHeight());
-	int margin = static_cast<int>(event.getHeight() * .1);
+	Area book_area(getWindowBounds());
+	int margin = static_cast<int>(getWindowHeight() * .1);
 	float left_panel = 4. * getWindowHeight() / 15.;
 	book_area.setX1(left_panel);
 	book_area.expand(-margin, -margin);
@@ -159,23 +159,23 @@ void KinectReader::update()
 
 void KinectReader::load_samples()
 {
-	string data_path = getAppPath();
+	fs::path data_path = getAppPath();
 #ifdef CINDER_MAC
-	data_path += "/Contents/Resources/";
+	data_path /= "/Contents/Resources/";
 #endif
-	data_path += "ui-sfx/";
+	data_path /= "ui-sfx/";
 
 	samples.clear();
 
-	fs::path p(data_path);
-	for (fs::directory_iterator it(p); it != fs::directory_iterator(); ++it)
+	for (fs::directory_iterator it(data_path); it != fs::directory_iterator(); ++it)
 	{
 		if (fs::is_regular_file(*it) && (it->path().extension().string() == ".mp3"))
 		{
 #ifdef DEBUG
 			console() << "   " << it->path().filename() << endl;
 #endif
-			samples.push_back(audio::load(data_path + it->path().filename().string()));
+			fs::path audio_path = data_path / it->path().filename();
+			samples.push_back(audio::load( audio_path.string()));
 		}
 	}
 }
@@ -331,13 +331,14 @@ void KinectReader::controller()
 			centroid += tracker.blobs[i].centroid;
 		}
 		centroid /= nblobs;
+		int centroid_x = static_cast< int >( centroid.x );
 
-		if (centroid.x < last_cursor_x)
+		if (centroid_x < last_cursor_x)
 		{
 			cursor_going_left++;
 			cursor_going_right = 0;
 		}
-		else if (centroid.x > last_cursor_x)
+		else if (centroid_x > last_cursor_x)
 		{
 			cursor_going_left = 0;
 			cursor_going_right++;
@@ -354,7 +355,10 @@ void KinectReader::controller()
 			cursor_going_right = 0;
 		}
 
-		last_cursor_x = centroid.x;
+		app::console() << "centroid " << centroid << " " << last_cursor_x << endl;
+		app::console() << "left " << cursor_going_left << " " << pageflip_frame_thr << endl;
+		app::console() << "right " << cursor_going_right << " " << pageflip_frame_thr << endl;
+		last_cursor_x = centroid_x;
 	}
 	else
 	if (cstate == ZOOMING)
@@ -437,11 +441,11 @@ void KinectReader::controller()
 
 void KinectReader::save_config()
 {
-	string data_path = getAppPath();
+	fs::path data_path = getAppPath();
 #ifdef CINDER_MAC
-	data_path += "/Contents/Resources/";
+	data_path /= "/Contents/Resources/";
 #endif
-	data_path += "reader.xml";
+	data_path /= "reader.xml";
 	XmlTree config = XmlTree::createDoc();
 
 	// TODO: automate this
@@ -463,11 +467,11 @@ void KinectReader::save_config()
 
 void KinectReader::load_config()
 {
-	string data_path = getAppPath();
+	fs::path data_path = getAppPath();
 #ifdef CINDER_MAC
-	data_path += "/Contents/Resources/";
+	data_path /= "/Contents/Resources/";
 #endif
-	data_path += "reader.xml";
+	data_path /= "reader.xml";
 
 	fs::path test_path(data_path);
 	if (!fs::exists(test_path))
@@ -613,7 +617,7 @@ void KinectReader::draw()
 	if (show_gui)
 	{
 		showCursor();
-		params::InterfaceGl::draw();
+		params.draw();
 	}
 	else
 	{

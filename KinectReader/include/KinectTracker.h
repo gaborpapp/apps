@@ -5,11 +5,12 @@
 #include "cinder/app/AppBasic.h"
 #include "cinder/gl/Texture.h"
 #include "cinder/Capture.h"
+#include "cinder/Filesystem.h"
 #include "cinder/qtime/QuickTime.h"
 #include "cinder/qtime/MovieWriter.h"
 #include "cinder/params/Params.h"
 
-#include "Kinect.h"
+#include "CinderFreenect.h"
 
 class KinectTracker
 {
@@ -34,10 +35,10 @@ class KinectTracker
 		void playVideoCB();
 		void saveVideoCB();
 
-		void loadMovieFile(const std::string &movie_path);
+		void loadMovieFile(const ci::fs::path &movie_path);
 
 		bool kinect_available;
-		ci::Kinect kinect;
+		ci::KinectRef kinect;
 
 		ci::gl::Texture depth_texture;
 		ci::Surface8u depth_surface;

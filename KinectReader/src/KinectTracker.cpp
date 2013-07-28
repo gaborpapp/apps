@@ -24,7 +24,7 @@ void KinectTracker::setup()
 	console() << "There are " << kinect_count << " Kinects connected." << std::endl;
 
 	if (kinect_count)
-		kinect = Kinect(Kinect::Device());
+		kinect = Kinect::create(Kinect::Device());
 
 	threshold = 170;
 	blur_size = 10;
@@ -67,11 +67,11 @@ void KinectTracker::setup()
 
 void KinectTracker::save_config()
 {
-	string data_path = getAppPath();
+	fs::path data_path = getAppPath();
 #ifdef CINDER_MAC
-	data_path += "/Contents/Resources/";
+	data_path /= "/Contents/Resources/";
 #endif
-	data_path += "tracker.xml";
+	data_path /= "tracker.xml";
 	XmlTree config = XmlTree::createDoc();
 
 	// TODO: automate this
@@ -91,11 +91,11 @@ void KinectTracker::save_config()
 
 void KinectTracker::load_config()
 {
-	string data_path = getAppPath();
+	fs::path data_path = getAppPath();
 #ifdef CINDER_MAC
-	data_path += "/Contents/Resources/";
+	data_path /= "/Contents/Resources/";
 #endif
-	data_path += "tracker.xml";
+	data_path /= "tracker.xml";
 
 	fs::path test_path(data_path);
 	if (!fs::exists(test_path))
@@ -136,7 +136,7 @@ void KinectTracker::playVideoCB()
 	}
 	else
 	{
-		string movie_path = getOpenFilePath();
+		fs::path movie_path = getOpenFilePath();
 		if (!movie_path.empty())
 		{
 			loadMovieFile(movie_path);
@@ -147,7 +147,7 @@ void KinectTracker::playVideoCB()
 	}
 }
 
-void KinectTracker::loadMovieFile(const string &movie_path)
+void KinectTracker::loadMovieFile(const fs::path &movie_path)
 {
     try
 	{
@@ -180,8 +180,8 @@ void KinectTracker::saveVideoCB()
 		format.setQuality(0.5f);
 		format.setDefaultDuration(1./25.);
 
-		movie_writer = qtime::MovieWriter(getDocumentsDirectory() + "kinect_depth-" +
-				timeStamp() + ".mov", 640, 480, format);
+		movie_writer = qtime::MovieWriter(getDocumentsDirectory() / fs::path( "kinect_depth-" +
+				timeStamp() + ".mov"), 640, 480, format);
 	}
 	saving_video = !saving_video;
 }
@@ -219,12 +219,12 @@ void KinectTracker::update()
 		depth_texture = is;
 	}
 	else
-	if (kinect_available && kinect.checkNewDepthFrame())
+	if (kinect_available && kinect->checkNewDepthFrame())
 	{
-		if (static_cast<int>(kinect.getTilt()) != static_cast<int>(tilt))
-			kinect.setTilt(tilt);
+		if (static_cast<int>(kinect->getTilt()) != static_cast<int>(tilt))
+			kinect->setTilt(tilt);
 
-		ImageSourceRef is = kinect.getDepthImage();
+		ImageSourceRef is = kinect->getDepthImage();
 		depth_surface = is;
 		depth_texture = is;
 

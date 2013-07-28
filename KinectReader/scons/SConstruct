@@ -1,9 +1,12 @@
-TARGET = 'KinectReader'
-SOURCES  = ['PageCurl.cpp', 'KinectReader.cpp', 'KinectTracker.cpp']
-RESOURCES = ['book', 'gfx', 'sfx', 'ui', 'ui-sfx', 'logo.png']
-BLOCKS = ['opencv', 'kinect']
-DEBUG = 0
+env = Environment()
 
-SConscript('../../../scons/SConscript',
-	exports = ['TARGET', 'SOURCES', 'DEBUG', 'RESOURCES', 'BLOCKS'])
+env['APP_TARGET'] = 'KinectReader'
+env['APP_SOURCES'] = ['PageCurl.cpp', 'KinectReader.cpp', 'KinectTracker.cpp']
+env['RESOURCES'] = ['book/*', 'gfx/*', 'sfx/*', 'ui/*', 'ui-sfx/*', 'logo.png']
+env['DEBUG'] = 0
+
+env = SConscript('../../../blocks/Cinder-OpenCV/scons/SConscript', exports = 'env')
+env = SConscript('../../../blocks/Cinder-Kinect/scons/SConscript', exports = 'env')
+
+SConscript('../../../scons/SConscript', exports = 'env')
 

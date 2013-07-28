@@ -25,6 +25,7 @@
 #include "cinder/gl/gl.h"
 #include "cinder/gl/Texture.h"
 #include "cinder/Area.h"
+#include "cinder/Filesystem.h"
 #include "cinder/Vector.h"
 #include "cinder/TriMesh.h"
 #include "cinder/Timer.h"
@@ -62,7 +63,7 @@ class PageCurl
 		ci::Vec2f pzoom_pos; // page zoom position
 
 		void get_pages(const std::string dir);
-		void load_page(const std::string filename);
+		void load_page(const ci::fs::path &filename);
 
 		ci::Vec2f limit_corner_location(const ci::Vec2f& p);
 		ci::Vec2f mirror_point(const ci::Vec2f& p, const ci::Vec2f& p0, const ci::Vec2f& p1);
@@ -76,7 +77,7 @@ class PageCurl
 			return ci::Vec2f(1 - v.x, v.y);
 		};
 
-		std::queue<std::string> book_files;
+		std::queue<ci::fs::path> book_files;
 		std::vector<ci::gl::Texture> book;
 		ci::gl::Texture page0_shadow;
 		ci::gl::Texture page_1_shadow;

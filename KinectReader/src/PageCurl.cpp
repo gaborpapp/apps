@@ -87,20 +87,19 @@ void PageCurl::recalc_bounds()
 
 void PageCurl::get_pages(string dir)
 {
-	string data_path = getAppPath();
+	fs::path data_path = getAppPath();
 #ifdef CINDER_MAC
-	data_path += "/Contents/Resources/";
+	data_path /= "/Contents/Resources/";
 #endif
-	data_path += dir + "/";
+	data_path /= dir + "/";
 
 	book.clear();
 
-	fs::path p(data_path);
-	for (fs::directory_iterator it(p); it != fs::directory_iterator(); ++it)
+	for (fs::directory_iterator it( data_path ); it != fs::directory_iterator(); ++it)
 	{
 		if (fs::is_regular_file(*it))
 		{
-			string filename = data_path + it->path().filename().string();
+			fs::path filename = data_path / it->path().filename();
 			book_files.push(filename);
 		}
 	}
@@ -108,23 +107,23 @@ void PageCurl::get_pages(string dir)
 
 void PageCurl::load_samples()
 {
-	string data_path = getAppPath();
+	fs::path data_path = getAppPath();
 #ifdef CINDER_MAC
-	data_path += "/Contents/Resources/";
+	data_path /= "/Contents/Resources/";
 #endif
-	data_path += "sfx/";
+	data_path /= "sfx/";
 
 	samples.clear();
 
-	fs::path p(data_path);
-	for (fs::directory_iterator it(p); it != fs::directory_iterator(); ++it)
+	for (fs::directory_iterator it( data_path ); it != fs::directory_iterator(); ++it)
 	{
 		if (fs::is_regular_file(*it) && (it->path().extension().string() == ".mp3"))
 		{
 #ifdef DEBUG
-			console() << "   " << it->path().filename() << endl;
+			console() << "   " << it->path().filename().string() << endl;
 #endif
-			samples.push_back(audio::load(data_path + it->path().filename().string()));
+			fs::path sample_path = data_path / it->path().filename();
+			samples.push_back( audio::load( sample_path.string() ));
 		}
 	}
 }
@@ -178,7 +177,7 @@ T hermiteInterpRef(const T &p1, const T &t1, const T &p2, const T &t2, L s)
 	return h1 * p1 + h2 * p2 + h3 * t1 + h4 * t2;
 }
 
-void PageCurl::load_page(const string filename)
+void PageCurl::load_page(const ci::fs::path &filename)
 {
 	fs::path fs_filename(filename);
 	string extension = fs_filename.extension().string();
@@ -189,7 +188,7 @@ void PageCurl::load_page(const string filename)
 	{
 		// DDS compressed texture
 		FILE *f = fopen(filename.c_str(),  "r");
-		IoStreamFileRef is = IoStreamFile::createRef(f);
+		IoStreamFileRef is = IoStreamFile::create(f);
 		// TODO: try
 		// loadDds(loadFile(filename)->createStream(), gl::Texture::Format())
 		t = gl::Texture::loadDds(is, gl::Texture::Format());
@@ -535,7 +534,7 @@ void PageCurl::render(const Vec2f& pos, const int page0_i, const int corner)
 		{
 			shadow.appendVertex(pts[i]);
 		}
-		vector<size_t> indices = page.getIndices();
+		vector<uint32_t> indices = page.getIndices();
 		for (unsigned i = 0; i < indices.size(); i += 3)
 		{
 			shadow.appendTriangle(indices[i], indices[i + 1], indices[i + 2]);
@@ -601,7 +600,7 @@ void PageCurl::render(const Vec2f& pos, const int page0_i, const int corner)
 		{
 			shadow.appendVertex(pts[i]);
 		}
-		vector<size_t> indices = page.getIndices();
+		vector<uint32_t> indices = page.getIndices();
 		for (unsigned i = 0; i < indices.size(); i += 3)
 		{
 			shadow.appendTriangle(indices[i], indices[i + 1], indices[i + 2]);
