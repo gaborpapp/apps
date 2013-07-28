@@ -355,9 +355,6 @@ void KinectReader::controller()
 			cursor_going_right = 0;
 		}
 
-		app::console() << "centroid " << centroid << " " << last_cursor_x << endl;
-		app::console() << "left " << cursor_going_left << " " << pageflip_frame_thr << endl;
-		app::console() << "right " << cursor_going_right << " " << pageflip_frame_thr << endl;
 		last_cursor_x = centroid_x;
 	}
 	else
