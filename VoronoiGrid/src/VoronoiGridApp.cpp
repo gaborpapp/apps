@@ -15,6 +15,9 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
 */
 
+#include <string>
+#include <vector>
+
 #include "cinder/Cinder.h"
 #include "cinder/app/AppBasic.h"
 #include "cinder/gl/gl.h"
@@ -24,6 +27,7 @@
 
 #include "GridManager.h"
 #include "HomogeneousRectangularGridTorsion.h"
+#include "HomogeneousTriangleGridTorsion.h"
 #include "PanZoomCamUI.h"
 
 using namespace ci;
@@ -53,7 +57,9 @@ class VoronoiGridApp : public AppBasic
 
 		PanZoomCamUI mPanZoomCam;
 
-		GridManagerRef mGridManagerRef;
+		int mGridManagerId;
+		vector< GridManagerRef > mGridManagers;
+
 		bool calcCurrentGridBounds( Rectf *result );
 };
 
@@ -67,14 +73,20 @@ void VoronoiGridApp::setup()
 	mParams = params::InterfaceGl( "Parameters", Vec2i( 200, 300 ) );
 	mParams.addParam( "Fps", &mFps, "", true );
 	mParams.addParam( "Vertical sync", &mVerticalSyncEnabled );
+	mParams.addSeparator();
+
+	mGridManagers.push_back( GridManager::create( GridTorsionRef( new HomogeneousRectangularGridTorsion() ) ) );
+	mGridManagers.push_back( GridManager::create( GridTorsionRef( new HomogeneousTriangleGridTorsion() ) ) );
+
+	mGridManagerId = 0;
+	vector< string > gridNames { "Rectangular", "Triangle" };
+	mParams.addParam( "Grid layout", gridNames, &mGridManagerId );
 
 	CameraPersp cam;
 	cam.setPerspective( 60.f, getWindowAspectRatio(), 0.1f, 1000.0f );
 	cam.setEyePoint( Vec3f( 0, 0, 10 ) );
 	cam.setCenterOfInterestPoint( Vec3f::zero() );
 	mPanZoomCam.setCurrentCam( cam );
-
-	mGridManagerRef = GridManager::create( GridTorsionRef( new HomogeneousRectangularGridTorsion() ) );
 
 	gl::enableDepthRead();
 	gl::enableDepthWrite();
@@ -127,9 +139,9 @@ void VoronoiGridApp::draw()
 	if ( calcCurrentGridBounds( &gridRect ) )
 	{
 		//gl::drawSolidRect( gridRect );
-		mGridManagerRef->calcCurrentGridPoints( gridRect );
+		mGridManagers[ mGridManagerId ]->calcCurrentGridPoints( gridRect );
 
-		const vector< Vec2f > &points = mGridManagerRef->getPoints();
+		const vector< Vec2f > &points = mGridManagers[ mGridManagerId ]->getPoints();
 		app::console() << points.size() << endl;
 		for ( auto p : points )
 		{

@@ -1,11 +1,9 @@
-#include "cinder/app/App.h"
 #include "cinder/CinderMath.h"
 
 #include "HomogeneousRectangularGridTorsion.h"
 
 const float HomogeneousRectangularGridTorsion::CELL_WIDTH = 1.4f;
 const float HomogeneousRectangularGridTorsion::CELL_HEIGHT = 1.f;
-const ci::Vec2f HomogeneousRectangularGridTorsion::CELL_SIZE( CELL_WIDTH, CELL_HEIGHT );
 
 void HomogeneousRectangularGridTorsion::calcCurrentGridPoints( const ci::Rectf &bounds )
 {

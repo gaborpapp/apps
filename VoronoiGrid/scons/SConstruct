@@ -1,7 +1,8 @@
 env = Environment()
 
 env['APP_TARGET'] = 'VoronoiGridApp'
-env['APP_SOURCES'] = ['VoronoiGridApp.cpp', 'HomogeneousRectangularGridTorsion.cpp']
+env['APP_SOURCES'] = ['VoronoiGridApp.cpp', 'HomogeneousRectangularGridTorsion.cpp',
+		'HomogeneousTriangleGridTorsion.cpp']
 env['DEBUG'] = 1
 
 SConscript('../../../scons/SConscript', exports = 'env')
