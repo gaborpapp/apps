@@ -2,8 +2,8 @@
 
 #include "HomogeneousRectangularGridTorsion.h"
 
-const float HomogeneousRectangularGridTorsion::CELL_WIDTH = 1.4f;
-const float HomogeneousRectangularGridTorsion::CELL_HEIGHT = 1.f;
+const float HomogeneousRectangularGridTorsion::CELL_WIDTH = 14.f;
+const float HomogeneousRectangularGridTorsion::CELL_HEIGHT = 10.f;
 
 void HomogeneousRectangularGridTorsion::calcCurrentGridPoints( const ci::Rectf &bounds )
 {

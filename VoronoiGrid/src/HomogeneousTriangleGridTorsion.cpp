@@ -2,7 +2,7 @@
 
 #include "HomogeneousTriangleGridTorsion.h"
 
-const float HomogeneousTriangleGridTorsion::CELL_WIDTH = 1.f;
+const float HomogeneousTriangleGridTorsion::CELL_WIDTH = 10.f;
 const float HomogeneousTriangleGridTorsion::CELL_HEIGHT = CELL_WIDTH * ci::math< float >::sqrt( 3. ) / 2.f;
 
 void HomogeneousTriangleGridTorsion::calcCurrentGridPoints( const ci::Rectf &bounds )

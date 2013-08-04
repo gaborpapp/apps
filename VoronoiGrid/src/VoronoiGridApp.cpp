@@ -25,6 +25,8 @@
 #include "cinder/Ray.h"
 #include "cinder/Rect.h"
 
+#include "boost/polygon/voronoi.hpp"
+
 #include "GridManager.h"
 #include "HomogeneousRectangularGridTorsion.h"
 #include "HomogeneousTriangleGridTorsion.h"
@@ -53,15 +55,37 @@ class VoronoiGridApp : public AppBasic
 		params::InterfaceGl mParams;
 
 		float mFps;
-		bool mVerticalSyncEnabled = false;
+		bool mVerticalSyncEnabled = true;
 
 		PanZoomCamUI mPanZoomCam;
 
-		int mGridManagerId;
+		int mGridManagerId = 0;
 		vector< GridManagerRef > mGridManagers;
 
 		bool calcCurrentGridBounds( Rectf *result );
+
+		typedef double CoordinateType;
+		typedef boost::polygon::point_data< CoordinateType > PointType;
+		typedef boost::polygon::voronoi_diagram< CoordinateType > VoronoiDiagram;
+		VoronoiDiagram mVd;
 };
+
+// register Vec2d with boost polygon
+namespace boost { namespace polygon {
+	template <>
+	struct geometry_concept< ci::Vec2d > { typedef point_concept type; };
+
+	template <>
+	struct point_traits< ci::Vec2d >
+	{
+		typedef double coordinate_type;
+
+		static inline coordinate_type get( const ci::Vec2d &point, orientation_2d orient )
+		{
+			return ( orient == HORIZONTAL ) ? point.x : point.y;
+		}
+	};
+} } // namespace boost::polygon
 
 void VoronoiGridApp::prepareSettings( Settings *settings )
 {
@@ -78,13 +102,12 @@ void VoronoiGridApp::setup()
 	mGridManagers.push_back( GridManager::create( GridTorsionRef( new HomogeneousRectangularGridTorsion() ) ) );
 	mGridManagers.push_back( GridManager::create( GridTorsionRef( new HomogeneousTriangleGridTorsion() ) ) );
 
-	mGridManagerId = 0;
 	vector< string > gridNames { "Rectangular", "Triangle" };
 	mParams.addParam( "Grid layout", gridNames, &mGridManagerId );
 
 	CameraPersp cam;
 	cam.setPerspective( 60.f, getWindowAspectRatio(), 0.1f, 1000.0f );
-	cam.setEyePoint( Vec3f( 0, 0, 10 ) );
+	cam.setEyePoint( Vec3f( 0, 0, 50 ) );
 	cam.setCenterOfInterestPoint( Vec3f::zero() );
 	mPanZoomCam.setCurrentCam( cam );
 
@@ -103,8 +126,10 @@ void VoronoiGridApp::update()
 bool VoronoiGridApp::calcCurrentGridBounds( Rectf *result )
 {
 	CameraPersp cam = mPanZoomCam.getCamera();
-	Ray rayTopLeft = cam.generateRay( -.1f , 1.1f, cam.getAspectRatio() );
-	Ray rayBottomRight = cam.generateRay( 1.1f , -.1f, cam.getAspectRatio() );
+	// FIXME: margin should be calculated from zoom distance and cell size
+	const float margin = .5f;
+	Ray rayTopLeft = cam.generateRay( -margin , 1.f + margin, cam.getAspectRatio() );
+	Ray rayBottomRight = cam.generateRay( 1.f + margin , -margin, cam.getAspectRatio() );
 
 	bool intersectTL, intersectBR;
 	float resTL, resBR;
@@ -132,20 +157,47 @@ void VoronoiGridApp::draw()
 
 	gl::clear( Color::black() );
 
-	gl::drawColorCube( Vec3f::zero(), Vec3f::one() );
+	gl::drawColorCube( Vec3f::zero(), Vec3f( 3, 3, 3 ) );
 
 	gl::color( Color::white() );
-	Rectf gridRect;
-	if ( calcCurrentGridBounds( &gridRect ) )
-	{
-		//gl::drawSolidRect( gridRect );
-		mGridManagers[ mGridManagerId ]->calcCurrentGridPoints( gridRect );
 
-		const vector< Vec2f > &points = mGridManagers[ mGridManagerId ]->getPoints();
-		app::console() << points.size() << endl;
-		for ( auto p : points )
+	Rectf gridRect;
+	calcCurrentGridBounds( &gridRect );
+
+	mGridManagers[ mGridManagerId ]->calcCurrentGridPoints( gridRect );
+
+	const vector< Vec2f > &points = mGridManagers[ mGridManagerId ]->getPoints();
+	for ( auto p : points )
+	{
+		gl::drawStrokedCircle( p, .5f, 10 );
+	}
+
+	vector< Vec2d > points2d;
+	for ( auto p: points )
+		points2d.push_back( Vec2d( p ) );
+
+	mVd.clear();
+	construct_voronoi( points2d.begin(), points2d.end(),
+					   &mVd );
+
+	for ( auto edge : mVd.edges() )
+	{
+		if ( edge.is_secondary() )
+			continue;
+
+		if ( edge.is_linear() )
 		{
-			gl::drawStrokedCircle( p, .05f, 10 );
+			auto *v0 = edge.vertex0();
+			auto *v1 = edge.vertex1();
+
+			Vec2f p0, p1;
+			if ( edge.is_finite() )
+			{
+				p0 = Vec2f( v0->x(), v0->y() );
+				p1 = Vec2f( v1->x(), v1->y() );
+			}
+
+			gl::drawLine( p0, p1 );
 		}
 	}
 
