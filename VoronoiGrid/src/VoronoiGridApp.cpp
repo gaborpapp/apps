@@ -273,7 +273,6 @@ void VoronoiGridApp::draw()
 		Rectf rect;
 		if ( calcScreenRectBounds( mMousePos0, mMousePos1, &rect ) )
 		{
-			app::console() << rect << endl;
 			gl::drawStrokedRect( rect );
 		}
 
