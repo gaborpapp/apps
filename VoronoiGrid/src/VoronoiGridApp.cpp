@@ -46,6 +46,7 @@ class VoronoiGridApp : public AppBasic
 
 		void mouseDown( MouseEvent event );
 		void mouseDrag( MouseEvent event );
+		void mouseUp( MouseEvent event );
 		void keyDown( KeyEvent event );
 
 		void update();
@@ -63,11 +64,16 @@ class VoronoiGridApp : public AppBasic
 		vector< GridManagerRef > mGridManagers;
 
 		bool calcCurrentGridBounds( Rectf *result );
+		bool calcScreenRectBounds( const Vec2f &p0, const Vec2f &p1, Rectf *result );
 
 		typedef double CoordinateType;
 		typedef boost::polygon::point_data< CoordinateType > PointType;
 		typedef boost::polygon::voronoi_diagram< CoordinateType > VoronoiDiagram;
 		VoronoiDiagram mVd;
+
+		Vec2i mMousePos0, mMousePos1;
+		bool mIsDragging = false;
+		vector< Rectf > mSlideRects;
 };
 
 // register Vec2d with boost polygon
@@ -150,6 +156,37 @@ bool VoronoiGridApp::calcCurrentGridBounds( Rectf *result )
 	}
 }
 
+bool VoronoiGridApp::calcScreenRectBounds( const Vec2f &p0, const Vec2f &p1, Rectf *result )
+{
+	CameraPersp cam = mPanZoomCam.getCamera();
+	Vec2f p0n = p0;
+	p0n.x = p0.x / float( getWindowWidth() );
+	p0n.y = 1.0 - ( p0.y / float( getWindowHeight() ) );
+	Vec2f p1n = p0;
+	p1n.x = p1.x / float( getWindowWidth() );
+	p1n.y = 1.0 - ( p1.y / float( getWindowHeight() ) );
+
+	Ray rayTopLeft = cam.generateRay( p0n.x , p0n.y, cam.getAspectRatio() );
+	Ray rayBottomRight = cam.generateRay( p1n.x , p1n.y, cam.getAspectRatio() );
+
+	bool intersectTL, intersectBR;
+	float resTL, resBR;
+	intersectTL = rayTopLeft.calcPlaneIntersection( Vec3f::zero(), Vec3f( 0, 0, 1 ), &resTL );
+	intersectBR = rayBottomRight.calcPlaneIntersection( Vec3f::zero(), Vec3f( 0, 0, 1 ), &resBR );
+
+	if ( intersectTL && intersectBR )
+	{
+		Vec3f topLeft = rayTopLeft.calcPosition( resTL );
+		Vec3f bottomRight = rayBottomRight.calcPosition( resBR );
+		*result = Rectf( topLeft.xy(), bottomRight.xy() );
+		result->canonicalize();
+		return true;
+	}
+	else
+	{
+		return false;
+	}
+}
 void VoronoiGridApp::draw()
 {
 	gl::setViewport( getWindowBounds() );
@@ -167,14 +204,43 @@ void VoronoiGridApp::draw()
 	mGridManagers[ mGridManagerId ]->calcCurrentGridPoints( gridRect );
 
 	const vector< Vec2f > &points = mGridManagers[ mGridManagerId ]->getPoints();
-	for ( auto p : points )
+
+	struct AveragePoint
+	{
+		AveragePoint() : p( Vec2d( 0., 0. ) ), n( 0 ) {}
+		Vec2d p;
+		int n;
+	};
+
+	map< size_t, AveragePoint > averagePoints;
+	vector< Vec2d > points2d;
+	for ( auto p: points )
+	{
+		bool found = false;
+		for ( size_t s = 0; s < mSlideRects.size(); s++)
+		{
+			if ( mSlideRects[ s ].contains( p ) )
+			{
+				averagePoints[ s ].n++;
+				averagePoints[ s ].p += p;
+				found = true;
+				break;
+			}
+		}
+		if ( !found )
+		{
+			points2d.push_back( Vec2d( p ) );
+		}
+	}
+	for ( auto &kv : averagePoints )
+	{
+		points2d.push_back( kv.second.p / kv.second.n );
+	}
+
+	for ( auto p : points2d )
 	{
 		gl::drawStrokedCircle( p, .5f, 10 );
 	}
-
-	vector< Vec2d > points2d;
-	for ( auto p: points )
-		points2d.push_back( Vec2d( p ) );
 
 	mVd.clear();
 	construct_voronoi( points2d.begin(), points2d.end(),
@@ -201,6 +267,17 @@ void VoronoiGridApp::draw()
 		}
 	}
 
+	if ( mIsDragging )
+	{
+		gl::color( Color( 1, 0, 0 ) );
+		Rectf rect;
+		if ( calcScreenRectBounds( mMousePos0, mMousePos1, &rect ) )
+		{
+			app::console() << rect << endl;
+			gl::drawStrokedRect( rect );
+		}
+
+	}
 	mParams.draw();
 }
 
@@ -213,12 +290,41 @@ void VoronoiGridApp::resize()
 
 void VoronoiGridApp::mouseDown( MouseEvent event )
 {
-	mPanZoomCam.mouseDown( event.getPos() );
+	if ( event.isLeft() )
+	{
+		mMousePos0 = mMousePos1 = event.getPos();
+		mIsDragging = true;
+	}
+	else
+	{
+		mPanZoomCam.mouseDown( event.getPos() );
+	}
 }
 
 void VoronoiGridApp::mouseDrag( MouseEvent event )
 {
-	mPanZoomCam.mouseDrag( event.getPos(), event.isLeftDown(), event.isMiddleDown(), event.isRightDown() );
+	if ( mIsDragging )
+	{
+		mMousePos1 = event.getPos();
+	}
+	else
+	{
+		mPanZoomCam.mouseDrag( event.getPos(), event.isLeftDown(), event.isMiddleDown(), event.isRightDown() );
+	}
+}
+
+void VoronoiGridApp::mouseUp( MouseEvent event )
+{
+	if ( event.isLeft() && mIsDragging )
+	{
+		mMousePos1 = event.getPos();
+		Rectf rect;
+		if ( calcScreenRectBounds( mMousePos0, mMousePos1, &rect ) )
+		{
+			mSlideRects.push_back( rect );
+		}
+		mIsDragging = false;
+	}
 }
 
 void VoronoiGridApp::keyDown( KeyEvent event )
