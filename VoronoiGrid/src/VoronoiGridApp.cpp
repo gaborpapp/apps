@@ -22,6 +22,7 @@
 #include "cinder/app/AppBasic.h"
 #include "cinder/gl/gl.h"
 #include "cinder/params/Params.h"
+#include "cinder/Rand.h"
 #include "cinder/Ray.h"
 #include "cinder/Rect.h"
 
@@ -74,6 +75,10 @@ class VoronoiGridApp : public AppBasic
 		Vec2i mMousePos0, mMousePos1;
 		bool mIsDragging = false;
 		vector< Rectf > mSlideRects;
+
+		bool intersectLines( const Vec2f &p1, const Vec2f &p2,
+							 const Vec2f &p3, const Vec2f &p4,
+							 Vec2f *result );
 };
 
 // register Vec2d with boost polygon
@@ -117,8 +122,8 @@ void VoronoiGridApp::setup()
 	cam.setCenterOfInterestPoint( Vec3f::zero() );
 	mPanZoomCam.setCurrentCam( cam );
 
-	gl::enableDepthRead();
-	gl::enableDepthWrite();
+	gl::disableDepthRead();
+	gl::disableDepthWrite();
 }
 
 void VoronoiGridApp::update()
@@ -187,6 +192,29 @@ bool VoronoiGridApp::calcScreenRectBounds( const Vec2f &p0, const Vec2f &p1, Rec
 		return false;
 	}
 }
+
+bool VoronoiGridApp::intersectLines( const Vec2f &p1, const Vec2f &p2,
+									 const Vec2f &p3, const Vec2f &p4,
+									 Vec2f *result )
+{
+	float bx = p2.x - p1.x;
+	float by = p2.y - p1.y;
+	float dx = p4.x - p3.x;
+	float dy = p4.y - p3.y;
+	float b_dot_d_perp = bx*dy - by*dx;
+	if ( b_dot_d_perp == 0.f )
+	{
+		return false;
+	}
+
+	float cx = p3.x - p1.x;
+	float cy = p3.y - p1.y;
+	float t = ( cx * dy - cy * dx ) / b_dot_d_perp;
+
+	*result = Vec2f( p1.x + t * bx, p1.y + t * by );
+	return true;
+}
+
 void VoronoiGridApp::draw()
 {
 	gl::setViewport( getWindowBounds() );
@@ -194,7 +222,7 @@ void VoronoiGridApp::draw()
 
 	gl::clear( Color::black() );
 
-	gl::drawColorCube( Vec3f::zero(), Vec3f( 3, 3, 3 ) );
+	//gl::drawColorCube( Vec3f::zero(), Vec3f( 3, 3, 3 ) );
 
 	gl::color( Color::white() );
 
@@ -237,15 +265,18 @@ void VoronoiGridApp::draw()
 		points2d.push_back( kv.second.p / kv.second.n );
 	}
 
+	/*
 	for ( auto p : points2d )
 	{
 		gl::drawStrokedCircle( p, .5f, 10 );
 	}
+	*/
 
 	mVd.clear();
 	construct_voronoi( points2d.begin(), points2d.end(),
 					   &mVd );
 
+	/*
 	for ( auto edge : mVd.edges() )
 	{
 		if ( edge.is_secondary() )
@@ -266,6 +297,76 @@ void VoronoiGridApp::draw()
 			gl::drawLine( p0, p1 );
 		}
 	}
+	*/
+	gl::enableAdditiveBlending();
+	Vec2f cornerVectors[ 4 ] = { Vec2f( 8.f, 4.5f ),
+		Vec2f( 8.f, -4.5f ), Vec2f( -8.f, -4.5f ),
+		Vec2f( -8.f, 4.5f ) };
+	for ( int i = 0; i < 4; i++ )
+	{
+		cornerVectors[ i ].normalize();
+	}
+
+	for ( auto &cell : mVd.cells() )
+	{
+		auto *start_edge = cell.incident_edge();
+		auto *edge = start_edge;
+
+		// draw cell point
+		auto idx = cell.source_index();
+		Vec2f p = points2d[ idx ];
+		gl::color( Color::white() );
+		gl::drawStrokedCircle( p, .5f, 10 );
+
+		float minD = 9999999.f; // TODO: use limits<float>::max
+		bool isRectFit = false;
+		do
+		{
+			if ( edge->is_primary() && edge->is_linear() && edge->is_finite() )
+			{
+				auto *v0 = edge->vertex0();
+				auto *v1 = edge->vertex1();
+
+				Vec2f p0, p1;
+				p0 = Vec2f( v0->x(), v0->y() );
+				p1 = Vec2f( v1->x(), v1->y() );
+
+				// draw edge
+				gl::color( ColorA::gray( .3 ) );
+				gl::drawLine( p0, p1 );
+
+				for ( int i = 0; i < 4; i++ )
+				{
+					Vec2f res;
+					if ( intersectLines( p, p + cornerVectors[ i ], p0, p1, &res ) )
+					{
+						float d = p.distanceSquared( res );
+						if ( d < minD )
+						{
+							minD = d;
+							isRectFit = true;
+						}
+					}
+				}
+			}
+			edge = edge->next();
+		} while ( edge != start_edge );
+
+		// fit rect in cell
+		if ( isRectFit )
+		{
+			minD = math< float >::sqrt( minD );
+			Rectf cellRect( p + minD * cornerVectors[ 0 ], p + minD * cornerVectors[ 2 ] );
+
+			unsigned long seed = math< int >::abs( int( p.x ) + int( p.y ) );
+			Rand::randSeed( seed );
+			cellRect.canonicalize();
+			gl::color( ColorA( CM_HSV, Rand::randFloat(), .8, .8, .7 ) );
+			//gl::drawStrokedRect( cellRect );
+			gl::drawSolidRect( cellRect );
+		}
+	}
+	gl::disableAlphaBlending();
 
 	if ( mIsDragging )
 	{
@@ -360,6 +461,10 @@ void VoronoiGridApp::keyDown( KeyEvent event )
 		case KeyEvent::KEY_v:
 			 mVerticalSyncEnabled = !mVerticalSyncEnabled;
 			 break;
+
+		case KeyEvent::KEY_SPACE:
+			mSlideRects.clear();
+			break;
 
 		case KeyEvent::KEY_ESCAPE:
 			quit();
