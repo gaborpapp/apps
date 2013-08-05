@@ -79,6 +79,8 @@ class VoronoiGridApp : public AppBasic
 		bool intersectLines( const Vec2f &p1, const Vec2f &p2,
 							 const Vec2f &p3, const Vec2f &p4,
 							 Vec2f *result );
+
+		float polygonArea( const vector< Vec2f > &polygon );
 };
 
 // register Vec2d with boost polygon
@@ -215,6 +217,26 @@ bool VoronoiGridApp::intersectLines( const Vec2f &p1, const Vec2f &p2,
 	return true;
 }
 
+float VoronoiGridApp::polygonArea( const vector< Vec2f > &polygon )
+{
+	if ( polygon.empty() )
+		return 0.f;
+
+	Vec2f p0 = polygon[ 0 ];
+	float area = 0.f;
+	for ( size_t i = 1; i < polygon.size() - 1; i++ )
+	{
+		Vec2f p1 = polygon[ i ];
+		Vec2f p2 = polygon[ i + 1 ];
+		float a = p0.distance( p1 );
+		float b = p1.distance( p2 );
+		float c = p2.distance( p0 );
+		float s = ( a + b + c ) / 2.f;
+		area += math< float >::sqrt( s * ( s - a ) * ( s - b ) * ( s - c ) );
+	}
+	return area;
+}
+
 void VoronoiGridApp::draw()
 {
 	gl::setViewport( getWindowBounds() );
@@ -298,7 +320,7 @@ void VoronoiGridApp::draw()
 		}
 	}
 	*/
-	gl::enableAdditiveBlending();
+	gl::enableAlphaBlending();
 	Vec2f cornerVectors[ 4 ] = { Vec2f( 8.f, 4.5f ),
 		Vec2f( 8.f, -4.5f ), Vec2f( -8.f, -4.5f ),
 		Vec2f( -8.f, 4.5f ) };
@@ -316,10 +338,11 @@ void VoronoiGridApp::draw()
 		auto idx = cell.source_index();
 		Vec2f p = points2d[ idx ];
 		gl::color( Color::white() );
-		gl::drawStrokedCircle( p, .5f, 10 );
+		//gl::drawStrokedCircle( p, .5f, 10 );
 
 		float minD = 9999999.f; // TODO: use limits<float>::max
 		bool isRectFit = false;
+		vector< Vec2f > polygon;
 		do
 		{
 			if ( edge->is_primary() && edge->is_linear() && edge->is_finite() )
@@ -332,8 +355,9 @@ void VoronoiGridApp::draw()
 				p1 = Vec2f( v1->x(), v1->y() );
 
 				// draw edge
-				gl::color( ColorA::gray( .3 ) );
-				gl::drawLine( p0, p1 );
+				//gl::color( ColorA::gray( .3 ) );
+				//gl::drawLine( p0, p1 );
+				polygon.push_back( p + .9f * ( p0 - p ) );
 
 				for ( int i = 0; i < 4; i++ )
 				{
@@ -352,18 +376,42 @@ void VoronoiGridApp::draw()
 			edge = edge->next();
 		} while ( edge != start_edge );
 
+		// draw polygon
+		const float AREA_MIN = 100.f;
+		const float AREA_MAX = 600.f;
+		float area = polygonArea( polygon );
+		area = math< float >::clamp( area, AREA_MIN, AREA_MAX );
+		float n = lmap( area, AREA_MIN, AREA_MAX, 0.f, 1.f );
+		const Color COLOR_MIN = Color::hex( 0x00A0B0 );
+		const Color COLOR_MAX = Color::hex( 0xCC333F );
+		gl::color( lerp( COLOR_MIN, COLOR_MAX, n ) );
+
+		/*
+		unsigned long seed = math< int >::abs( int( p.x ) + int( p.y ) );
+		Rand::randSeed( seed );
+		gl::color( ColorA( CM_HSV, Rand::randFloat(), .8, .8, .7 ) );
+		*/
+
+		gl::begin( GL_POLYGON );
+		for ( auto &pp : polygon )
+		{
+				gl::vertex( p + .9f * ( pp - p ) );
+		}
+		gl::end();
+
 		// fit rect in cell
 		if ( isRectFit )
 		{
 			minD = math< float >::sqrt( minD );
 			Rectf cellRect( p + minD * cornerVectors[ 0 ], p + minD * cornerVectors[ 2 ] );
-
-			unsigned long seed = math< int >::abs( int( p.x ) + int( p.y ) );
-			Rand::randSeed( seed );
 			cellRect.canonicalize();
-			gl::color( ColorA( CM_HSV, Rand::randFloat(), .8, .8, .7 ) );
-			//gl::drawStrokedRect( cellRect );
-			gl::drawSolidRect( cellRect );
+			cellRect.scaleCentered( .9f );
+
+			glLineWidth( 3.f );
+			gl::color( ColorA::gray( 1., .8 ) );
+			gl::drawStrokedRect( cellRect );
+			glLineWidth( 1.f );
+			//gl::drawSolidRect( cellRect );
 		}
 	}
 	gl::disableAlphaBlending();
@@ -435,10 +483,12 @@ void VoronoiGridApp::keyDown( KeyEvent event )
 			if ( !isFullScreen() )
 			{
 				setFullScreen( true );
+				/*
 				if ( mParams.isVisible() )
 					showCursor();
 				else
 					hideCursor();
+				*/
 			}
 			else
 			{
@@ -449,6 +499,7 @@ void VoronoiGridApp::keyDown( KeyEvent event )
 
 		case KeyEvent::KEY_s:
 			mParams.show( !mParams.isVisible() );
+			/*
 			if ( isFullScreen() )
 			{
 				if ( mParams.isVisible() )
@@ -456,6 +507,7 @@ void VoronoiGridApp::keyDown( KeyEvent event )
 				else
 					hideCursor();
 			}
+			*/
 			break;
 
 		case KeyEvent::KEY_v:
