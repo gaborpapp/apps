@@ -1,0 +1,7 @@
+env = Environment()
+
+env['APP_TARGET'] = 'TestOffsetTransformApp'
+env['APP_SOURCES'] = ['TestOffsetTransformApp.cpp']
+
+SConscript('../../../scons/SConscript', exports = 'env')
+
