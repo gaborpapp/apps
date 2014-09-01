@@ -2,7 +2,7 @@ env = Environment()
 
 env['APP_TARGET'] = 'TemplateApp'
 env['APP_SOURCES'] = ['TemplateApp.cpp']
-env['DEBUG'] = 1
+env['DEBUG'] = 0
 
 SConscript('../../../scons/SConscript', exports = 'env')
 

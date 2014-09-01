@@ -1,5 +1,5 @@
 /*
- Copyright (C) 2013 Gabor Papp
+ Copyright (C) 2014 Gabor Papp
 
  This program is free software; you can redistribute it and/or modify
  it under the terms of the GNU General Public License as published by
@@ -26,20 +26,20 @@ using namespace std;
 
 class TemplateApp : public AppBasic
 {
-	public:
-		void prepareSettings( Settings *settings );
-		void setup();
+ public:
+	void prepareSettings( Settings *settings );
+	void setup();
 
-		void keyDown( KeyEvent event );
+	void keyDown( KeyEvent event );
 
-		void update();
-		void draw();
+	void update();
+	void draw();
 
-	private:
-		params::InterfaceGl mParams;
+ private:
+	params::InterfaceGl mParams;
 
-		float mFps;
-		bool mVerticalSyncEnabled = false;
+	float mFps;
+	bool mVerticalSyncEnabled = false;
 };
 
 void TemplateApp::prepareSettings( Settings *settings )
@@ -50,7 +50,7 @@ void TemplateApp::prepareSettings( Settings *settings )
 void TemplateApp::setup()
 {
 	mParams = params::InterfaceGl( "Parameters", Vec2i( 200, 300 ) );
-	mParams.addParam( "Fps", &mFps, "", true );
+	mParams.addParam( "Fps", &mFps, true );
 	mParams.addParam( "Vertical sync", &mVerticalSyncEnabled );
 }
 
@@ -59,12 +59,16 @@ void TemplateApp::update()
 	mFps = getAverageFps();
 
 	if ( mVerticalSyncEnabled != gl::isVerticalSyncEnabled() )
+	{
 		gl::enableVerticalSync( mVerticalSyncEnabled );
+	}
 }
 
 void TemplateApp::draw()
 {
-	gl::clear( Color::black() );
+	gl::setViewport( getWindowBounds() );
+	gl::setMatricesWindow( getWindowSize() );
+	gl::clear();
 
 	mParams.draw();
 }
@@ -74,13 +78,17 @@ void TemplateApp::keyDown( KeyEvent event )
 	switch ( event.getCode() )
 	{
 		case KeyEvent::KEY_f:
-			if ( !isFullScreen() )
+			if ( ! isFullScreen() )
 			{
 				setFullScreen( true );
 				if ( mParams.isVisible() )
+				{
 					showCursor();
+				}
 				else
+				{
 					hideCursor();
+				}
 			}
 			else
 			{
@@ -90,19 +98,19 @@ void TemplateApp::keyDown( KeyEvent event )
 			break;
 
 		case KeyEvent::KEY_s:
-			mParams.show( !mParams.isVisible() );
+			mParams.show( ! mParams.isVisible() );
 			if ( isFullScreen() )
 			{
 				if ( mParams.isVisible() )
+				{
 					showCursor();
+				}
 				else
+				{
 					hideCursor();
+				}
 			}
 			break;
-
-		case KeyEvent::KEY_v:
-			 mVerticalSyncEnabled = !mVerticalSyncEnabled;
-			 break;
 
 		case KeyEvent::KEY_ESCAPE:
 			quit();
