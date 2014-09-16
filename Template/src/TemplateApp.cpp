@@ -36,7 +36,7 @@ class TemplateApp : public AppBasic
 	void draw();
 
  private:
-	params::InterfaceGl mParams;
+	params::InterfaceGlRef mParams;
 
 	float mFps;
 	bool mVerticalSyncEnabled = false;
@@ -49,9 +49,9 @@ void TemplateApp::prepareSettings( Settings *settings )
 
 void TemplateApp::setup()
 {
-	mParams = params::InterfaceGl( "Parameters", Vec2i( 200, 300 ) );
-	mParams.addParam( "Fps", &mFps, true );
-	mParams.addParam( "Vertical sync", &mVerticalSyncEnabled );
+	mParams = params::InterfaceGl::create( "Parameters", Vec2i( 200, 300 ) );
+	mParams->addParam( "Fps", &mFps, true );
+	mParams->addParam( "Vertical sync", &mVerticalSyncEnabled );
 }
 
 void TemplateApp::update()
@@ -70,7 +70,7 @@ void TemplateApp::draw()
 	gl::setMatricesWindow( getWindowSize() );
 	gl::clear();
 
-	mParams.draw();
+	mParams->draw();
 }
 
 void TemplateApp::keyDown( KeyEvent event )
@@ -81,7 +81,7 @@ void TemplateApp::keyDown( KeyEvent event )
 			if ( ! isFullScreen() )
 			{
 				setFullScreen( true );
-				if ( mParams.isVisible() )
+				if ( mParams->isVisible() )
 				{
 					showCursor();
 				}
@@ -98,10 +98,10 @@ void TemplateApp::keyDown( KeyEvent event )
 			break;
 
 		case KeyEvent::KEY_s:
-			mParams.show( ! mParams.isVisible() );
+			mParams->show( ! mParams->isVisible() );
 			if ( isFullScreen() )
 			{
-				if ( mParams.isVisible() )
+				if ( mParams->isVisible() )
 				{
 					showCursor();
 				}
