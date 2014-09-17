@@ -1,0 +1,8 @@
+env = Environment()
+
+env['APP_TARGET'] = 'NoiseWaveTest'
+env['APP_SOURCES'] = ['NoiseWaveTest.cpp']
+env['DEBUG'] = 0
+
+SConscript('../../../scons/SConscript', exports = 'env')
+
